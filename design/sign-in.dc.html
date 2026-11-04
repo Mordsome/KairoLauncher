@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kairo Launcher: Sign in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0a1322}
+a{color:inherit}a:hover{color:#ffffff}
+.bg{position:absolute;inset:-30px;background-image:url(img/kairo-menu.jpg);background-size:cover;background-position:center;filter:blur(18px) saturate(1.2) brightness(.5)}
+.ms{transition:transform .2s,box-shadow .3s}
+.ms:hover{transform:translateY(-2px);box-shadow:0 14px 40px -12px #7fd8ff}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{50%{transform:scale(1.05)}}
+.spin{animation:spin 2.4s linear infinite;transform-origin:60px 60px}
+.breathe{animation:breathe 4s ease-in-out infinite;transform-origin:60px 60px}
+@media (prefers-reduced-motion: reduce){.spin,.breathe{animation:none}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 760px; overflow: hidden; font-family: 'Outfit', system-ui, sans-serif; color: #eaf4fb; background: #0a1322">
+  <div class="bg"></div>
+  <div style="position: absolute; left: 0; top: 0; right: 0; height: 36px; display: flex; align-items: center; padding-left: 20px; font-size: 13px; color: #b3c4d4">Kairo Launcher</div>
+
+  <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 520px; padding: 44px 48px 40px; box-sizing: border-box; border-radius: 28px; background: rgba(10,19,34,.62); border: 1px solid rgba(200,235,255,.22); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center">
+    <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+      <g class="{{ringClass}}">
+        <circle cx="60" cy="60" r="44" fill="none" stroke="#7fd8ff" stroke-width="11" stroke-dasharray="226 50" stroke-dashoffset="-160"></circle>
+        <path d="M43 18.5 A44 44 0 0 1 77 18.5" fill="none" stroke="#ff9a52" stroke-width="10" stroke-linecap="round"></path>
+      </g>
+      <circle cx="60" cy="60" r="17" fill="{{dot}}"></circle>
+    </svg>
+
+    <sc-if value="{{idle}}" hint-placeholder-val="{{true}}">
+      <h1 style="margin: 0; font-size: 38px; font-weight: 800; letter-spacing: -0.02em">Welcome to Kairo</h1>
+      <p style="margin: 0; font-size: 17px; line-height: 1.5; color: #b3c4d4; max-width: 34ch">Sign in with the Microsoft account that owns Minecraft Java Edition.</p>
+      <button type="button" class="ms" onClick="{{start}}" style="margin-top: 8px; width: 100%; min-height: 56px; border: 0; border-radius: 999px; background: #7fd8ff; color: #062033; font: inherit; font-size: 18px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="8" height="8" fill="currentColor"></rect><rect x="11" y="1" width="8" height="8" fill="currentColor" opacity=".75"></rect><rect x="1" y="11" width="8" height="8" fill="currentColor" opacity=".75"></rect><rect x="11" y="11" width="8" height="8" fill="currentColor" opacity=".5"></rect></svg>
+        Sign in with Microsoft
+      </button>
+      <p style="margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: #b3c4d4">You type your password on Microsoft's own page, in your browser. The launcher never sees it.</p>
+    </sc-if>
+
+    <sc-if value="{{waiting}}" hint-placeholder-val="{{false}}">
+      <h1 style="margin: 0; font-size: 32px; font-weight: 700">Finish in your browser</h1>
+      <p style="margin: 0; font-size: 17px; line-height: 1.5; color: #b3c4d4; max-width: 34ch">A Microsoft sign-in page opened in your browser. Come back here when it says you're done.</p>
+      <button type="button" onClick="{{cancel}}" style="margin-top: 8px; min-height: 46px; padding: 0 24px; border-radius: 999px; border: 1px solid rgba(200,235,255,.25); background: transparent; color: inherit; font: inherit; font-size: 16px; cursor: pointer">Cancel</button>
+    </sc-if>
+
+    <sc-if value="{{done}}" hint-placeholder-val="{{false}}">
+      <h1 style="margin: 0; font-size: 36px; font-weight: 800">Hi, Mordsome</h1>
+      <p style="margin: 0; font-size: 17px; line-height: 1.5; color: #b3c4d4; max-width: 34ch">You're signed in. Kairo, Fabric and Sodium download the first time you press Play.</p>
+      <a href="home-and-picker.dc.html" style="margin-top: 8px; width: 100%; min-height: 56px; border-radius: 999px; background: #7fd8ff; color: #062033; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none">Continue</a>
+    </sc-if>
+  </div>
+
+  <p style="position: absolute; left: 0; right: 0; bottom: 22px; margin: 0; text-align: center; font-size: 13px; color: #9fb3c6">Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { step: 'idle' }; this.t = null; }
+  componentWillUnmount() { if (this.t) clearTimeout(this.t); }
+  renderVals() {
+    const s = this.state.step;
+    return {
+      idle: s === 'idle', waiting: s === 'wait', done: s === 'done',
+      ringClass: s === 'wait' ? 'spin' : 'breathe',
+      dot: s === 'done' ? '#5fe39b' : '#7fd8ff',
+      start: () => { this.setState({ step: 'wait' }); this.t = setTimeout(() => this.setState({ step: 'done' }), 2600); },
+      cancel: () => { if (this.t) clearTimeout(this.t); this.setState({ step: 'idle' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

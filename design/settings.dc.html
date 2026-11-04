@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kairo Launcher: Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0a1322}
+a{color:inherit}a:hover{color:#ffffff}
+.railbtn:hover{background:rgba(255,255,255,.08)}
+.tab:hover{background:rgba(255,255,255,.06)}
+.sw{position:relative;width:46px;height:26px;flex-shrink:0;border:0;padding:0;border-radius:999px;cursor:pointer;transition:background-color .2s}
+.knob{position:absolute;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .22s cubic-bezier(.2,.8,.2,1)}
+input[type=range]{accent-color:#7fd8ff}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 760px; overflow: hidden; font-family: 'Outfit', system-ui, sans-serif; color: #eaf4fb; background: radial-gradient(900px 500px at 75% 10%, #12233c 0%, #0a1322 60%)">
+  <div style="position: absolute; left: 0; top: 0; right: 0; height: 36px; display: flex; align-items: center; padding-left: 92px; font-size: 13px; color: #b3c4d4">Kairo Launcher</div>
+
+  <nav aria-label="Launcher" style="position: absolute; left: 0; top: 0; bottom: 0; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 18px; background: rgba(8,14,26,.78); border-right: 1px solid rgba(200,235,255,.2)">
+    <svg width="34" height="34" viewBox="0 0 40 40" role="img" aria-label="Kairo" style="margin-bottom: 18px"><circle cx="20" cy="20" r="14" fill="none" stroke="#7fd8ff" stroke-width="4.5" stroke-dasharray="72 16" stroke-dashoffset="-52"></circle><path d="M14.5 7.6 A14 14 0 0 1 25.5 7.6" fill="none" stroke="#ff9a52" stroke-width="4" stroke-linecap="round"></path><circle cx="20" cy="20" r="5.6" fill="#7fd8ff"></circle></svg>
+    <a href="home-and-picker.dc.html" class="railbtn" aria-label="Home" style="width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #b3c4d4"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg></a>
+    <a href="library.dc.html" class="railbtn" aria-label="Library" style="width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #b3c4d4"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="6" rx="2"></rect><rect x="4" y="14" width="16" height="6" rx="2"></rect></svg></a>
+    <a href="settings.dc.html" class="railbtn" aria-label="Settings" aria-current="page" style="width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: rgba(127,216,255,.14); color: #7fd8ff"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2.2"></circle><circle cx="8" cy="17" r="2.2"></circle></svg></a>
+    <a href="sign-in.dc.html" aria-label="Account: Mordsome" style="margin-top: auto; margin-bottom: 18px; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #7fd8ff; color: #062033; font-weight: 700; text-decoration: none; font-size: 17px">M</a>
+  </nav>
+
+  <div style="position: absolute; left: 76px; top: 36px; right: 0; bottom: 0; padding: 28px 48px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px">
+    <h1 style="margin: 0; font-size: 40px; font-weight: 700; letter-spacing: -0.02em">Settings</h1>
+    <div style="display: flex; gap: 32px; flex: 1; min-height: 0">
+      <div role="tablist" aria-label="Settings sections" style="width: 210px; display: flex; flex-direction: column; gap: 4px">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+          <button type="button" role="tab" class="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="text-align: left; min-height: 46px; padding: 0 16px; border: 0; border-radius: 12px; font: inherit; font-size: 17px; cursor: pointer; color: {{t.color}}; background: {{t.bg}}; border-left: 3px solid {{t.bar}}">{{t.name}}</button>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; max-width: 720px; display: flex; flex-direction: column; gap: 12px">
+        <sc-if value="{{isGame}}" hint-placeholder-val="{{true}}">
+          <div style="padding: 20px 22px; border-radius: 18px; background: rgba(190,225,255,.07); border: 1px solid rgba(200,235,255,.18); display: flex; flex-direction: column; gap: 12px">
+            <label for="mem" style="display: flex; justify-content: space-between; font-size: 17px"><span>Memory for Minecraft</span><b style="font-family: 'Pixelify Sans', 'Outfit', sans-serif; font-weight: 600; color: #7fd8ff">{{memLabel}}</b></label>
+            <input id="mem" type="range" min="2" max="16" step="1" value="{{mem}}" onInput="{{setMem}}" style="width: 100%">
+            <span style="font-size: 14px; color: #b3c4d4">4 GB is plenty for Kairo. More only helps with big modpacks or shader packs. Your PC has 16 GB.</span>
+          </div>
+          <sc-for list="{{gameToggles}}" as="g" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 16px; padding: 16px 22px; border-radius: 18px; background: rgba(190,225,255,.05); border: 1px solid rgba(200,235,255,.12)">
+              <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 17px">{{g.name}}</span><span style="font-size: 14px; color: #b3c4d4">{{g.desc}}</span></span>
+              <button type="button" class="sw" role="switch" aria-checked="{{g.on}}" aria-label="{{g.name}}" onClick="{{g.flip}}" style="background: {{g.track}}"><span class="knob" style="left: {{g.knob}}"></span></button>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{isLauncher}}" hint-placeholder-val="{{false}}">
+          <sc-for list="{{launcherToggles}}" as="g" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 16px; padding: 16px 22px; border-radius: 18px; background: rgba(190,225,255,.05); border: 1px solid rgba(200,235,255,.12)">
+              <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 17px">{{g.name}}</span><span style="font-size: 14px; color: #b3c4d4">{{g.desc}}</span></span>
+              <button type="button" class="sw" role="switch" aria-checked="{{g.on}}" aria-label="{{g.name}}" onClick="{{g.flip}}" style="background: {{g.track}}"><span class="knob" style="left: {{g.knob}}"></span></button>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{isAccount}}" hint-placeholder-val="{{false}}">
+          <div style="padding: 22px; border-radius: 18px; background: rgba(190,225,255,.07); border: 1px solid rgba(200,235,255,.18); display: flex; align-items: center; gap: 18px">
+            <span style="width: 64px; height: 64px; border-radius: 14px; background: #7fd8ff; color: #062033; font-size: 28px; font-weight: 800; display: flex; align-items: center; justify-content: center">M</span>
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><b style="font-size: 22px; font-weight: 700">Mordsome</b><span style="font-size: 14px; color: #b3c4d4">Microsoft account · Minecraft Java Edition</span></span>
+            <a href="sign-in.dc.html" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(200,235,255,.25); display: flex; align-items: center; text-decoration: none; font-size: 15px">Sign out</a>
+          </div>
+          <p style="margin: 6px 0 0; font-size: 15px; line-height: 1.55; color: #b3c4d4; max-width: 60ch">You sign in on Microsoft's own page. The launcher never sees your password, and it keeps the sign-in token in your system's secure storage (Windows Credential Manager), not in a file.</p>
+        </sc-if>
+        <sc-if value="{{isPrivacy}}" hint-placeholder-val="{{false}}">
+          <div style="padding: 22px; border-radius: 18px; background: rgba(190,225,255,.07); border: 1px solid rgba(200,235,255,.18); display: flex; flex-direction: column; gap: 10px; font-size: 16px; line-height: 1.5">
+            <b style="font-size: 18px; font-weight: 600">What the launcher talks to</b>
+            <span>Microsoft and Mojang, to sign you in and download Minecraft.</span>
+            <span>Fabric and Modrinth, to download Fabric API and Sodium.</span>
+            <span>GitHub (Mordsome/Kairo), to download Kairo and check for updates.</span>
+            <span style="color: #b3c4d4">Nothing else. No accounts of its own, no analytics, no telemetry.</span>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'game', mem: 4, on: { fullscreen: false, closeOnPlay: true, keepOpen: false, launcherUpdates: true, followTheme: true, sounds: true } };
+  }
+  renderVals() {
+    const names = [['game', 'Game'], ['launcher', 'Launcher'], ['account', 'Account'], ['privacy', 'Privacy']];
+    const tabs = names.map(([id, name]) => {
+      const sel = this.state.tab === id;
+      return { name, sel: String(sel), color: sel ? '#ffffff' : '#b3c4d4', bg: sel ? 'rgba(127,216,255,.12)' : 'transparent', bar: sel ? '#7fd8ff' : 'transparent', pick: () => this.setState({ tab: id }) };
+    });
+    const sw = (id, name, desc) => {
+      const on = !!this.state.on[id];
+      return { name, desc, on: String(on), track: on ? '#7fd8ff' : 'rgba(255,255,255,.22)', knob: on ? '23px' : '3px', flip: () => this.setState({ on: Object.assign({}, this.state.on, { [id]: !this.state.on[id] }) }) };
+    };
+    return {
+      tabs,
+      isGame: this.state.tab === 'game', isLauncher: this.state.tab === 'launcher', isAccount: this.state.tab === 'account', isPrivacy: this.state.tab === 'privacy',
+      mem: this.state.mem, memLabel: this.state.mem + ' GB',
+      setMem: (e) => this.setState({ mem: Number(e.target.value) }),
+      gameToggles: [
+        sw('fullscreen', 'Start in fullscreen', 'Opens Minecraft fullscreen instead of in a window'),
+        sw('closeOnPlay', 'Hide the launcher while playing', 'It comes back when you close the game')
+      ],
+      launcherToggles: [
+        sw('followTheme', 'Match the selected install', 'The launcher turns violet when Kairo Void is selected'),
+        sw('launcherUpdates', 'Update the launcher automatically', 'Downloads from GitHub, checked against its checksum'),
+        sw('sounds', 'Interface sounds', 'The same soft clicks as in the client')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

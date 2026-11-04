@@ -1,0 +1,14 @@
+node_modules/
+out/
+dist/
+release/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*
+
+# Local build brief, kept out of the public repo
+LAUNCHER_PROMPT.md

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kairo Launcher: Home and version picker</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#06080d}
+a{color:inherit}a:hover{color:#ffffff}
+.bg{position:absolute;inset:-24px;background-size:cover;background-position:center;transition:opacity .7s ease,transform 1.4s cubic-bezier(.2,.9,.25,1)}
+.b-kairo{background-image:url(img/kairo-menu.jpg);filter:blur(6px) saturate(1.15)}
+.b-void{background-image:url(img/void-aurora.jpg)}
+.b-lite{background-image:url(img/lite-village.jpg);filter:grayscale(.7) brightness(.7)}
+.b-vanilla{background-image:url(img/vanilla-village.jpg)}
+.b-other{background-image:url(img/void-galaxy.jpg);filter:grayscale(.85) brightness(.6)}
+.screen{position:absolute;inset:0;transition:opacity .45s ease,transform .55s cubic-bezier(.2,.9,.25,1)}
+.railbtn:hover{background:rgba(255,255,255,.08)}
+.half{transition:filter .2s,background-color .4s}
+.half:not([disabled]):hover{filter:brightness(1.08)}
+.ed{transition:font-size .4s cubic-bezier(.2,.9,.25,1),color .3s,opacity .3s}
+.row{transition:background-color .15s,border-color .2s}
+.row:not([disabled]):hover{background:rgba(255,255,255,.08)}
+.back:hover{background:rgba(255,255,255,.08)}
+.fill{transition:width .2s linear}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 760px; overflow: hidden; font-family: 'Outfit', system-ui, sans-serif; color: {{ink}}; background: {{bg}}; transition: background-color .5s">
+  <sc-for list="{{bgs}}" as="b" hint-placeholder-count="5">
+    <div class="bg {{b.cls}}" style="opacity: {{b.op}}; transform: scale({{b.scale}})"></div>
+  </sc-for>
+  <div style="position: absolute; inset: 0; background: {{shade}}; transition: background .5s"></div>
+
+  <nav aria-label="Launcher" style="position: absolute; left: 0; top: 0; bottom: 0; width: 76px; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 18px; background: {{rail}}; border-right: 1px solid {{line}}">
+    <svg width="34" height="34" viewBox="0 0 40 40" role="img" aria-label="Kairo" style="margin-bottom: 18px"><circle cx="20" cy="20" r="14" fill="none" stroke="{{accent}}" stroke-width="4.5" stroke-dasharray="72 16" stroke-dashoffset="-52"></circle><path d="M14.5 7.6 A14 14 0 0 1 25.5 7.6" fill="none" stroke="{{hot}}" stroke-width="4" stroke-linecap="round"></path><circle cx="20" cy="20" r="5.6" fill="{{accent}}"></circle></svg>
+    <button type="button" class="railbtn" aria-label="Home" onClick="{{goHome}}" style="width: 48px; height: 48px; border: 0; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: {{railHome}}; color: {{railHomeInk}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg></button>
+    <a href="library.dc.html" class="railbtn" aria-label="Library" style="width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: {{ink2}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="6" rx="2"></rect><rect x="4" y="14" width="16" height="6" rx="2"></rect></svg></a>
+    <a href="settings.dc.html" class="railbtn" aria-label="Settings" style="width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: {{ink2}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2.2"></circle><circle cx="8" cy="17" r="2.2"></circle></svg></a>
+    <a href="sign-in.dc.html" aria-label="Account: Mordsome" style="margin-top: auto; margin-bottom: 18px; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: {{accent}}; color: {{accentInk}}; font-weight: 700; text-decoration: none; font-size: 17px">M</a>
+  </nav>
+
+  <!-- Home -->
+  <div class="screen" aria-hidden="{{homeHidden}}" style="opacity: {{homeOp}}; transform: translateX({{homeX}}); pointer-events: {{homePe}}; visibility: {{homeVis}}">
+    <div style="position: absolute; left: 140px; top: 180px; width: 680px; display: flex; flex-direction: column; gap: 14px">
+      <span style="font-family: 'Pixelify Sans', 'Outfit', sans-serif; font-size: 16px; color: {{accent}}">Minecraft {{sel.ver}}</span>
+      <h1 style="margin: 0; font-size: 116px; line-height: .9; font-weight: 900; letter-spacing: -0.045em">{{sel.title}}</h1>
+      <p style="margin: 8px 0 0; font-size: 20px; line-height: 1.5; font-weight: 300; color: {{ink2}}; max-width: 34ch">{{sel.blurb}}</p>
+    </div>
+    <div style="position: absolute; left: 140px; bottom: 80px; display: flex; align-items: center; gap: 22px">
+      <div style="display: flex; height: 68px; border-radius: {{rFull}}; box-shadow: 0 16px 50px -14px {{accent}}">
+        <button type="button" class="half" onClick="{{play}}" aria-label="{{playAria}}" style="position: relative; overflow: hidden; height: 68px; min-width: 200px; padding: 0 30px; border: 0; border-radius: {{rL}}; cursor: pointer; background: {{playBg}}; color: {{playInk}}; font: inherit; font-size: 26px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 12px">
+          <span class="fill" style="position: absolute; left: 0; top: 0; bottom: 0; width: {{fillW}}; background: rgba(255,255,255,.35)"></span>
+          <sc-if value="{{showTri}}" hint-placeholder-val="{{true}}"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style="position: relative"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"></path></svg></sc-if>
+          <span style="position: relative">{{playLabel}}</span>
+        </button>
+        <button type="button" class="half" onClick="{{openPicker}}" disabled="{{busy}}" aria-label="Choose what to play. Now: {{sel.title}}, Minecraft {{sel.ver}}" style="height: 68px; padding: 0 22px; border: 0; border-left: 1px solid {{splitLine}}; border-radius: {{rR}}; cursor: pointer; background: {{playBg}}; color: {{playInk}}; font: inherit; display: flex; align-items: center; gap: 12px">
+          <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15"><b style="font-size: 16px; font-weight: 700">{{sel.title}}</b><span style="font-family: 'Pixelify Sans', 'Outfit', sans-serif; font-size: 13px; opacity: .8">{{sel.ver}}</span></span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"></rect><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"></rect><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"></rect><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"></rect></svg>
+        </button>
+      </div>
+      <span style="font-size: 14px; color: {{ink2}}; line-height: 1.45; white-space: pre-line">{{status}}</span>
+    </div>
+  </div>
+
+  <!-- Picker -->
+  <div class="screen" aria-hidden="{{pickHidden}}" style="opacity: {{pickOp}}; transform: translateX({{pickX}}); pointer-events: {{pickPe}}; visibility: {{pickVis}}">
+    <div style="position: absolute; left: 124px; top: 34px; display: flex; align-items: center; gap: 14px">
+      <button type="button" class="back" onClick="{{goHome}}" aria-label="Back to Home" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid {{line}}; background: transparent; color: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+      <span style="font-size: 18px; font-weight: 600">Choose what to play</span>
+    </div>
+
+    <div role="radiogroup" aria-label="Edition" style="position: absolute; left: 132px; top: 118px; display: flex; flex-direction: column; gap: 4px">
+      <sc-for list="{{eds}}" as="e" hint-placeholder-count="5">
+        <button type="button" role="radio" class="ed" aria-checked="{{e.checked}}" onClick="{{e.focus}}" onMouseEnter="{{e.focus}}" onFocus="{{e.focus}}" style="border: 0; background: none; padding: 0; cursor: pointer; font-family: inherit; font-weight: 900; letter-spacing: -0.045em; line-height: 1.02; text-align: left; white-space: nowrap; font-size: {{e.size}}; color: {{e.color}}; opacity: {{e.op}}">
+          {{e.name}}<span style="font-family: 'Pixelify Sans', 'Outfit', sans-serif; font-weight: 600; letter-spacing: 0; font-size: 14px; margin-left: 12px; vertical-align: top; color: {{e.tagColor}}">{{e.tag}}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <section aria-label="{{fx.title}} versions" style="position: absolute; left: 740px; top: 118px; width: 480px; display: flex; flex-direction: column; gap: 10px">
+      <span style="font-family: 'Pixelify Sans', 'Outfit', sans-serif; font-size: 15px; color: {{accent}}">{{fx.title}}</span>
+      <p style="margin: 0 0 10px; font-size: 17px; line-height: 1.5; color: {{ink2}}; max-width: 40ch">{{fx.blurb}}</p>
+      <sc-if value="{{fx.isOther}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 16px">
+          <div role="radiogroup" aria-label="Loader" style="display: flex; flex-direction: column; gap: 8px">
+            <span style="font-size: 14px; color: {{ink2}}">Loader</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px">
+              <sc-for list="{{ob.loaders}}" as="l" hint-placeholder-count="4">
+                <button type="button" role="radio" class="row" aria-checked="{{l.checked}}" onClick="{{l.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: {{rChip}}; border: 1px solid {{l.border}}; background: {{l.bg}}; color: {{ink}}; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">{{l.name}}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div role="radiogroup" aria-label="Minecraft version" style="display: flex; flex-direction: column; gap: 8px">
+            <span style="font-size: 14px; color: {{ink2}}">Minecraft version</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px">
+              <sc-for list="{{ob.mcs}}" as="m" hint-placeholder-count="4">
+                <button type="button" role="radio" class="row" aria-checked="{{m.checked}}" onClick="{{m.pick}}" style="min-height: 40px; padding: 0 14px; border-radius: {{rChip}}; border: 1px solid {{m.border}}; background: {{m.bg}}; color: {{ink}}; font-family: 'Pixelify Sans', 'Outfit', sans-serif; font-size: 16px; cursor: pointer">{{m.mc}}</button>
+              </sc-for>
+              <button type="button" class="row" aria-expanded="{{ob.more}}" onClick="{{ob.toggleMore}}" style="min-height: 40px; padding: 0 14px; border-radius: {{rChip}}; border: 1px dashed {{line}}; background: transparent; color: {{accent}}; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">{{ob.moreLabel}}</button>
+            </div>
+          </div>
+          <sc-if value="{{ob.hasExtras}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <span style="font-size: 14px; color: {{ink2}}">Add to it</span>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                <sc-for list="{{ob.extras}}" as="x" hint-placeholder-count="3">
+                  <button type="button" class="row" role="checkbox" aria-checked="{{x.checked}}" onClick="{{x.flip}}" style="min-height: 40px; padding: 0 14px 0 10px; border-radius: {{rChip}}; border: 1px solid {{x.border}}; background: {{x.bg}}; color: {{ink}}; font: inherit; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px">
+                    <span style="width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid {{x.box}}; background: {{x.boxBg}}; display: flex; align-items: center; justify-content: center; color: {{accentInk}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity: {{x.tick}}"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                    {{x.name}}<span style="font-size: 13px; color: {{ink2}}">{{x.sub}}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <span style="font-size: 13px; color: {{ink2}}; line-height: 1.45">{{ob.note}}</span>
+          <div style="display: flex; align-items: center; gap: 14px">
+            <button type="button" class="half" onClick="{{ob.create}}" style="min-height: 52px; padding: 0 24px; border: 0; border-radius: {{rFull}}; background: {{accent}}; color: {{accentInk}}; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer">Create {{ob.label}}</button>
+            <a href="library.dc.html" style="font-size: 15px; color: {{ink2}}">Import a modpack instead</a>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{fx.showGrid}}" hint-placeholder-val="{{false}}">
+        <div role="radiogroup" aria-label="All Minecraft versions" style="max-height: 360px; overflow-y: auto; padding: 2px 4px 2px 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+          <sc-for list="{{fx.grid}}" as="g" hint-placeholder-count="12">
+            <button type="button" role="radio" class="row" aria-checked="{{g.checked}}" onClick="{{g.pick}}" style="min-height: 46px; border-radius: {{rRow}}; border: 1px solid {{g.border}}; background: {{g.bg}}; color: {{ink}}; font-family: 'Pixelify Sans', 'Outfit', sans-serif; font-size: 17px; cursor: pointer">{{g.mc}}</button>
+          </sc-for>
+        </div>
+        <button type="button" class="row" aria-expanded="true" onClick="{{fx.toggleMore}}" style="align-self: flex-start; min-height: 44px; padding: 0 16px; border-radius: {{rRow}}; border: 1px dashed {{line}}; background: transparent; color: {{accent}}; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">Fewer versions</button>
+      </sc-if>
+      <sc-if value="{{fx.hasVers}}" hint-placeholder-val="{{true}}">
+        <sc-for list="{{fx.vers}}" as="v" hint-placeholder-count="3">
+          <button type="button" class="row" disabled="{{v.disabled}}" onClick="{{v.pick}}" aria-label="{{v.aria}}" style="display: flex; align-items: center; gap: 14px; min-height: 62px; padding: 0 18px; border-radius: {{rRow}}; border: 1px solid {{v.border}}; background: {{v.bg}}; color: {{v.color}}; font: inherit; text-align: left; cursor: pointer">
+            <b style="width: 82px; font-family: 'Pixelify Sans', 'Outfit', sans-serif; font-size: 20px; font-weight: 600">{{v.mc}}</b>
+            <span style="flex: 1; font-size: 15px; color: {{ink2}}">{{v.sub}}</span>
+            <span style="font-size: 14px; color: {{v.stateColor}}">{{v.state}}</span>
+          </button>
+        </sc-for>
+        <sc-if value="{{fx.canMore}}" hint-placeholder-val="{{false}}">
+          <button type="button" class="row" aria-expanded="false" onClick="{{fx.toggleMore}}" style="display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 0 18px; border-radius: {{rRow}}; border: 1px dashed {{line}}; background: transparent; color: {{accent}}; font: inherit; font-size: 16px; font-weight: 600; text-align: left; cursor: pointer">
+            <span style="flex: 1">More versions</span>
+            <span style="font-size: 14px; font-weight: 400; color: {{ink2}}">Every release from 1.8 to {{latest}}</span>
+          </button>
+        </sc-if>
+      </sc-if>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startScreen":{"editor":"enum","options":["home","pick"],"default":"home","section":"Preview"},"startEd":{"editor":"enum","options":["kairo","void","lite","vanilla","other"],"default":"kairo","section":"Preview"},"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const start = props.startScreen === 'pick' ? 'pick' : 'home';
+    const ed = ['kairo', 'void', 'lite', 'vanilla', 'other'].indexOf(props.startEd) >= 0 ? props.startEd : 'kairo';
+    const firstVer = { kairo: '26.3', void: '26.3', lite: '1.8.9', vanilla: '26.3', other: '1.20.1' }[ed];
+    this.state = { screen: start, sel: { ed: ed, ver: firstVer, label: ed === 'other' ? 'Fabric' : null, extras: ['Sodium', 'Iris'] }, focus: ed, phase: 'idle', p: 0,
+      ob: { loader: 'fabric', mc: '1.20.1', extras: { sodium: true, iris: true, lithium: false } } };
+    this.timer = null;
+  }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  play() {
+    const ph = this.state.phase;
+    if (ph === 'running') { this.setState({ phase: 'idle', p: 0 }); return; }
+    if (ph !== 'idle') return;
+    this.setState({ phase: 'download', p: 0 });
+    this.timer = setInterval(() => {
+      const p = Math.min(1, this.state.p + 0.04 + Math.random() * 0.03);
+      if (p >= 1) { clearInterval(this.timer); this.timer = null; this.setState({ phase: 'launch', p: 1 }); setTimeout(() => this.setState({ phase: 'running', p: 0 }), 1300); }
+      else this.setState({ p });
+    }, 120);
+  }
+  renderVals() {
+    const ED = {
+      kairo: { name: 'Kairo', title: 'Kairo', bg: 'b-kairo', blurb: 'Frosted glass menus, a HUD you drag into place, PvP mode, cosmetics and emotes.',
+        vers: [['26.3', 'Kairo 0.2.0 · latest', 'Installed', true], ['1.21.x', 'For servers still on 1.21', 'Later', false]] },
+      void: { name: 'Void', title: 'Kairo Void', bg: 'b-void', blurb: 'Kairo turned all the way up: energy blades, nine atmospheres and a cosmic night sky.',
+        vers: [['26.3', 'Kairo Void 0.2.0 · latest', 'Installed', true]] },
+      lite: { name: 'Lite', title: 'Kairo Lite', bg: 'b-lite', blurb: 'Kairo for the older versions people still love: light, fast, and made for PvP.',
+        vers: [['1.8.9', 'Classic PvP', 'Coming soon', false], ['1.12.2', 'World of Color', 'Planned', false]] },
+      vanilla: { name: 'Vanilla', title: 'Minecraft', bg: 'b-vanilla', blurb: 'Plain Minecraft, no mods. Downloaded from Mojang the first time you play it.',
+        vers: [['26.3', 'Latest release', 'Ready', true], ['1.20.1', 'Trails & Tales', 'Download', true], ['1.16.5', 'Nether Update', 'Download', true], ['1.12.2', 'World of Color', 'Download', true], ['1.8.9', 'Bountiful Update', 'Download', true]] },
+      other: { name: 'Other', title: 'Other', bg: 'b-other', blurb: 'Build your own install: pick a loader and a version, and add the performance mods you want.', other: true }
+    };
+    // Every release line from 1.8 up, newest first. The real launcher reads this from Mojang's version list.
+    const ALL = ['26.3', '1.21.4', '1.21.1', '1.20.6', '1.20.4', '1.20.1', '1.19.4', '1.19.2', '1.18.2', '1.17.1', '1.16.5', '1.15.2', '1.14.4', '1.13.2', '1.12.2', '1.11.2', '1.10.2', '1.9.4', '1.8.9'];
+    const upTo = (oldest) => ALL.slice(0, ALL.indexOf(oldest) + 1);
+    const LOADERS = {
+      fabric: { name: 'Fabric', mcs: ['26.3', '1.21.1', '1.20.1', '1.16.5'], all: upTo('1.14.4'), extras: [['sodium', 'Sodium', 'faster'], ['iris', 'Iris', 'shaders'], ['lithium', 'Lithium', 'smoother']] },
+      neoforge: { name: 'NeoForge', mcs: ['26.3', '1.21.1', '1.20.1'], all: upTo('1.20.1'), extras: [['sodium', 'Sodium', 'faster'], ['iris', 'Iris', 'shaders']] },
+      forge: { name: 'Forge', mcs: ['1.20.1', '1.16.5', '1.12.2', '1.8.9'], all: ALL.slice(1), extras: [] },
+      optifine: { name: 'OptiFine', mcs: ['1.20.1', '1.16.5', '1.12.2', '1.8.9'], all: ALL.slice(1), extras: [] }
+    };
+    const order = ['kairo', 'void', 'lite', 'vanilla', 'other'];
+    const pick = this.state.screen === 'pick';
+    const s = this.state.sel;
+    const lookEd = pick ? this.state.focus : s.ed;
+    const isVoid = lookEd === 'void';
+    const T = isVoid
+      ? { bg: '#130a2a', ink: '#f4eeff', ink2: '#c9b9ec', accent: '#b48cff', hot: '#ff6ec7', accentInk: '#1a0838', line: 'rgba(190,150,255,.28)', rail: 'rgba(28,14,58,.88)', panel: 'rgba(160,110,255,.10)', splitLine: 'rgba(26,8,56,.4)', selBg: 'rgba(180,140,255,.24)', selLine: 'rgba(200,160,255,.75)',
+          rFull: '6px', rL: '6px 0 0 6px', rR: '0 6px 6px 0', rRow: '6px', rChip: '6px' }
+      : { bg: '#0a1322', ink: '#eaf4fb', ink2: '#b3c4d4', accent: '#7fd8ff', hot: '#ff9a52', accentInk: '#062033', line: 'rgba(200,235,255,.2)', rail: 'rgba(8,14,26,.78)', panel: 'rgba(190,225,255,.06)', splitLine: 'rgba(6,32,51,.3)', selBg: 'rgba(127,216,255,.14)', selLine: 'rgba(127,216,255,.6)',
+          rFull: '999px', rL: '999px 0 0 999px', rR: '0 999px 999px 0', rRow: '16px', rChip: '999px' };
+    const shade = pick
+      ? 'linear-gradient(90deg, ' + T.bg + ' 0%, ' + T.bg + 'f2 48%, ' + T.bg + 'b3 100%)'
+      : 'linear-gradient(90deg, ' + T.bg + 'f0 0%, ' + T.bg + '80 55%, ' + T.bg + '33 100%)';
+    const bgs = order.map((id) => ({ cls: ED[id].bg, op: id === lookEd ? 1 : 0, scale: id === lookEd ? 1 : 1.05 }));
+    const eds = order.map((id) => {
+      const e = ED[id], on = id === this.state.focus, cur = id === s.ed;
+      const ready = e.other || e.vers.some((v) => v[3]);
+      return {
+        name: e.name, checked: String(on),
+        tag: cur ? 'playing ' + s.ver : e.other ? '' : ready ? '' : 'soon',
+        tagColor: cur ? T.accent : T.ink2,
+        size: on ? '104px' : '74px',
+        color: on ? T.ink : ready ? T.ink2 : 'rgba(180,190,210,.5)',
+        op: on ? 1 : 0.72,
+        focus: () => { if (this.state.focus !== id) this.setState({ focus: id }); }
+      };
+    });
+    const fe = ED[this.state.focus];
+    const o = this.state.ob, L = LOADERS[o.loader];
+    const setOb = (patch) => this.setState({ ob: Object.assign({}, this.state.ob, patch) });
+    const mcOk = L.all.indexOf(o.mc) >= 0 ? o.mc : L.mcs[0];
+    const obMore = !!this.state.moreOther;
+    const shortList = L.mcs.indexOf(mcOk) >= 0 ? L.mcs : L.mcs.concat([mcOk]);
+    const chosenExtras = L.extras.filter(([id]) => o.extras[id]).map(([, n]) => n);
+    const obLabel = L.name + ' ' + mcOk;
+    const ob = {
+      label: obLabel,
+      loaders: Object.keys(LOADERS).map((id) => ({ name: LOADERS[id].name, checked: String(id === o.loader), bg: id === o.loader ? T.selBg : T.panel, border: id === o.loader ? T.selLine : T.line,
+        pick: () => setOb({ loader: id, mc: LOADERS[id].all.indexOf(this.state.ob.mc) >= 0 ? this.state.ob.mc : LOADERS[id].mcs[0] }) })),
+      more: String(obMore),
+      moreLabel: obMore ? 'Fewer' : 'More…',
+      toggleMore: () => this.setState({ moreOther: !this.state.moreOther }),
+      mcs: (obMore ? L.all : shortList).map((mc) => ({ mc, checked: String(mc === mcOk), bg: mc === mcOk ? T.selBg : T.panel, border: mc === mcOk ? T.selLine : T.line, pick: () => setOb({ mc }) })),
+      hasExtras: L.extras.length > 0,
+      extras: L.extras.map(([id, name, sub]) => {
+        const on = !!o.extras[id];
+        return { name, sub, checked: String(on), bg: on ? T.selBg : T.panel, border: on ? T.selLine : T.line, box: on ? T.accent : T.ink2, boxBg: on ? T.accent : 'transparent', tick: on ? 1 : 0,
+          flip: () => setOb({ extras: Object.assign({}, this.state.ob.extras, { [id]: !this.state.ob.extras[id] }) }) };
+      }),
+      note: o.loader === 'optifine' ? 'OptiFine is downloaded from optifine.net, which is the only place allowed to share it.' : o.loader === 'forge' ? 'Forge and its mods come from their official sites.' : 'Mods come from Modrinth, always the version made for ' + mcOk + '.',
+      create: () => this.setState({ sel: { ed: 'other', ver: mcOk, label: L.name, extras: chosenExtras }, screen: 'home' })
+    };
+    const isVan = this.state.focus === 'vanilla';
+    const vanMore = isVan && !!this.state.moreVanilla;
+    const fx = {
+      title: fe.title, blurb: fe.blurb, isOther: !!fe.other, hasVers: !fe.other && !vanMore,
+      canMore: isVan && !vanMore,
+      showGrid: vanMore,
+      toggleMore: () => this.setState({ moreVanilla: !this.state.moreVanilla }),
+      grid: ALL.map((mc) => {
+        const cur = s.ed === 'vanilla' && s.ver === mc;
+        return { mc, checked: String(cur), bg: cur ? T.selBg : T.panel, border: cur ? T.selLine : T.line,
+          pick: () => this.setState({ sel: { ed: 'vanilla', ver: mc, label: null }, screen: 'home', moreVanilla: false }) };
+      }),
+      vers: (fe.vers || []).map(([mc, sub, state, ok]) => {
+        const cur = s.ed === this.state.focus && s.ver === mc;
+        return {
+          mc, sub, state: cur ? 'Selected' : state, disabled: !ok,
+          aria: fe.title + ' for Minecraft ' + mc + (ok ? '' : ', ' + state.toLowerCase()),
+          bg: cur ? T.selBg : T.panel, border: cur ? T.selLine : T.line,
+          color: ok ? T.ink : T.ink2, stateColor: cur ? T.accent : ok ? '#5fe39b' : T.ink2,
+          pick: () => { if (ok) this.setState({ sel: { ed: this.state.focus, ver: mc }, screen: 'home' }); }
+        };
+      })
+    };
+    const base = ED[s.ed];
+    const sel = s.ed === 'other'
+      ? { title: s.label, ver: s.ver, blurb: s.label + ' for Minecraft ' + s.ver + (s.extras && s.extras.length ? ', with ' + s.extras.join(' and ') + '.' : ', no extra mods.') }
+      : { title: base.title, ver: s.ver, blurb: base.blurb };
+    const ph = this.state.phase;
+    return Object.assign({}, T, {
+      shade, bgs, eds, fx, ob, sel, latest: ALL[0],
+      homeOp: pick ? 0 : 1, homeX: pick ? '-40px' : '0px', homePe: pick ? 'none' : 'auto', homeVis: pick ? 'hidden' : 'visible', homeHidden: String(pick),
+      pickOp: pick ? 1 : 0, pickX: pick ? '0px' : '40px', pickPe: pick ? 'auto' : 'none', pickVis: pick ? 'visible' : 'hidden', pickHidden: String(!pick),
+      railHome: pick ? 'transparent' : (isVoid ? 'rgba(167,124,255,.16)' : 'rgba(127,216,255,.14)'),
+      railHomeInk: pick ? T.ink2 : T.accent,
+      openPicker: () => this.setState({ screen: 'pick', focus: this.state.sel.ed }),
+      goHome: () => this.setState({ screen: 'home' }),
+      busy: ph !== 'idle',
+      play: () => this.play(),
+      showTri: ph === 'idle',
+      playLabel: ph === 'idle' ? 'Play' : ph === 'download' ? Math.round(this.state.p * 100) + '%' : ph === 'launch' ? 'Starting' : 'Stop',
+      playAria: ph === 'running' ? 'Stop the game' : 'Play ' + sel.title + ' on Minecraft ' + s.ver,
+      fillW: ph === 'download' ? Math.round(this.state.p * 100) + '%' : '0%',
+      playBg: ph === 'running' ? T.hot : T.accent,
+      playInk: ph === 'running' ? '#1c0b02' : T.accentInk,
+      status: ph === 'idle' ? 'Signed in as Mordsome\nReady to play' : ph === 'download' ? 'Downloading game files' : ph === 'launch' ? 'Starting Minecraft' : sel.title + ' is running'
+    });
+  }
+}
+</script>
+</body>
+</html>
