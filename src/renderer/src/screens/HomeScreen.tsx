@@ -49,13 +49,15 @@ export function HomeScreen({ active }: { active: boolean }) {
 function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: RefObject<HTMLButtonElement | null> }) {
   const selection = useStore((s) => s.selection)
   const installs = useStore((s) => s.installs)
-  const play = useStore((s) => s.play)
+  const game = useStore((s) => s.game)
+  const notice = useStore((s) => s.notice)
   const account = useStore((s) => s.account)
+  const devOffline = useStore((s) => s.info?.devOfflineName ?? null)
   const playOrStop = useStore((s) => s.playOrStop)
   const openPicker = useStore((s) => s.openPicker)
 
   const sel = describeSelection(selection, installs)
-  const { phase, progress } = play
+  const { phase, progress } = game
   const percent = Math.round(progress * 100)
 
   const label = phase === 'idle' ? 'Play' : phase === 'download' ? `${percent}%` : phase === 'launch' ? 'Starting' : 'Stop'
@@ -65,13 +67,21 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
       : phase === 'idle'
         ? `Play ${sel.title} on Minecraft ${sel.mc}`
         : phase === 'download'
-          ? `Downloading, ${percent}%`
+          ? `Downloading, ${percent}%. Press to cancel`
           : 'Starting Minecraft'
+
+  const idleStatus = () => {
+    if (notice) return notice
+    if (game.error) return `${game.error.title}\n${game.error.message}`
+    if (game.crash) return 'Minecraft closed unexpectedly\nThe crash report is in the install’s folder'
+    const who = devOffline ? `Offline dev account: ${devOffline}` : `Signed in as ${account?.name ?? ''}`
+    return `${who}\nReady to play`
+  }
   const status =
     phase === 'idle'
-      ? `Signed in as ${account?.name ?? ''}\nReady to play`
+      ? idleStatus()
       : phase === 'download'
-        ? 'Downloading game files'
+        ? game.detail || 'Downloading game files'
         : phase === 'launch'
           ? 'Starting Minecraft'
           : `${sel.title} is running`
@@ -106,7 +116,7 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
             <GridIcon />
           </button>
         </div>
-        <span className="status" role="status">
+        <span className="status" role="status" data-tone={phase === 'idle' && (game.error || game.crash) ? 'error' : undefined}>
           {status}
         </span>
       </div>

@@ -226,11 +226,17 @@
 }
 
 .status {
+  max-width: 380px;
   font-size: 14px;
   color: var(--ink2);
   line-height: 1.45;
   white-space: pre-line;
   text-shadow: 0 1px 8px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.status[data-tone='error']::first-line {
+  color: #ffb4a8;
+  font-weight: 600;
 }
 
 /* ---------- Picker ---------- */

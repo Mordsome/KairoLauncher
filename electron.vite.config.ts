@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
@@ -19,8 +20,22 @@ function csp(): Plugin {
   }
 }
 
-export default defineConfig({
-  main: {},
+export default defineConfig(({ mode }) => ({
+  main: {
+    define: {
+      // The dev-only offline account exists only in `--mode offline` builds.
+      __KAIRO_DEV_OFFLINE__: JSON.stringify(mode === 'offline')
+    },
+    // @xmcl/unzip 2.2.0 was published with "main": "./index.ts" (a file it
+    // doesn't ship). Bundle the xmcl packages that use it and point it at its
+    // built file. Remove once upstream publishes a fixed version.
+    resolve: {
+      alias: { '@xmcl/unzip': resolve('node_modules/@xmcl/unzip/dist/index.js') }
+    },
+    build: {
+      externalizeDeps: { exclude: ['@xmcl/core', '@xmcl/installer'] }
+    }
+  },
   preload: {},
   renderer: {
     root: 'src/renderer',
@@ -32,4 +47,4 @@ export default defineConfig({
       modulePreload: { polyfill: false }
     }
   }
-})
+}))

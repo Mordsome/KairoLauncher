@@ -11,6 +11,8 @@ export function App() {
   const screen = useStore((s) => s.screen)
   const theme = useStore(selectTheme)
   const setInfo = useStore((s) => s.setInfo)
+  const setGame = useStore((s) => s.setGame)
+  const refreshVersions = useStore((s) => s.refreshVersions)
 
   useEffect(() => {
     document.documentElement.dataset['theme'] = theme
@@ -18,7 +20,10 @@ export function App() {
 
   useEffect(() => {
     void window.kairo.app.info().then(setInfo)
-  }, [setInfo])
+    void refreshVersions()
+    void window.kairo.game.state().then(setGame)
+    return window.kairo.game.onState(setGame)
+  }, [setInfo, setGame, refreshVersions])
 
   return (
     <div className="app">

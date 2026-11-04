@@ -1,6 +1,6 @@
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
 import { Switch, SwitchRow } from '../components/Switch'
-import { useStore, type SettingsTab } from '../state/store'
+import { maxMemoryGB, useStore, type SettingsTab } from '../state/store'
 
 const TABS: [SettingsTab, string][] = [
   ['game', 'Game'],
@@ -65,7 +65,7 @@ function GameTab() {
   const info = useStore((s) => s.info)
 
   const totalGB = info ? Math.max(1, Math.round(info.totalMemoryMB / 1024)) : 16
-  const maxGB = Math.max(4, Math.min(32, totalGB))
+  const maxGB = maxMemoryGB(info)
   const mem = Math.min(settings.memoryGB, maxGB)
   const tight = mem > totalGB * 0.6
   const javaPlaceholder =

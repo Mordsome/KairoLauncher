@@ -102,15 +102,17 @@ export function Picker({ visible, rootRef }: Props) {
 function VersionList({ edition, onMore }: { edition: EditionId; onMore(): void }) {
   const selection = useStore((s) => s.selection)
   const installs = useStore((s) => s.installs)
+  const versions = useStore((s) => s.versions)
   const select = useStore((s) => s.select)
   const e = EDITIONS[edition]
 
-  // Game files are shared between installs, so a version is "Ready" once any install has it.
-  const cached = new Set(installs.map((i) => i.mc))
+  // Game files are shared between installs, so a version is "Ready" once it's downloaded for any of them.
+  const ready = new Set(versions?.ready ?? [])
   const readyState = (mc: string) => {
     if (edition === 'kairo' || edition === 'void') return installs.some((i) => i.id === edition) ? 'Installed' : 'Download'
-    return cached.has(mc) ? 'Ready' : 'Download'
+    return ready.has(mc) ? 'Ready' : 'Download'
   }
+  const latest = versions?.latest ?? LATEST_RELEASE
 
   return (
     <>
@@ -139,7 +141,7 @@ function VersionList({ edition, onMore }: { edition: EditionId; onMore(): void }
       {edition === 'vanilla' && (
         <button type="button" className="more" aria-expanded="false" onClick={onMore}>
           <span>More versions</span>
-          <span className="more-sub">Every release from 1.8 to {LATEST_RELEASE}</span>
+          <span className="more-sub">Every release from 1.8 to {latest}</span>
         </button>
       )}
     </>
@@ -149,9 +151,13 @@ function VersionList({ edition, onMore }: { edition: EditionId; onMore(): void }
 function VanillaGrid({ onDone }: { onDone(): void }) {
   const selection = useStore((s) => s.selection)
   const showSnapshots = useStore((s) => s.settings.showSnapshots)
+  const live = useStore((s) => s.versions)
   const select = useStore((s) => s.select)
 
-  const versions = showSnapshots ? [...SNAPSHOTS, ...RELEASES] : RELEASES
+  // Mojang's live list; the built-in copy only until it loads.
+  const releases = live?.releases ?? RELEASES
+  const snapshots = live?.snapshots ?? SNAPSHOTS
+  const versions = showSnapshots ? [...snapshots, ...releases] : releases
   const checked = (mc: string) => selection.edition === 'vanilla' && selection.mc === mc
   const anyChecked = versions.some(checked)
 

@@ -1,11 +1,10 @@
 import { create } from 'zustand'
-import type { AppInfo } from '../../../shared/api'
+import type { AppInfo, GameState, VersionList } from '../../../shared/api'
 import { EDITIONS, KAIRO_VERSION, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
 export type HomeView = 'home' | 'pick'
 export type SettingsTab = 'game' | 'launcher' | 'account' | 'privacy' | 'about'
-export type PlayPhase = 'idle' | 'download' | 'launch' | 'running'
 export type Theme = 'kairo' | 'void'
 
 export interface Account {
@@ -53,10 +52,13 @@ const kairoMods = (name: string) => [
   { name: 'Sodium', version: '0.9.2' }
 ]
 
+// Library entries are still mock data until Phase 4 (Kairo) and Phase 6 (Library).
 const MOCK_INSTALLS: Install[] = [
   { id: 'kairo', name: 'Kairo', edition: 'kairo', mc: '26.3', loader: 'fabric', extras: [], mods: kairoMods('Kairo'), playMinutes: 38 * 60, lastPlayed: Date.now() - 2 * HOUR, keepUpdated: true },
   { id: 'void', name: 'Kairo Void', edition: 'void', mc: '26.3', loader: 'fabric', extras: [], mods: kairoMods('Kairo Void'), playMinutes: 12 * 60, lastPlayed: Date.now() - 26 * HOUR, keepUpdated: true }
 ]
+
+export const IDLE_GAME: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null }
 
 interface State {
   screen: Screen
@@ -68,7 +70,12 @@ interface State {
   account: Account | null
   installs: Install[]
   selection: Selection
-  play: { phase: PlayPhase; progress: number }
+  /** Live state of the game, from the main process. */
+  game: GameState
+  /** A one-off message for the Home status line. */
+  notice: string | null
+  /** Mojang's version list; null until loaded (or if offline with no saved copy). */
+  versions: VersionList | null
   settings: Settings
   info: AppInfo | null
 
@@ -86,16 +93,8 @@ interface State {
   updateSettings(patch: Partial<Settings>): void
   updateInstall(id: string, patch: Partial<Install>): void
   setInfo(info: AppInfo): void
-}
-
-let playTimer: ReturnType<typeof setInterval> | null = null
-let launchTimer: ReturnType<typeof setTimeout> | null = null
-
-function stopTimers() {
-  if (playTimer) clearInterval(playTimer)
-  if (launchTimer) clearTimeout(launchTimer)
-  playTimer = null
-  launchTimer = null
+  setGame(game: GameState): void
+  refreshVersions(): Promise<void>
 }
 
 function uniqueName(installs: Install[], base: string): string {
@@ -103,6 +102,12 @@ function uniqueName(installs: Install[], base: string): string {
   let n = 2
   while (installs.some((i) => i.name === `${base} ${n}`)) n++
   return `${base} ${n}`
+}
+
+/** Largest memory setting the main process accepts on this PC. */
+export function maxMemoryGB(info: AppInfo | null): number {
+  const whole = info ? Math.floor(info.totalMemoryMB / 1024) : 16
+  return Math.max(2, Math.min(32, whole))
 }
 
 export const useStore = create<State>()((set, get) => ({
@@ -114,7 +119,9 @@ export const useStore = create<State>()((set, get) => ({
   account: null,
   installs: MOCK_INSTALLS,
   selection: { edition: 'kairo', mc: '26.3', installId: 'kairo' },
-  play: { phase: 'idle', progress: 0 },
+  game: IDLE_GAME,
+  notice: null,
+  versions: null,
   settings: {
     memoryGB: 4,
     customJava: false,
@@ -140,7 +147,7 @@ export const useStore = create<State>()((set, get) => ({
     if (!installId && selection.edition === 'vanilla') {
       installId = get().installs.find((i) => i.edition === 'vanilla' && i.mc === selection.mc)?.id ?? null
     }
-    set({ selection: { ...selection, installId }, homeView: 'home', screen: 'home' })
+    set({ selection: { ...selection, installId }, homeView: 'home', screen: 'home', notice: null })
   },
 
   createOther: (loader, mc, extras) => {
@@ -163,64 +170,85 @@ export const useStore = create<State>()((set, get) => ({
       selection: { edition: 'other', mc, installId: install.id },
       librarySel: install.id,
       homeView: 'home',
-      screen: 'home'
+      screen: 'home',
+      notice: null
     })
   },
 
-  // Mock play cycle from the design: download, start, run, stop.
   playOrStop: () => {
-    const { phase } = get().play
-    if (phase === 'running') {
-      stopTimers()
-      set({ play: { phase: 'idle', progress: 0 } })
+    const { game, selection, settings, info } = get()
+    if (game.phase === 'running' || game.phase === 'download') {
+      void window.kairo.game.stop()
       return
     }
-    if (phase !== 'idle') return
+    if (game.phase !== 'idle') return
 
-    const sel = get().selection
-    if (sel.edition === 'vanilla' && !sel.installId) {
+    // Only Vanilla launches for real so far.
+    if (selection.edition !== 'vanilla') {
+      const later =
+        selection.edition === 'other' ? 'Custom installs arrive in Phase 5.' : 'Kairo installs arrive in Phase 4.'
+      set({ notice: `${later}\nPick a Vanilla version to play for now.` })
+      return
+    }
+
+    if (!selection.installId) {
       const installs = get().installs
       const install: Install = {
-        id: `vanilla-${sel.mc}`,
-        name: uniqueName(installs, `Minecraft ${sel.mc}`),
+        id: `vanilla-${selection.mc}`,
+        name: uniqueName(installs, `Minecraft ${selection.mc}`),
         edition: 'vanilla',
-        mc: sel.mc,
+        mc: selection.mc,
         extras: [],
         mods: [],
         playMinutes: 0,
         lastPlayed: null,
         keepUpdated: false
       }
-      set({ installs: [...installs, install], selection: { ...sel, installId: install.id } })
+      set({ installs: [...installs, install], selection: { ...selection, installId: install.id } })
     }
 
-    set({ play: { phase: 'download', progress: 0 } })
-    playTimer = setInterval(() => {
-      const progress = Math.min(1, get().play.progress + 0.04 + Math.random() * 0.03)
-      if (progress < 1) {
-        set({ play: { phase: 'download', progress } })
-        return
-      }
-      stopTimers()
-      set({ play: { phase: 'launch', progress: 1 } })
-      launchTimer = setTimeout(() => {
-        const id = get().selection.installId
-        if (id) get().updateInstall(id, { lastPlayed: Date.now() })
-        set({ play: { phase: 'running', progress: 0 } })
-      }, 1300)
-    }, 120)
+    const javaPath = settings.customJava && settings.javaPath.trim() ? settings.javaPath.trim() : null
+    set({ notice: null })
+    window.kairo.game
+      .play({
+        target: { kind: 'vanilla', mc: selection.mc },
+        memoryGB: Math.min(settings.memoryGB, maxMemoryGB(info)),
+        javaPath,
+        fullscreen: settings.fullscreen,
+        hideWhilePlaying: settings.hideWhilePlaying
+      })
+      .catch(() => set({ notice: "The launcher couldn't start that.\nCheck the Java path and memory in Settings." }))
   },
 
   signIn: (account) => set({ account, screen: 'home', homeView: 'home' }),
   signOut: () => {
-    stopTimers()
-    set({ account: null, screen: 'signin', homeView: 'home', play: { phase: 'idle', progress: 0 } })
+    void window.kairo.game.stop()
+    set({ account: null, screen: 'signin', homeView: 'home' })
   },
   setSettingsTab: (settingsTab) => set({ settingsTab }),
   setLibrarySel: (librarySel) => set({ librarySel }),
   updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
   updateInstall: (id, patch) => set((s) => ({ installs: s.installs.map((i) => (i.id === id ? { ...i, ...patch } : i)) })),
-  setInfo: (info) => set({ info })
+  setInfo: (info) => set({ info }),
+
+  setGame: (game) => {
+    const before = get().game.phase
+    set({ game })
+    if (game.phase === 'running' && before !== 'running') {
+      const id = get().selection.installId
+      if (id) get().updateInstall(id, { lastPlayed: Date.now() })
+    }
+    // A finished download changes which versions are "Ready".
+    if (game.phase !== 'download' && before === 'download') void get().refreshVersions()
+  },
+
+  refreshVersions: async () => {
+    try {
+      set({ versions: await window.kairo.game.versions() })
+    } catch {
+      // Offline and nothing saved yet: the picker keeps its built-in list.
+    }
+  }
 }))
 
 /** The edition whose look the launcher shows right now. */

@@ -53,7 +53,7 @@ export function LibraryScreen({ active }: { active: boolean }) {
   const updateInstall = useStore((s) => s.updateInstall)
   const select = useStore((s) => s.select)
   const playOrStop = useStore((s) => s.playOrStop)
-  const phase = useStore((s) => s.play.phase)
+  const phase = useStore((s) => s.game.phase)
 
   const detail = installs.find((i) => i.id === librarySel) ?? installs[0]
   const isKairo = detail?.edition === 'kairo' || detail?.edition === 'void'

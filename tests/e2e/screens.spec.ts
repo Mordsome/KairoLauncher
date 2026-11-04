@@ -42,7 +42,20 @@ test('renderer is locked down', async () => {
     process: typeof (globalThis as Record<string, unknown>)['process'],
     api: Object.keys(window.kairo).sort()
   }))
-  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'window'] })
+  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'game', 'window'] })
+
+  // A normal build has no offline account, and the main process rejects malformed play requests.
+  expect(await page.evaluate(() => window.kairo.app.info().then((i) => i.devOfflineName))).toBeNull()
+  const bad = await page.evaluate(() =>
+    window.kairo.game
+      .play({ target: { kind: 'vanilla', mc: '../../evil' }, memoryGB: 4, javaPath: null, fullscreen: false, hideWhilePlaying: false })
+      .then(
+        () => 'accepted',
+        () => 'rejected'
+      )
+  )
+  expect(bad).toBe('rejected')
+  problems.length = 0 // the rejected call logs an IPC error on purpose
 
   const prefs = await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows()[0]!
@@ -72,6 +85,24 @@ test('renderer is locked down', async () => {
   // Off-list links are refused by the main process.
   expect(await page.evaluate(() => window.kairo.app.openExternal('https://example.com/'))).toBe(false)
   expect(await page.evaluate(() => window.kairo.app.openExternal('http://github.com/Mordsome/'))).toBe(false)
+})
+
+test('main process only reaches allowed services, over HTTPS', async () => {
+  const result = await app.evaluate(async () => {
+    const tryFetch = (url: string) =>
+      fetch(url, { method: 'HEAD' }).then(
+        (r) => `ok ${r.status}`,
+        (e: { cause?: { message?: string }; message?: string }) => `blocked: ${e.cause?.message ?? e.message}`
+      )
+    return {
+      other: await tryFetch('https://example.com/'),
+      plainHttp: await tryFetch('http://piston-meta.mojang.com/mc/game/version_manifest_v2.json'),
+      mojang: await tryFetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json')
+    }
+  })
+  expect(result.other).toMatch(/^blocked: Refused to connect to example\.com/)
+  expect(result.plainHttp).toMatch(/^blocked/)
+  expect(result.mojang).toBe('ok 200')
 })
 
 test('sign-in flow', async () => {
@@ -122,7 +153,7 @@ test('picker: every edition', async () => {
   await expect(page.getByRole('button', { name: /Choose what to play/ })).toBeFocused()
 })
 
-test('create an Other install, then play it', async () => {
+test('create an Other install; Play explains what works so far', async () => {
   await page.getByRole('button', { name: /Choose what to play/ }).click()
   await page.getByRole('radio', { name: /^Other/ }).click()
   await page.getByRole('button', { name: 'Create Fabric 1.20.1' }).click()
@@ -131,13 +162,21 @@ test('create an Other install, then play it', async () => {
   await shot('13-home-other')
 
   await page.getByRole('button', { name: /^Play Fabric/ }).click()
-  await expect(page.getByRole('status')).toHaveText('Downloading game files')
-  await page.waitForTimeout(700)
-  await page.screenshot({ path: join(SHOTS, '14-home-downloading.png') })
-  await expect(page.getByRole('button', { name: 'Stop the game' })).toBeVisible({ timeout: 10_000 })
-  await shot('15-home-running')
-  await page.getByRole('button', { name: 'Stop the game' }).click()
-  await expect(page.getByRole('status')).toContainText('Ready to play')
+  await expect(page.getByRole('status')).toContainText('Custom installs arrive in Phase 5')
+})
+
+test('Vanilla uses the live version list, and asks for sign-in in a normal build', async () => {
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: /^Vanilla/ }).click()
+  await page.getByRole('button', { name: /More versions/ }).click()
+  // These come from Mojang's manifest, not the built-in list.
+  await expect(page.getByRole('radio', { name: '1.8', exact: true })).toBeVisible()
+  await page.getByRole('radio', { name: '1.20.1', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Minecraft', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: /^Play Minecraft on Minecraft 1\.20\.1/ }).click()
+  await expect(page.getByRole('status')).toContainText('Sign in to play')
+  await shot('14-home-vanilla-needs-sign-in')
 })
 
 test('library', async () => {
