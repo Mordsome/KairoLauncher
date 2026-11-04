@@ -1,0 +1,595 @@
+/* ---------- Backgrounds (one per edition, crossfaded) ---------- */
+
+.bg {
+  position: absolute;
+  inset: -24px;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transform: scale(1.05);
+  transition:
+    opacity 0.7s ease,
+    transform 1.4s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+.bg[data-on='true'] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.bg-kairo {
+  background-image: url(../assets/img/kairo-menu.jpg);
+  filter: blur(6px) saturate(1.15);
+}
+
+.bg-void {
+  background-image: url(../assets/img/void-aurora.jpg);
+}
+
+.bg-lite {
+  background-image: url(../assets/img/lite-village.jpg);
+  filter: grayscale(0.7) brightness(0.7);
+}
+
+.bg-vanilla {
+  background-image: url(../assets/img/vanilla-village.jpg);
+}
+
+.bg-other {
+  background-image: url(../assets/img/void-galaxy.jpg);
+  filter: grayscale(0.85) brightness(0.6);
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.shade[data-on='true'] {
+  opacity: 1;
+}
+
+.shade-home {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bg) 94%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 50%, transparent) 55%,
+    color-mix(in srgb, var(--bg) 20%, transparent) 100%
+  );
+}
+
+.shade-pick {
+  background: linear-gradient(
+    90deg,
+    var(--bg) 0%,
+    color-mix(in srgb, var(--bg) 95%, transparent) 48%,
+    color-mix(in srgb, var(--bg) 70%, transparent) 100%
+  );
+}
+
+/* ---------- Home / picker slide ---------- */
+
+/* The incoming view is visible (and focusable) at once; the outgoing one
+   stays visible until its fade ends. */
+.screen {
+  position: absolute;
+  inset: 0;
+  transition:
+    opacity 0.45s ease,
+    transform 0.55s cubic-bezier(0.2, 0.9, 0.25, 1),
+    visibility 0s;
+}
+
+.screen[data-on='false'] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.45s ease,
+    transform 0.55s cubic-bezier(0.2, 0.9, 0.25, 1),
+    visibility 0s 0.45s;
+}
+
+.screen-home[data-on='false'] {
+  transform: translateX(-40px);
+}
+
+.screen-pick[data-on='false'] {
+  transform: translateX(40px);
+}
+
+/* ---------- Home ---------- */
+
+.hero {
+  position: absolute;
+  left: 140px;
+  top: 180px;
+  width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hero-ver {
+  font-family: var(--pixel);
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.hero-title {
+  font-size: 116px;
+  line-height: 0.9;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+}
+
+.hero-blurb {
+  margin-top: 8px;
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 300;
+  color: var(--ink2);
+  max-width: 34ch;
+}
+
+.home-actions {
+  position: absolute;
+  left: 140px;
+  bottom: 80px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.split {
+  display: flex;
+  height: 68px;
+  border-radius: var(--r-full);
+  box-shadow: 0 16px 50px -14px var(--accent);
+  --play-bg: var(--accent);
+  --play-ink: var(--accent-ink);
+}
+
+.split[data-running='true'] {
+  --play-bg: var(--hot);
+  --play-ink: var(--hot-ink);
+}
+
+.half {
+  height: 68px;
+  border: 0;
+  background: var(--play-bg);
+  color: var(--play-ink);
+  display: flex;
+  align-items: center;
+  transition:
+    filter 0.2s,
+    background-color 0.4s;
+}
+
+.half:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
+.half-play {
+  position: relative;
+  overflow: hidden;
+  min-width: 200px;
+  padding: 0 30px;
+  border-radius: var(--r-full) 0 0 var(--r-full);
+  font-size: 26px;
+  font-weight: 800;
+  justify-content: center;
+  gap: 12px;
+}
+
+.half-play > svg,
+.half-label {
+  position: relative;
+}
+
+.fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: rgba(255, 255, 255, 0.35);
+  transition: width 0.2s linear;
+}
+
+.half-pick {
+  padding: 0 22px;
+  border-left: 1px solid var(--split-line);
+  border-radius: 0 var(--r-full) var(--r-full) 0;
+  gap: 12px;
+}
+
+.pick-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.pick-text b {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pick-text span {
+  font-family: var(--pixel);
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.status {
+  font-size: 14px;
+  color: var(--ink2);
+  line-height: 1.45;
+  white-space: pre-line;
+  text-shadow: 0 1px 8px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+/* ---------- Picker ---------- */
+
+.pick-head {
+  position: absolute;
+  left: 124px;
+  top: 34px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.back {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+}
+
+.back:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pick-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.eds {
+  position: absolute;
+  left: 132px;
+  top: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.ed {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 74px;
+  color: var(--ink2);
+  opacity: 0.72;
+  transition:
+    font-size 0.4s cubic-bezier(0.2, 0.9, 0.25, 1),
+    color 0.3s,
+    opacity 0.3s;
+}
+
+/* Not playable yet: dimmer, but still at least 3:1 for large text. */
+.ed[data-soon='true'] {
+  opacity: 1;
+  color: color-mix(in srgb, var(--ink2) 60%, var(--bg));
+}
+
+.ed[aria-checked='true'] {
+  font-size: 104px;
+  color: var(--ink);
+  opacity: 1;
+}
+
+.ed-tag {
+  font-family: var(--pixel);
+  font-weight: 600;
+  letter-spacing: 0;
+  font-size: 14px;
+  margin-left: 12px;
+  vertical-align: top;
+  color: var(--ink2);
+}
+
+.ed-tag[data-current='true'] {
+  color: var(--accent);
+}
+
+.fx {
+  position: absolute;
+  left: 740px;
+  top: 118px;
+  width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fx-title {
+  font-family: var(--pixel);
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.fx-blurb {
+  margin-bottom: 10px;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink2);
+  max-width: 40ch;
+}
+
+.vrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 62px;
+  padding: 0 18px;
+  border-radius: var(--r-row);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  text-align: left;
+  transition:
+    background-color 0.15s,
+    border-color 0.2s;
+}
+
+.vrow:not(:disabled):hover,
+.chip:not(:disabled):hover,
+.vcell:hover,
+.more:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vrow:disabled {
+  color: var(--ink2);
+}
+
+.vrow[data-sel='true'],
+.chip[aria-checked='true'],
+.vcell[aria-checked='true'] {
+  background: var(--sel-bg);
+  border-color: var(--sel-line);
+}
+
+.vrow-mc {
+  width: 82px;
+  font-family: var(--pixel);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.vrow-sub {
+  flex: 1;
+  font-size: 15px;
+  color: var(--ink2);
+}
+
+.vrow-state {
+  font-size: 14px;
+  color: var(--ok);
+}
+
+.vrow-state[data-tone='accent'] {
+  color: var(--accent);
+}
+
+.vrow-state[data-tone='muted'] {
+  color: var(--ink2);
+}
+
+.more {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 0 18px;
+  border-radius: var(--r-row);
+  border: 1px dashed var(--line);
+  background: transparent;
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+  transition: background-color 0.15s;
+}
+
+.more-sub {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink2);
+}
+
+.more-small {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 15px;
+}
+
+.vgrid {
+  max-height: 360px;
+  padding: 2px 4px 2px 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.vcell {
+  min-height: 46px;
+  border-radius: var(--r-row);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-family: var(--pixel);
+  font-size: 17px;
+  transition:
+    background-color 0.15s,
+    border-color 0.2s;
+}
+
+.vcell-snap {
+  font-size: 13px;
+}
+
+/* ---------- Other: build your own ---------- */
+
+.builder {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 14px;
+  color: var(--ink2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips-scroll {
+  max-height: 136px;
+  padding: 2px;
+}
+
+.chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    background-color 0.15s,
+    border-color 0.2s;
+}
+
+.chip-loader {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.chip-mc {
+  font-family: var(--pixel);
+  font-size: 16px;
+}
+
+.chip-more {
+  border-style: dashed;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chip-extra {
+  padding: 0 14px 0 10px;
+}
+
+.chip-extra[aria-checked='true'] {
+  background: var(--sel-bg);
+  border-color: var(--sel-line);
+}
+
+.tickbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid var(--ink2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-ink);
+}
+
+.tickbox svg {
+  opacity: 0;
+}
+
+[aria-checked='true'] > .tickbox {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+[aria-checked='true'] > .tickbox svg {
+  opacity: 1;
+}
+
+.extra-sub {
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.builder-note {
+  font-size: 13px;
+  color: var(--ink2);
+  line-height: 1.45;
+}
+
+.builder-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.btn-create {
+  min-height: 52px;
+  padding: 0 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg,
+  .bg[data-on='true'],
+  .screen,
+  .screen[data-on='false'] {
+    transform: none;
+  }
+
+  .ed {
+    transition:
+      color 0.2s,
+      opacity 0.2s;
+  }
+
+  .fill {
+    transition: none;
+  }
+}

@@ -1,0 +1,109 @@
+/*
+  Two themes: Kairo (glass, pills) and Void (violet, flat 6px corners).
+  Every token is a registered custom property, so switching the
+  data-theme attribute on <html> crossfades the whole launcher.
+*/
+
+@property --bg { syntax: '<color>'; inherits: true; initial-value: #0a1322; }
+@property --bg-glow { syntax: '<color>'; inherits: true; initial-value: #12233c; }
+@property --ink { syntax: '<color>'; inherits: true; initial-value: #eaf4fb; }
+@property --ink2 { syntax: '<color>'; inherits: true; initial-value: #b3c4d4; }
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #7fd8ff; }
+@property --accent-ink { syntax: '<color>'; inherits: true; initial-value: #062033; }
+@property --hot { syntax: '<color>'; inherits: true; initial-value: #ff9a52; }
+@property --line { syntax: '<color>'; inherits: true; initial-value: rgba(200, 235, 255, 0.2); }
+@property --line-soft { syntax: '<color>'; inherits: true; initial-value: rgba(200, 235, 255, 0.12); }
+@property --rail { syntax: '<color>'; inherits: true; initial-value: rgba(8, 14, 26, 0.78); }
+@property --panel { syntax: '<color>'; inherits: true; initial-value: rgba(190, 225, 255, 0.06); }
+@property --card { syntax: '<color>'; inherits: true; initial-value: rgba(190, 225, 255, 0.07); }
+@property --card-line { syntax: '<color>'; inherits: true; initial-value: rgba(200, 235, 255, 0.18); }
+@property --split-line { syntax: '<color>'; inherits: true; initial-value: rgba(6, 32, 51, 0.3); }
+@property --sel-bg { syntax: '<color>'; inherits: true; initial-value: rgba(127, 216, 255, 0.14); }
+@property --sel-line { syntax: '<color>'; inherits: true; initial-value: rgba(127, 216, 255, 0.6); }
+@property --rail-active { syntax: '<color>'; inherits: true; initial-value: rgba(127, 216, 255, 0.14); }
+@property --r-full { syntax: '<length>'; inherits: true; initial-value: 40px; }
+@property --r-row { syntax: '<length>'; inherits: true; initial-value: 16px; }
+@property --r-card { syntax: '<length>'; inherits: true; initial-value: 18px; }
+@property --r-panel { syntax: '<length>'; inherits: true; initial-value: 22px; }
+@property --r-sheet { syntax: '<length>'; inherits: true; initial-value: 28px; }
+@property --r-btn { syntax: '<length>'; inherits: true; initial-value: 14px; }
+@property --r-small { syntax: '<length>'; inherits: true; initial-value: 10px; }
+
+:root {
+  /* Kairo. "Full" is 40px rather than 999px so the Void switch animates smoothly;
+     no pill in the launcher is taller than 80px. */
+  --bg: #0a1322;
+  --bg-glow: #12233c;
+  --ink: #eaf4fb;
+  --ink2: #b3c4d4;
+  --accent: #7fd8ff;
+  --accent-ink: #062033;
+  --hot: #ff9a52;
+  --hot-ink: #1c0b02;
+  --ok: #5fe39b;
+  --line: rgba(200, 235, 255, 0.2);
+  --line-soft: rgba(200, 235, 255, 0.12);
+  --rail: rgba(8, 14, 26, 0.78);
+  --panel: rgba(190, 225, 255, 0.06);
+  --card: rgba(190, 225, 255, 0.07);
+  --card-line: rgba(200, 235, 255, 0.18);
+  --split-line: rgba(6, 32, 51, 0.3);
+  --sel-bg: rgba(127, 216, 255, 0.14);
+  --sel-line: rgba(127, 216, 255, 0.6);
+  --rail-active: rgba(127, 216, 255, 0.14);
+  --r-full: 40px;
+  --r-row: 16px;
+  --r-card: 18px;
+  --r-panel: 22px;
+  --r-sheet: 28px;
+  --r-btn: 14px;
+  --r-small: 10px;
+  --glass: blur(20px);
+
+  --font: 'Outfit Variable', 'Outfit', system-ui, sans-serif;
+  --pixel: 'Pixelify Sans Variable', 'Pixelify Sans', 'Outfit Variable', sans-serif;
+
+  --theme-fade: 0.6s ease;
+  transition:
+    --bg var(--theme-fade), --bg-glow var(--theme-fade), --ink var(--theme-fade), --ink2 var(--theme-fade),
+    --accent var(--theme-fade), --accent-ink var(--theme-fade), --hot var(--theme-fade), --line var(--theme-fade),
+    --line-soft var(--theme-fade), --rail var(--theme-fade), --panel var(--theme-fade), --card var(--theme-fade),
+    --card-line var(--theme-fade), --split-line var(--theme-fade), --sel-bg var(--theme-fade),
+    --sel-line var(--theme-fade), --rail-active var(--theme-fade), --r-full var(--theme-fade),
+    --r-row var(--theme-fade), --r-card var(--theme-fade), --r-panel var(--theme-fade), --r-sheet var(--theme-fade),
+    --r-btn var(--theme-fade), --r-small var(--theme-fade);
+}
+
+:root[data-theme='void'] {
+  --bg: #130a2a;
+  --bg-glow: #2a1658;
+  --ink: #f4eeff;
+  --ink2: #c9b9ec;
+  --accent: #b48cff;
+  --accent-ink: #1a0838;
+  --hot: #ff6ec7;
+  --line: rgba(190, 150, 255, 0.28);
+  --line-soft: rgba(190, 150, 255, 0.18);
+  --rail: rgba(28, 14, 58, 0.88);
+  --panel: rgba(160, 110, 255, 0.1);
+  --card: rgba(160, 110, 255, 0.1);
+  --card-line: rgba(190, 150, 255, 0.26);
+  --split-line: rgba(26, 8, 56, 0.4);
+  --sel-bg: rgba(180, 140, 255, 0.24);
+  --sel-line: rgba(200, 160, 255, 0.75);
+  --rail-active: rgba(167, 124, 255, 0.16);
+  --r-full: 6px;
+  --r-row: 6px;
+  --r-card: 6px;
+  --r-panel: 6px;
+  --r-sheet: 6px;
+  --r-btn: 6px;
+  --r-small: 6px;
+  --glass: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --theme-fade: 0.2s linear;
+  }
+}

@@ -1,0 +1,477 @@
+/* Library and Settings share the plain page frame next to the rail. */
+
+.page-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.page-title {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.page-sub {
+  color: var(--ink2);
+  font-size: 16px;
+}
+
+.field-label {
+  font-size: 14px;
+  color: var(--ink2);
+}
+
+/* ---------- Library ---------- */
+
+.lib {
+  position: absolute;
+  left: 76px;
+  top: 36px;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 28px;
+  padding: 28px 36px 32px 48px;
+}
+
+.lib-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lib-rows {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 3px;
+  margin: -3px;
+}
+
+.librow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px;
+  flex-shrink: 0;
+  border-radius: var(--r-row);
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-soft);
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.librow:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.librow[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.librow:disabled {
+  opacity: 0.6;
+}
+
+.thumb {
+  width: 150px;
+  height: 84px;
+  flex-shrink: 0;
+  border-radius: var(--r-small);
+  background-size: cover;
+  background-position: center;
+}
+
+.thumb-kairo {
+  background-image: url(../assets/img/kairo-menu.jpg);
+}
+
+.thumb-void {
+  background-image: url(../assets/img/void-galaxy.jpg);
+}
+
+.thumb-lite {
+  background-image: url(../assets/img/lite-village.jpg);
+  filter: grayscale(0.6) brightness(0.7);
+}
+
+.thumb-later {
+  background-image: url(../assets/img/void-aurora.jpg);
+  filter: grayscale(0.6) brightness(0.7);
+}
+
+.thumb-vanilla {
+  background-image: url(../assets/img/vanilla-village.jpg);
+}
+
+.thumb-other {
+  background-image: url(../assets/img/void-galaxy.jpg);
+  filter: grayscale(0.85) brightness(0.75);
+}
+
+.librow-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.librow-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.librow-name {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.mc-chip {
+  font-family: var(--pixel);
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.librow-sub {
+  font-size: 15px;
+  color: var(--ink2);
+}
+
+.librow-state {
+  margin-left: auto;
+  padding-right: 8px;
+  font-size: 14px;
+  color: var(--ok);
+  white-space: nowrap;
+}
+
+.librow:disabled .librow-state {
+  color: var(--ink2);
+}
+
+.lib-detail {
+  width: 380px;
+  flex-shrink: 0;
+  border-radius: var(--r-panel);
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-mc {
+  font-family: var(--pixel);
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.detail-name {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.detail-last {
+  font-size: 15px;
+  color: var(--ink2);
+}
+
+.detail-mods {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mod-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  padding: 9px 12px;
+  border-radius: var(--r-small);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mod-ver {
+  color: var(--ink2);
+}
+
+.keep-updated {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.keep-updated input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.keep-sub {
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.detail-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 10px;
+}
+
+.detail-play {
+  flex: 1;
+}
+
+.detail-actions .btn-ghost {
+  min-height: 48px;
+}
+
+/* ---------- Settings ---------- */
+
+.settings {
+  position: absolute;
+  left: 76px;
+  top: 36px;
+  right: 0;
+  bottom: 0;
+  padding: 28px 48px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.settings-body {
+  display: flex;
+  gap: 32px;
+  flex: 1;
+  min-height: 0;
+}
+
+.tabs {
+  width: 210px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tab {
+  text-align: left;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 12px;
+  font-size: 17px;
+  color: var(--ink2);
+  background: transparent;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tab[aria-selected='true'] {
+  color: #ffffff;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-left-color: var(--accent);
+}
+
+.tabpanel {
+  flex: 1;
+  max-width: 720px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 3px 6px 3px 3px;
+  margin: -3px;
+}
+
+.card {
+  padding: 20px 22px;
+  border-radius: var(--r-card);
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 22px;
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  border: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.setting-text-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.setting-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setting-name {
+  font-size: 17px;
+}
+
+.setting-desc {
+  font-size: 14px;
+  color: var(--ink2);
+}
+
+.mem-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 17px;
+}
+
+.mem-value {
+  font-family: var(--pixel);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.mem-range {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.mem-note {
+  font-size: 14px;
+  color: var(--ink2);
+}
+
+.java-path {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.text-input {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--r-small);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 15px;
+  user-select: text;
+}
+
+.text-input::placeholder {
+  color: color-mix(in srgb, var(--ink2) 75%, transparent);
+}
+
+.text-input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+}
+
+.account-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-btn);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 28px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.account-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-name {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.prose {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink2);
+  max-width: 60ch;
+}
+
+.list-card {
+  padding: 22px;
+  gap: 10px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.list-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.list-card-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--ink2);
+}
+
+.about-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
