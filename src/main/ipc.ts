@@ -1,9 +1,10 @@
 import { app, BrowserWindow, ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { totalmem } from 'node:os'
-import { IPC, type AppInfo, type PlayRequest, type Platform } from '../shared/api'
+import { IPC, type AppInfo, type KairoEdition, type PlayRequest, type Platform } from '../shared/api'
 import { devOfflineAccount } from './account/devOffline'
 import { listVersions } from './game/manifest'
 import type { GameSession } from './game/session'
+import { kairoStatus, setKeepUpdated } from './kairo/status'
 import { isAppUrl } from './origin'
 import { openExternalSafe } from './security'
 
@@ -20,14 +21,23 @@ function platform(): Platform {
 
 const totalMemoryMB = () => Math.round(totalmem() / (1024 * 1024))
 
+function isEdition(value: unknown): value is KairoEdition {
+  return value === 'kairo' || value === 'void'
+}
+
 /** Checks every field: the renderer is treated as untrusted. */
 export function parsePlayRequest(raw: unknown): PlayRequest | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
-  const target = r['target'] as Record<string, unknown> | undefined
-  if (!target || target['kind'] !== 'vanilla' || typeof target['mc'] !== 'string') return null
-  const mc = target['mc']
-  if (!/^[\w.\- ]{1,64}$/.test(mc)) return null
+  const t = r['target'] as Record<string, unknown> | undefined
+  let target: PlayRequest['target']
+  if (t?.['kind'] === 'vanilla' && typeof t['mc'] === 'string' && /^[\w.\- ]{1,64}$/.test(t['mc'])) {
+    target = { kind: 'vanilla', mc: t['mc'] }
+  } else if (t?.['kind'] === 'kairo' && isEdition(t['edition'])) {
+    target = { kind: 'kairo', edition: t['edition'] }
+  } else {
+    return null
+  }
 
   const memoryGB = r['memoryGB']
   const maxGB = Math.max(2, Math.floor(totalMemoryMB() / 1024))
@@ -39,7 +49,7 @@ export function parsePlayRequest(raw: unknown): PlayRequest | null {
   if (typeof r['fullscreen'] !== 'boolean' || typeof r['hideWhilePlaying'] !== 'boolean') return null
 
   return {
-    target: { kind: 'vanilla', mc },
+    target,
     memoryGB,
     javaPath: javaPath === null ? null : javaPath.trim(),
     fullscreen: r['fullscreen'],
@@ -92,5 +102,15 @@ export function registerIpc(session: GameSession): void {
   ipcMain.handle(IPC.gameStop, (event) => {
     if (!fromApp(event)) throw new Error('Not allowed')
     session.stop()
+  })
+
+  ipcMain.handle(IPC.kairoStatus, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return kairoStatus()
+  })
+
+  ipcMain.handle(IPC.kairoSetKeepUpdated, (event, edition: unknown, on: unknown) => {
+    if (!fromApp(event) || !isEdition(edition) || typeof on !== 'boolean') throw new Error('Not allowed')
+    return setKeepUpdated(edition, on)
   })
 }

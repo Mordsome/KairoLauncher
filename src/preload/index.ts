@@ -1,5 +1,14 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { IPC, type AppInfo, type GameState, type KairoApi, type PlayRequest, type VersionList } from '../shared/api'
+import {
+  IPC,
+  type AppInfo,
+  type GameState,
+  type KairoApi,
+  type KairoEdition,
+  type KairoStatus,
+  type PlayRequest,
+  type VersionList
+} from '../shared/api'
 
 // Typed wrappers only. The page never gets ipcRenderer itself.
 const api: KairoApi = {
@@ -24,6 +33,11 @@ const api: KairoApi = {
         ipcRenderer.removeListener(IPC.gameStateChanged, handler)
       }
     }
+  },
+  kairo: {
+    status: () => ipcRenderer.invoke(IPC.kairoStatus) as Promise<KairoStatus>,
+    setKeepUpdated: (edition: KairoEdition, on: boolean) =>
+      ipcRenderer.invoke(IPC.kairoSetKeepUpdated, edition, Boolean(on)) as Promise<KairoStatus>
   }
 }
 

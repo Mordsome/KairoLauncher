@@ -40,6 +40,7 @@ function startOfDay(t: number): number {
 function summary(i: Install): string {
   const loader = i.loader ? LOADERS[i.loader].name : 'Vanilla'
   if (i.edition === 'kairo' || i.edition === 'void') {
+    if (!i.installed) return 'Downloads the first time you press Play'
     return `${i.mods[0]?.name ?? i.name} ${i.mods[0]?.version ?? ''} · ${loader} · ${playtime(i)}`
   }
   const extras = i.extras.length ? ` · ${i.extras.join(', ')}` : ''
@@ -50,7 +51,8 @@ export function LibraryScreen({ active }: { active: boolean }) {
   const installs = useStore((s) => s.installs)
   const librarySel = useStore((s) => s.librarySel)
   const setLibrarySel = useStore((s) => s.setLibrarySel)
-  const updateInstall = useStore((s) => s.updateInstall)
+  const setKeepUpdated = useStore((s) => s.setKeepUpdated)
+  const latestKairo = useStore((s) => s.kairo?.latest?.version ?? null)
   const select = useStore((s) => s.select)
   const playOrStop = useStore((s) => s.playOrStop)
   const phase = useStore((s) => s.game.phase)
@@ -88,7 +90,9 @@ export function LibraryScreen({ active }: { active: boolean }) {
                     </span>
                     <span className="librow-sub">{summary(i)}</span>
                   </span>
-                  <span className="librow-state">{isUpToDate(i) ? 'Up to date' : 'Ready'}</span>
+                  <span className="librow-state" data-tone={stateOf(i, latestKairo) === 'Download' ? 'muted' : undefined}>
+                    {stateOf(i, latestKairo)}
+                  </span>
                 </button>
               )
             })}
@@ -117,7 +121,13 @@ export function LibraryScreen({ active }: { active: boolean }) {
             </div>
 
             <div className="detail-mods">
-              <span className="field-label">{detail.mods.length ? 'Installed for you' : 'Nothing extra installed'}</span>
+              <span className="field-label">
+                {detail.mods.length
+                  ? 'Installed for you'
+                  : isKairo
+                    ? 'Kairo, Fabric, Fabric API and Sodium download the first time you press Play'
+                    : 'Nothing extra installed'}
+              </span>
               {detail.mods.map((m) => (
                 <div key={m.name} className="mod-row">
                   <span>{m.name}</span>
@@ -133,7 +143,11 @@ export function LibraryScreen({ active }: { active: boolean }) {
                   <br />
                   <span className="keep-sub">Fabric API and Sodium update with it</span>
                 </span>
-                <input type="checkbox" checked={detail.keepUpdated} onChange={(e) => updateInstall(detail.id, { keepUpdated: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={detail.keepUpdated}
+                  onChange={(e) => setKeepUpdated(detail.edition as 'kairo' | 'void', e.target.checked)}
+                />
               </label>
             )}
 
@@ -153,6 +167,10 @@ export function LibraryScreen({ active }: { active: boolean }) {
   )
 }
 
-function isUpToDate(i: Install): boolean {
-  return (i.edition === 'kairo' || i.edition === 'void') && i.keepUpdated
+function stateOf(i: Install, latestKairo: string | null): string {
+  if (i.edition !== 'kairo' && i.edition !== 'void') return 'Ready'
+  if (!i.installed) return 'Download'
+  const installed = i.mods[0]?.version ?? null
+  if (latestKairo && installed && latestKairo !== installed) return i.keepUpdated ? 'Updates on Play' : 'Update available'
+  return 'Up to date'
 }

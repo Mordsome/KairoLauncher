@@ -10,8 +10,12 @@ export const IPC = {
   gamePlay: 'game:play',
   gameStop: 'game:stop',
   gameState: 'game:state',
-  gameStateChanged: 'game:state-changed'
+  gameStateChanged: 'game:state-changed',
+  kairoStatus: 'kairo:status',
+  kairoSetKeepUpdated: 'kairo:set-keep-updated'
 } as const
+
+export type KairoEdition = 'kairo' | 'void'
 
 export type Platform = 'win32' | 'darwin' | 'linux' | 'other'
 
@@ -34,8 +38,32 @@ export interface VersionList {
   ready: string[]
 }
 
+export type PlayTarget = { kind: 'vanilla'; mc: string } | { kind: 'kairo'; edition: KairoEdition }
+
+export interface ModInfo {
+  name: string
+  version: string
+}
+
+export interface KairoInstallInfo {
+  /** Null until the first Play has installed it. */
+  mc: string | null
+  kairoVersion: string | null
+  /** What the launcher put in mods/: Kairo, Fabric Loader, Fabric API, Sodium. */
+  mods: ModInfo[]
+  keepUpdated: boolean
+  lastPlayed: number | null
+  playMinutes: number
+}
+
+export interface KairoStatus {
+  /** Newest verifiable release on GitHub, or null if it can't be reached and none was seen yet. */
+  latest: { version: string } | null
+  installs: Record<KairoEdition, KairoInstallInfo>
+}
+
 export interface PlayRequest {
-  target: { kind: 'vanilla'; mc: string }
+  target: PlayTarget
   memoryGB: number
   /** Absolute path to a java executable, or null for the automatic one from Mojang. */
   javaPath: string | null
@@ -79,5 +107,9 @@ export interface KairoApi {
     state(): Promise<GameState>
     /** Calls back on every state change. Returns an unsubscribe function. */
     onState(listener: (state: GameState) => void): () => void
+  }
+  kairo: {
+    status(): Promise<KairoStatus>
+    setKeepUpdated(edition: KairoEdition, on: boolean): Promise<KairoStatus>
   }
 }

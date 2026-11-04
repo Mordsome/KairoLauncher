@@ -34,11 +34,25 @@ Everything lives in the app's data folder (`%APPDATA%\Kairo Launcher` on Windows
 | --- | --- |
 | `game/` | Minecraft versions, libraries and assets, shared by every install |
 | `runtimes/` | Java runtimes from Mojang, one per Java version |
-| `installs/<name>/` | One install: its own worlds, settings, mods and logs |
-| `cache/` | The last version lists, used when the network is down |
+| `installs/<name>/` | One install: its own worlds, settings, mods and logs, plus `kairo-launcher.json` |
+| `cache/` | The last version lists and Kairo release, used when the network is down |
 
-Every download is checked against the SHA-1 Mojang publishes. A file that doesn't match is
-deleted and fetched again; if it still fails, the launcher says so instead of starting.
+Every download is checked: Mojang files against their SHA-1, Kairo jars against the
+release's `SHA256SUMS.txt`, Modrinth files against their SHA-512, Fabric libraries against the
+SHA-1 Fabric publishes. A file that doesn't match is deleted and fetched again; if it still
+fails, the launcher says so instead of starting.
+
+### Kairo installs
+
+`installs/Kairo` and `installs/Kairo Void` each hold Fabric Loader, Fabric API, Sodium and
+exactly one Kairo jar, from the newest release of
+[Mordsome/Kairo](https://github.com/Mordsome/Kairo/releases) that has both jars and a
+`SHA256SUMS.txt`. The Minecraft version, the loader version and the mods come from the jar's
+own `fabric.mod.json`, so they always fit together.
+
+With **Keep Kairo updated** on, every Play moves Kairo, Fabric Loader, Fabric API and Sodium to
+the newest versions that match. With it off, the install stays exactly as recorded. Files a
+player adds to `mods/` are left alone; a Kairo jar of the other edition is removed.
 
 ## Licence
 

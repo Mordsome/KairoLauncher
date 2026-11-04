@@ -42,7 +42,7 @@ test('renderer is locked down', async () => {
     process: typeof (globalThis as Record<string, unknown>)['process'],
     api: Object.keys(window.kairo).sort()
   }))
-  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'game', 'window'] })
+  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'game', 'kairo', 'window'] })
 
   // A normal build has no offline account, and the main process rejects malformed play requests.
   expect(await page.evaluate(() => window.kairo.app.info().then((i) => i.devOfflineName))).toBeNull()
@@ -97,12 +97,18 @@ test('main process only reaches allowed services, over HTTPS', async () => {
     return {
       other: await tryFetch('https://example.com/'),
       plainHttp: await tryFetch('http://piston-meta.mojang.com/mc/game/version_manifest_v2.json'),
-      mojang: await tryFetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json')
+      mojang: await tryFetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'),
+      otherGitHubRepo: await tryFetch('https://api.github.com/repos/torvalds/linux/releases'),
+      otherGitHubPage: await tryFetch('https://github.com/torvalds'),
+      kairoReleases: await tryFetch('https://api.github.com/repos/Mordsome/Kairo/releases?per_page=1')
     }
   })
   expect(result.other).toMatch(/^blocked: Refused to connect to example\.com/)
   expect(result.plainHttp).toMatch(/^blocked/)
   expect(result.mojang).toBe('ok 200')
+  expect(result.otherGitHubRepo).toMatch(/^blocked/)
+  expect(result.otherGitHubPage).toMatch(/^blocked/)
+  expect(result.kairoReleases).toBe('ok 200')
 })
 
 test('sign-in flow', async () => {
@@ -177,6 +183,18 @@ test('Vanilla uses the live version list, and asks for sign-in in a normal build
   await page.getByRole('button', { name: /^Play Minecraft on Minecraft 1\.20\.1/ }).click()
   await expect(page.getByRole('status')).toContainText('Sign in to play')
   await shot('14-home-vanilla-needs-sign-in')
+})
+
+test('Kairo shows the real release, and asks for sign-in in a normal build', async () => {
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: /^Kairo/ }).first().click()
+  // Read from GitHub: the newest release that has both jars and SHA256SUMS.txt.
+  const latest = await page.evaluate(() => window.kairo.kairo.status().then((s) => s.latest?.version))
+  expect(latest).toMatch(/^\d+\.\d+/)
+  await expect(page.getByText(`Kairo ${latest} · latest`)).toBeVisible()
+  await page.getByRole('button', { name: /^Kairo for Minecraft/ }).first().click()
+  await page.getByRole('button', { name: /^Play Kairo on Minecraft/ }).click()
+  await expect(page.getByRole('status')).toContainText('Sign in to play')
 })
 
 test('library', async () => {

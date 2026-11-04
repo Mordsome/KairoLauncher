@@ -1,11 +1,14 @@
-import { createMinecraftProcessWatcher, launch, MinecraftFolder, type ResolvedVersion } from '@xmcl/core'
+import { createMinecraftProcessWatcher, launch, MinecraftFolder, Version, type ResolvedVersion } from '@xmcl/core'
 import type { ChildProcess } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app } from 'electron'
-import type { GameState, PlayRequest } from '../../shared/api'
+import type { GameState, KairoEdition, PlayRequest } from '../../shared/api'
 import type { GameAccount } from '../account/types'
 import { describeError, KairoError } from '../errors'
+import { emptyRecord, readRecord, writeRecord } from '../installs/record'
+import { fabricLibraryFiles, installFabricProfile, pickFabricLoader } from '../kairo/fabric'
+import { installDir, resolveKairoTarget, syncMods } from '../kairo/install'
 import { dataPaths, safeName } from '../paths'
 import { addSecret, redact } from '../redact'
 import { installVersion } from './install'
@@ -24,6 +27,18 @@ export interface SessionHooks {
 }
 
 const IDLE: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null }
+
+type Stages = Record<'meta' | 'game' | 'assets' | 'java' | 'mods', Stage>
+// Rough share of a first download each part takes, for one smooth progress bar.
+const WEIGHTS: Record<keyof Stages, number> = { meta: 0.02, game: 0.25, assets: 0.4, java: 0.23, mods: 0.1 }
+
+interface Prepared {
+  version: ResolvedVersion
+  javaPath: string
+  gamePath: string
+  /** Kairo installs keep last played and play time in their record. */
+  edition: KairoEdition | null
+}
 
 /** One game at a time: install what's missing, start it, watch it, stop it. */
 export class GameSession {
@@ -51,25 +66,36 @@ export class GameSession {
   async play(request: PlayRequest, account: GameAccount | null): Promise<void> {
     if (this.state.phase !== 'idle') return
     this.abort = new AbortController()
+    const signal = this.abort.signal
     this.stoppedByUser = false
     this.log.length = 0
     this.set({ ...IDLE, phase: 'download', detail: 'Checking game files' })
 
+    const stages: Stages = { meta: new Stage(), game: new Stage(), assets: new Stage(), java: new Stage(), mods: new Stage() }
+    if (request.target.kind === 'vanilla') stages.mods.done = true
+    if (request.javaPath) stages.java.done = true
+    let shown = 0
+    const timer = setInterval(() => {
+      const total = (Object.keys(WEIGHTS) as (keyof Stages)[]).reduce((sum, k) => sum + WEIGHTS[k] * stages[k].fraction(), 0)
+      shown = Math.max(shown, Math.min(0.99, total))
+      const downloading = Object.values(stages).some((s) => s.tracker.progress > 0)
+      this.set({ progress: shown, detail: downloading ? 'Downloading game files' : 'Checking game files' })
+    }, 200)
+
     try {
       if (!account) {
-        throw new KairoError(
-          'not-signed-in',
-          'Microsoft sign-in comes in Phase 3. To test launches now, run "npm run dev:offline".'
-        )
+        throw new KairoError('not-signed-in', 'Microsoft sign-in comes in Phase 3. To test launches now, run "npm run dev:offline".')
       }
       addSecret(account.accessToken)
-
-      const entry = await findVersion(request.target.mc)
-      if (!entry) throw new KairoError('unknown-version', `Mojang has no Minecraft ${request.target.mc}.`)
-
-      const { version, javaPath } = await this.install(entry, request, this.abort.signal)
-      await this.start(version, javaPath, request, account)
+      const target = request.target
+      const prepared =
+        target.kind === 'vanilla'
+          ? await this.prepareVanilla(target.mc, request, stages, signal)
+          : await this.prepareKairo(target.edition, request, stages, signal)
+      clearInterval(timer)
+      await this.start(prepared, request, account)
     } catch (error) {
+      clearInterval(timer)
       this.abort = null
       if (this.stoppedByUser) {
         this.set(IDLE)
@@ -79,25 +105,55 @@ export class GameSession {
     }
   }
 
-  private async install(entry: ManifestEntry, request: PlayRequest, signal: AbortSignal) {
-    const stages = { meta: new Stage(), game: new Stage(), assets: new Stage(), java: new Stage() }
-    // Rough share of the download each part takes, for one smooth progress bar.
-    const weights = { meta: 0.02, game: 0.28, assets: 0.45, java: 0.25 }
-    let shown = 0
-    const timer = setInterval(() => {
-      const total = (Object.keys(weights) as (keyof typeof weights)[]).reduce((sum, k) => sum + weights[k] * stages[k].fraction(), 0)
-      shown = Math.max(shown, Math.min(0.99, total))
-      const downloading = stages.java.tracker.progress + stages.game.tracker.progress + stages.assets.tracker.progress > 0
-      this.set({ progress: shown, detail: downloading ? 'Downloading game files' : 'Checking game files' })
-    }, 200)
+  private async prepareVanilla(mc: string, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
+    const entry = await findVersion(mc)
+    if (!entry) throw new KairoError('unknown-version', `Mojang has no Minecraft ${mc}.`)
+    const { version, javaPath } = await this.installBase(entry, request, stages, signal)
+    return { version, javaPath, gamePath: join(dataPaths().installs, safeName(`vanilla-${version.id}`)), edition: null }
+  }
 
+  private async prepareKairo(edition: KairoEdition, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
+    const dir = installDir(edition)
+    const folder = MinecraftFolder.from(dataPaths().game)
+    const record = await readRecord(dir)
+
+    // Kairo jar first: its fabric.mod.json says which Minecraft, loader and mods to use.
+    const target = await resolveKairoTarget(edition, record, stages.mods, signal)
+    const entry = await findVersion(target.mc)
+    if (!entry) throw new KairoError('unknown-version', `Mojang has no Minecraft ${target.mc}.`)
+    const keepUpdated = record?.keepUpdated ?? true
+    const loader = await pickFabricLoader(target.mc, target.loaderRange, keepUpdated ? null : (record?.loader ?? null))
+
+    const [{ javaPath }, fabricId] = await Promise.all([
+      this.installBase(entry, request, stages, signal),
+      installFabricProfile(target.mc, loader, folder, stages.mods, signal)
+    ])
+    const version = await Version.parse(folder, fabricId)
+    await stages.mods.run(
+      { schemaVersion: 1, tasks: [{ id: 'fabric-libraries', type: 'files', files: await fabricLibraryFiles(version, folder, signal) }] },
+      signal
+    )
+    await syncMods(edition, target, record)
+    await writeRecord(dir, {
+      ...(record ?? emptyRecord(edition)),
+      edition,
+      mc: target.mc,
+      loader,
+      kairo: target.kairo,
+      mods: target.mods,
+      keepUpdated
+    })
+    stages.mods.done = true
+    return { version, javaPath, gamePath: dir, edition }
+  }
+
+  /** The vanilla version and its Java, downloaded side by side. */
+  private async installBase(entry: ManifestEntry, request: PlayRequest, stages: Stages, signal: AbortSignal) {
     // If either half fails, stop the other one too.
     const both = new AbortController()
     const stopBoth = () => both.abort()
     signal.addEventListener('abort', stopBoth)
-
     try {
-      if (request.javaPath) stages.java.done = true
       let parsed!: (version: ResolvedVersion) => void
       const javaNeeded = new Promise<ResolvedVersion>((resolve) => (parsed = resolve))
       const versionPromise = installVersion(entry, stages, both.signal, parsed)
@@ -105,26 +161,19 @@ export class GameSession {
       const javaPromise = javaNeeded.then((version) =>
         request.javaPath ? checkCustomJava(request.javaPath) : ensureJava(version.javaVersion, stages.java, both.signal)
       )
-      const [version, javaPath] = await Promise.all([
-        versionPromise.catch((e: unknown) => {
-          stopBoth()
-          throw e
-        }),
-        javaPromise.catch((e: unknown) => {
-          stopBoth()
-          throw e
-        })
-      ])
+      const fail = (e: unknown): never => {
+        stopBoth()
+        throw e
+      }
+      const [version, javaPath] = await Promise.all([versionPromise.catch(fail), javaPromise.catch(fail)])
       return { version, javaPath }
     } finally {
-      clearInterval(timer)
       signal.removeEventListener('abort', stopBoth)
     }
   }
 
-  private async start(version: ResolvedVersion, javaPath: string, request: PlayRequest, account: GameAccount): Promise<void> {
-    const paths = dataPaths()
-    const gamePath = join(paths.installs, safeName(`vanilla-${version.id}`))
+  private async start(prepared: Prepared, request: PlayRequest, account: GameAccount): Promise<void> {
+    const { version, javaPath, gamePath, edition } = prepared
     await mkdir(gamePath, { recursive: true })
     this.set({ phase: 'launch', progress: 1, detail: 'Starting Minecraft' })
 
@@ -132,7 +181,7 @@ export class GameSession {
     try {
       child = await launch({
         gamePath,
-        resourcePath: MinecraftFolder.from(paths.game).root,
+        resourcePath: MinecraftFolder.from(dataPaths().game).root,
         javaPath,
         version,
         gameProfile: { name: account.name, id: account.uuid },
@@ -151,6 +200,7 @@ export class GameSession {
 
     this.process = child
     this.abort = null
+    const startedAt = Date.now()
     const capture = (chunk: Buffer) => {
       for (const line of redact(chunk.toString('utf8')).split(/\r?\n/)) {
         if (!line) continue
@@ -167,6 +217,7 @@ export class GameSession {
       running = true
       this.set({ phase: 'running', detail: '' })
       this.hooks.onRunning(request.hideWhilePlaying)
+      if (edition) void this.touchRecord(edition, { lastPlayed: Date.now() })
     }
     const fallback = setTimeout(markRunning, READY_FALLBACK_MS)
 
@@ -178,9 +229,21 @@ export class GameSession {
     })
     watcher.on('minecraft-exit', ({ code, crashReportLocation }) => {
       clearTimeout(fallback)
+      if (edition && running) void this.touchRecord(edition, { addMinutes: (Date.now() - startedAt) / 60_000 })
       const crashed = !this.stoppedByUser && code !== 0
       this.finish({ ...IDLE, crash: crashed ? { crashReport: crashReportLocation || null } : null })
     })
+  }
+
+  private async touchRecord(edition: KairoEdition, change: { lastPlayed?: number; addMinutes?: number }): Promise<void> {
+    const dir = installDir(edition)
+    const record = await readRecord(dir)
+    if (!record) return
+    await writeRecord(dir, {
+      ...record,
+      lastPlayed: change.lastPlayed ?? record.lastPlayed,
+      playMinutes: Math.round(record.playMinutes + (change.addMinutes ?? 0))
+    }).catch(() => undefined)
   }
 
   private finish(state: GameState): void {

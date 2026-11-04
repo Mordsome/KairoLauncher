@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { AppInfo, GameState, VersionList } from '../../../shared/api'
-import { EDITIONS, KAIRO_VERSION, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
+import type { AppInfo, GameState, KairoEdition, KairoStatus, VersionList } from '../../../shared/api'
+import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
 export type HomeView = 'home' | 'pick'
@@ -22,6 +22,8 @@ export interface Install {
   playMinutes: number
   lastPlayed: number | null
   keepUpdated: boolean
+  /** False until the first Play has downloaded it. */
+  installed: boolean
 }
 
 export interface Selection {
@@ -43,19 +45,11 @@ export interface Settings {
   sounds: boolean
 }
 
-const HOUR = 60 * 60 * 1000
-
-const kairoMods = (name: string) => [
-  { name, version: KAIRO_VERSION },
-  { name: 'Fabric Loader', version: '0.17' },
-  { name: 'Fabric API', version: '0.165.0' },
-  { name: 'Sodium', version: '0.9.2' }
-]
-
-// Library entries are still mock data until Phase 4 (Kairo) and Phase 6 (Library).
-const MOCK_INSTALLS: Install[] = [
-  { id: 'kairo', name: 'Kairo', edition: 'kairo', mc: '26.3', loader: 'fabric', extras: [], mods: kairoMods('Kairo'), playMinutes: 38 * 60, lastPlayed: Date.now() - 2 * HOUR, keepUpdated: true },
-  { id: 'void', name: 'Kairo Void', edition: 'void', mc: '26.3', loader: 'fabric', extras: [], mods: kairoMods('Kairo Void'), playMinutes: 12 * 60, lastPlayed: Date.now() - 26 * HOUR, keepUpdated: true }
+// Kairo and Kairo Void are always listed; their details come from the main
+// process (kairo status). Vanilla and Other entries are kept here until Phase 6.
+const KAIRO_INSTALLS: Install[] = [
+  { id: 'kairo', name: 'Kairo', edition: 'kairo', mc: '26.3', loader: 'fabric', extras: [], mods: [], playMinutes: 0, lastPlayed: null, keepUpdated: true, installed: false },
+  { id: 'void', name: 'Kairo Void', edition: 'void', mc: '26.3', loader: 'fabric', extras: [], mods: [], playMinutes: 0, lastPlayed: null, keepUpdated: true, installed: false }
 ]
 
 export const IDLE_GAME: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null }
@@ -76,6 +70,8 @@ interface State {
   notice: string | null
   /** Mojang's version list; null until loaded (or if offline with no saved copy). */
   versions: VersionList | null
+  /** Kairo releases and the two Kairo installs, from the main process. */
+  kairo: KairoStatus | null
   settings: Settings
   info: AppInfo | null
 
@@ -95,6 +91,24 @@ interface State {
   setInfo(info: AppInfo): void
   setGame(game: GameState): void
   refreshVersions(): Promise<void>
+  refreshKairo(): Promise<void>
+  setKeepUpdated(edition: KairoEdition, on: boolean): void
+}
+
+function applyKairo(installs: Install[], status: KairoStatus): Install[] {
+  return installs.map((i) => {
+    if (i.edition !== 'kairo' && i.edition !== 'void') return i
+    const s = status.installs[i.edition]
+    return {
+      ...i,
+      mc: s.mc ?? i.mc,
+      mods: s.mods,
+      playMinutes: s.playMinutes,
+      lastPlayed: s.lastPlayed,
+      keepUpdated: s.keepUpdated,
+      installed: s.kairoVersion !== null
+    }
+  })
 }
 
 function uniqueName(installs: Install[], base: string): string {
@@ -117,11 +131,12 @@ export const useStore = create<State>()((set, get) => ({
   settingsTab: 'game',
   librarySel: 'kairo',
   account: null,
-  installs: MOCK_INSTALLS,
+  installs: KAIRO_INSTALLS,
   selection: { edition: 'kairo', mc: '26.3', installId: 'kairo' },
   game: IDLE_GAME,
   notice: null,
   versions: null,
+  kairo: null,
   settings: {
     memoryGB: 4,
     customJava: false,
@@ -163,7 +178,8 @@ export const useStore = create<State>()((set, get) => ({
       mods: [{ name: `${L.name}${loader === 'optifine' ? '' : ' Loader'}`, version: 'latest' }, ...extras.map((name) => ({ name, version: 'latest' }))],
       playMinutes: 0,
       lastPlayed: null,
-      keepUpdated: false
+      keepUpdated: false,
+      installed: false
     }
     set({
       installs: [...installs, install],
@@ -183,15 +199,13 @@ export const useStore = create<State>()((set, get) => ({
     }
     if (game.phase !== 'idle') return
 
-    // Only Vanilla launches for real so far.
-    if (selection.edition !== 'vanilla') {
-      const later =
-        selection.edition === 'other' ? 'Custom installs arrive in Phase 5.' : 'Kairo installs arrive in Phase 4.'
-      set({ notice: `${later}\nPick a Vanilla version to play for now.` })
+    // Other installs come in Phase 5; Lite isn't out yet.
+    if (selection.edition === 'other' || selection.edition === 'lite') {
+      set({ notice: 'Custom installs arrive in Phase 5.\nPick Kairo, Kairo Void or a Vanilla version for now.' })
       return
     }
 
-    if (!selection.installId) {
+    if (selection.edition === 'vanilla' && !selection.installId) {
       const installs = get().installs
       const install: Install = {
         id: `vanilla-${selection.mc}`,
@@ -202,7 +216,8 @@ export const useStore = create<State>()((set, get) => ({
         mods: [],
         playMinutes: 0,
         lastPlayed: null,
-        keepUpdated: false
+        keepUpdated: false,
+        installed: true
       }
       set({ installs: [...installs, install], selection: { ...selection, installId: install.id } })
     }
@@ -211,7 +226,8 @@ export const useStore = create<State>()((set, get) => ({
     set({ notice: null })
     window.kairo.game
       .play({
-        target: { kind: 'vanilla', mc: selection.mc },
+        target:
+          selection.edition === 'vanilla' ? { kind: 'vanilla', mc: selection.mc } : { kind: 'kairo', edition: selection.edition },
         memoryGB: Math.min(settings.memoryGB, maxMemoryGB(info)),
         javaPath,
         fullscreen: settings.fullscreen,
@@ -238,8 +254,13 @@ export const useStore = create<State>()((set, get) => ({
       const id = get().selection.installId
       if (id) get().updateInstall(id, { lastPlayed: Date.now() })
     }
-    // A finished download changes which versions are "Ready".
-    if (game.phase !== 'download' && before === 'download') void get().refreshVersions()
+    // A finished download changes which versions are "Ready" and what's installed.
+    if (game.phase !== 'download' && before === 'download') {
+      void get().refreshVersions()
+      void get().refreshKairo()
+    }
+    // Play time and last played are saved when the game closes.
+    if (game.phase === 'idle' && before === 'running') void get().refreshKairo()
   },
 
   refreshVersions: async () => {
@@ -248,6 +269,30 @@ export const useStore = create<State>()((set, get) => ({
     } catch {
       // Offline and nothing saved yet: the picker keeps its built-in list.
     }
+  },
+
+  refreshKairo: async () => {
+    try {
+      const status = await window.kairo.kairo.status()
+      set((s) => {
+        const installs = applyKairo(s.installs, status)
+        const sel = s.selection
+        const current = installs.find((i) => i.id === sel.installId)
+        // Kairo's Minecraft version follows its installed release.
+        const selection = current && (sel.edition === 'kairo' || sel.edition === 'void') ? { ...sel, mc: current.mc } : sel
+        return { kairo: status, installs, selection }
+      })
+    } catch {
+      // keep what we have
+    }
+  },
+
+  setKeepUpdated: (edition, on) => {
+    get().updateInstall(edition, { keepUpdated: on })
+    void window.kairo.kairo.setKeepUpdated(edition, on).then(
+      (status) => set((s) => ({ kairo: status, installs: applyKairo(s.installs, status) })),
+      () => get().updateInstall(edition, { keepUpdated: !on })
+    )
   }
 }))
 

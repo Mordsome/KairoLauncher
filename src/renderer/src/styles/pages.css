@@ -156,7 +156,8 @@
   white-space: nowrap;
 }
 
-.librow:disabled .librow-state {
+.librow:disabled .librow-state,
+.librow-state[data-tone='muted'] {
   color: var(--ink2);
 }
 

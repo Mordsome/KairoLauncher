@@ -9,20 +9,40 @@ import { KairoError } from '../errors'
 
 export const USER_AGENT = `KairoLauncher/${app.getVersion()} (github.com/Mordsome/KairoLauncher)`
 
-const ALLOWED_HOSTS = new Set([
+// Host, and optionally the only path prefixes allowed on it.
+const ALLOWED: Record<string, string[] | null> = {
   // Mojang: version lists, game files, Java runtimes
-  'launchermeta.mojang.com',
-  'piston-meta.mojang.com',
-  'piston-data.mojang.com',
-  'launcher.mojang.com',
-  'libraries.minecraft.net',
-  'resources.download.minecraft.net'
-])
+  'launchermeta.mojang.com': null,
+  'piston-meta.mojang.com': null,
+  'piston-data.mojang.com': null,
+  'launcher.mojang.com': null,
+  'libraries.minecraft.net': null,
+  'resources.download.minecraft.net': null,
+  // Fabric: loader versions and libraries
+  'meta.fabricmc.net': null,
+  'maven.fabricmc.net': null,
+  // Modrinth: Fabric API, Sodium and other mods
+  'api.modrinth.com': ['/v2/'],
+  'cdn.modrinth.com': ['/data/'],
+  // GitHub: Kairo releases (and later, launcher updates). Mordsome's repos only.
+  'api.github.com': ['/repos/Mordsome/'],
+  'github.com': ['/Mordsome/'],
+  // Where GitHub release downloads redirect to.
+  'release-assets.githubusercontent.com': null,
+  'objects.githubusercontent.com': null
+}
 
-export function isAllowedUrl(raw: string): boolean {
+function hostAllowed(hostname: string, path: string): boolean {
+  if (!Object.hasOwn(ALLOWED, hostname)) return false
+  const prefixes = ALLOWED[hostname]
+  return !prefixes || prefixes.some((p) => path.startsWith(p))
+}
+
+export function isAllowedUrl(raw: string, path?: string): boolean {
   try {
     const url = new URL(raw)
-    return url.protocol === 'https:' && ALLOWED_HOSTS.has(url.hostname) && !url.username && !url.password
+    if (url.protocol !== 'https:' || url.username || url.password) return false
+    return hostAllowed(url.hostname, path ?? url.pathname)
   } catch {
     return false
   }
@@ -54,7 +74,7 @@ function withUserAgent(headers: Headers): Record<string, string | string[] | und
 class GuardedAgent extends Agent {
   override dispatch(options: Dispatcher.DispatchOptions, handler: Dispatcher.DispatchHandler): boolean {
     const origin = String(options.origin ?? '')
-    if (!isAllowedUrl(origin)) {
+    if (!isAllowedUrl(origin, String(options.path ?? '/'))) {
       throw new KairoError('blocked-host', `Refused to connect to ${safeHost(origin)}: not an allowed service.`)
     }
     return super.dispatch({ ...options, headers: withUserAgent(options.headers) }, handler)
@@ -87,10 +107,43 @@ export function installGlobalGuard(): void {
   setGlobalDispatcher(dispatcher)
 }
 
+const wait = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    })
+  })
+
+/** GET with one polite retry when a service says "too many requests" (Modrinth, GitHub). */
+export async function fetchOk(url: string, init: RequestInit & { signal?: AbortSignal } = {}): Promise<Response> {
+  let response = await httpFetch(url, init)
+  if (response.status === 429 || (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0')) {
+    const seconds = Number(response.headers.get('retry-after') ?? response.headers.get('x-ratelimit-reset') ?? 0)
+    // Modrinth sends seconds until reset; GitHub sends a Unix time. Only wait for short resets.
+    const delay = seconds > 1e9 ? seconds * 1000 - Date.now() : seconds * 1000
+    if (delay > 0 && delay <= 60_000) {
+      await wait(delay + 250, init.signal ?? undefined)
+      response = await httpFetch(url, init)
+    }
+  }
+  if (!response.ok) {
+    const limited = response.status === 429 || response.status === 403
+    throw new KairoError(
+      'http-status',
+      limited ? `${safeHost(url)} asked the launcher to slow down. Try again in a minute.` : `${safeHost(url)} answered ${response.status}.`
+    )
+  }
+  return response
+}
+
 /** Downloads and parses JSON. With sha1, the raw bytes must match it. */
-export async function fetchJson<T>(url: string, options: { sha1?: string; signal?: AbortSignal } = {}): Promise<T> {
-  const response = await httpFetch(url, { signal: options.signal })
-  if (!response.ok) throw new KairoError('http-status', `${safeHost(url)} answered ${response.status}.`)
+export async function fetchJson<T>(
+  url: string,
+  options: { sha1?: string; signal?: AbortSignal; headers?: Record<string, string> } = {}
+): Promise<T> {
+  const response = await fetchOk(url, { signal: options.signal, headers: options.headers })
   const body = Buffer.from(await response.arrayBuffer())
   if (options.sha1 && createHash('sha1').update(body).digest('hex') !== options.sha1) {
     throw new KairoError('checksum', `The file from ${safeHost(url)} didn't match its checksum.`)

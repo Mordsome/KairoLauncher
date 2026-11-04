@@ -69,12 +69,12 @@ export function describeError(error: unknown, redact: (text: string) => string =
         case 'unknown-version':
           return { title: 'Unknown version', message: e.message }
         default:
-          return { title: "Can't reach Mojang's servers", message: redact(e.message) }
+          return { title: "A download server didn't answer", message: redact(e.message) }
       }
     }
     const code = codeOf(e)
     if (code && NETWORK_CODES.has(code)) {
-      return { title: "Can't reach Mojang's servers", message: 'Check your internet connection and try again.' }
+      return { title: "Can't reach the download servers", message: 'Check your internet connection and try again.' }
     }
     if (code === 'ENOSPC') return { title: 'Your disk is full', message: 'Free up some space and try again.' }
     if (code === 'EACCES' || code === 'EPERM') {

@@ -103,20 +103,35 @@ function VersionList({ edition, onMore }: { edition: EditionId; onMore(): void }
   const selection = useStore((s) => s.selection)
   const installs = useStore((s) => s.installs)
   const versions = useStore((s) => s.versions)
+  const kairo = useStore((s) => s.kairo)
   const select = useStore((s) => s.select)
   const e = EDITIONS[edition]
+  const isKairo = edition === 'kairo' || edition === 'void'
+  const install = installs.find((i) => i.id === edition)
 
   // Game files are shared between installs, so a version is "Ready" once it's downloaded for any of them.
   const ready = new Set(versions?.ready ?? [])
   const readyState = (mc: string) => {
-    if (edition === 'kairo' || edition === 'void') return installs.some((i) => i.id === edition) ? 'Installed' : 'Download'
+    if (isKairo) {
+      const info = kairo?.installs[edition]
+      if (!info?.kairoVersion) return 'Download'
+      return kairo?.latest && kairo.latest.version !== info.kairoVersion ? 'Update' : 'Installed'
+    }
     return ready.has(mc) ? 'Ready' : 'Download'
   }
   const latest = versions?.latest ?? LATEST_RELEASE
 
+  // Kairo's playable row follows the real release: its version and Minecraft version.
+  const rows = e.versions.map((v, i) => {
+    if (!isKairo || i !== 0 || v.unavailable) return v
+    const info = kairo?.installs[edition]
+    const version = kairo?.latest?.version ?? info?.kairoVersion
+    return { ...v, mc: install?.mc ?? v.mc, sub: version ? `${e.title} ${version} · latest` : v.sub }
+  })
+
   return (
     <>
-      {e.versions.map((v) => {
+      {rows.map((v) => {
         const current = selection.edition === edition && selection.mc === v.mc
         const ok = !v.unavailable
         const state = current ? 'Selected' : (v.unavailable ?? readyState(v.mc))
