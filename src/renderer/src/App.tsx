@@ -7,6 +7,7 @@ import { SettingsScreen } from './screens/SettingsScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { selectTheme, useStore } from './state/store'
 import { useInterfaceSounds } from './state/sounds'
+import { VoidWarning } from './screens/VoidWarning'
 
 export function App() {
   const screen = useStore((s) => s.screen)
@@ -50,6 +51,7 @@ export function App() {
       <SignInScreen active={screen === 'signin'} />
       <Rail />
       <TitleBar />
+      <VoidWarning />
     </div>
   )
 }

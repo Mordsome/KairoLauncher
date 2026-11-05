@@ -66,6 +66,11 @@ async function playAndCheck(edition: 'kairo' | 'void', shot?: string) {
   const log = join(dir(edition), 'logs', 'latest.log')
   if (existsSync(log)) rmSync(log)
   await page.getByRole('button', { name: /^Play Kairo/ }).click()
+  // The first Kairo Void install asks the player to read a photosensitivity warning.
+  const warning = page.getByRole('dialog', { name: 'Photosensitivity warning' })
+  if (await warning.waitFor({ timeout: 1500 }).then(() => true, () => false)) {
+    await warning.getByRole('button', { name: 'I understand, install' }).click()
+  }
   await expect
     .poll(
       async () => {

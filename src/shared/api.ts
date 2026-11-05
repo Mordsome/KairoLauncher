@@ -98,6 +98,8 @@ export interface LauncherSettings {
   matchTheme: boolean
   autoUpdate: boolean
   sounds: boolean
+  /** The photosensitivity warning before the first Kairo Void install was accepted. */
+  voidWarningSeen: boolean
   /** What was selected on Home, restored at the next start. */
   lastSelection: { edition: 'kairo' | 'void' | 'lite' | 'vanilla' | 'other'; mc: string; installId: string | null } | null
 }

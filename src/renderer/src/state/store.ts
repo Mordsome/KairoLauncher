@@ -67,6 +67,10 @@ interface State {
   game: GameState
   /** A one-off message for the Home status line. */
   notice: string | null
+  /** Showing the photosensitivity warning before the first Kairo Void install. */
+  voidWarning: boolean
+  acceptVoidWarning(): void
+  closeVoidWarning(): void
   /** Mojang's version list; null until loaded (or if offline with no saved copy). */
   versions: VersionList | null
   /** Kairo releases and the two Kairo installs, from the main process. */
@@ -183,6 +187,7 @@ export const useStore = create<State>()((set, get) => ({
   selection: { edition: 'kairo', mc: '26.3', installId: 'kairo' },
   game: IDLE_GAME,
   notice: null,
+  voidWarning: false,
   versions: null,
   kairo: null,
   settings: {
@@ -194,7 +199,8 @@ export const useStore = create<State>()((set, get) => ({
     showSnapshots: false,
     matchTheme: true,
     autoUpdate: true,
-    sounds: true
+    sounds: true,
+    voidWarningSeen: false
   },
   info: null,
   settingsLoaded: false,
@@ -262,6 +268,13 @@ export const useStore = create<State>()((set, get) => ({
       return
     }
 
+    // Kairo Void's visuals can flash: warn once, before it's first installed.
+    const voidInstall = get().installs.find((i) => i.id === 'void')
+    if (selection.edition === 'void' && !settings.voidWarningSeen && !voidInstall?.installed) {
+      set({ voidWarning: true, notice: null })
+      return
+    }
+
     const javaPath = settings.customJava && settings.javaPath.trim() ? settings.javaPath.trim() : null
     set({ notice: null })
     window.kairo.game
@@ -274,6 +287,14 @@ export const useStore = create<State>()((set, get) => ({
       })
       .catch(() => set({ notice: "The launcher couldn't start that.\nCheck the Java path and memory in Settings." }))
   },
+
+  acceptVoidWarning: () => {
+    set({ voidWarning: false })
+    get().updateSettings({ voidWarningSeen: true })
+    get().playOrStop()
+  },
+
+  closeVoidWarning: () => set({ voidWarning: false }),
 
   setAccounts: (accounts) => {
     const active = accounts.accounts.find((a) => a.uuid === accounts.active) ?? null

@@ -45,6 +45,7 @@ test.beforeAll(async () => {
       matchTheme: true,
       autoUpdate: true,
       sounds: true,
+      voidWarningSeen: false,
       lastSelection: null
     })
   )
