@@ -87,6 +87,13 @@ export function describeError(error: unknown, redact: (text: string) => string =
     }
   }
   const text = error instanceof Error ? error.message : String(error)
+  // A loader's own installer (OptiFine's patcher, Forge processors) failed inside Java.
+  if (/Exception in thread|Java strategy produced|No Java strategy/.test(text)) {
+    return {
+      title: "The loader's installer stopped with an error",
+      message: 'Try again. If it keeps happening, the installer file may be damaged or for a different version; download it again.'
+    }
+  }
   if (/Cannot recover \d+ install file/.test(text)) {
     return {
       title: "A download didn't match its checksum",

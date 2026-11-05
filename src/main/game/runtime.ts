@@ -34,6 +34,7 @@ export class Stage {
 
   /** Runs a plan. Every file is checked against its checksum; bad files are deleted and fetched again. */
   async run(plan: InstallManifest, signal: AbortSignal, trustedSince?: number): Promise<void> {
+    await prepareOutputDirs(plan)
     await executeInstallManifest(trust(plan, trustedSince), this.runtime(signal), { attempts: 4, signal })
   }
 
@@ -41,10 +42,24 @@ export class Stage {
     const trusted: InstallWorkflow<T> = {
       next: async () => {
         const step = await workflow.next()
-        return step.done ? step : { done: false, plan: trust(step.plan, trustedSince) }
+        if (step.done) return step
+        await prepareOutputDirs(step.plan)
+        return { done: false, plan: trust(step.plan, trustedSince) }
       }
     }
     return executeInstallWorkflow(trusted, this.runtime(signal), { attempts: 4, signal })
+  }
+}
+
+/**
+ * Installer steps that run Java (OptiFine's patcher, Forge processors) write
+ * their output file but don't create its folder; Java then fails with
+ * "cannot find the path". Create the folders first.
+ */
+async function prepareOutputDirs(plan: InstallManifest): Promise<void> {
+  for (const task of plan.tasks) {
+    if (task.type !== 'java') continue
+    for (const output of task.outputs) await mkdir(dirname(output.path), { recursive: true })
   }
 }
 
