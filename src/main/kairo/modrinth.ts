@@ -17,6 +17,8 @@ export interface ModrinthFile {
   url: string
   sha512: string
   size: number
+  /** Projects this version needs (Modrinth project ids). */
+  requires: string[]
 }
 
 interface ModrinthVersion {
@@ -24,6 +26,27 @@ interface ModrinthVersion {
   version_type: 'release' | 'beta' | 'alpha'
   date_published: string
   files: { url: string; filename: string; primary: boolean; size: number; hashes: { sha512?: string; sha1?: string } }[]
+  dependencies?: { project_id: string | null; dependency_type: 'required' | 'optional' | 'incompatible' | 'embedded' }[]
+}
+
+export interface ModrinthProject {
+  id: string
+  slug: string
+  title: string
+}
+
+const projects = new Map<string, ModrinthProject>()
+
+/** A project's id, slug and name, by either id or slug. */
+export async function modrinthProject(idOrSlug: string, signal?: AbortSignal): Promise<ModrinthProject> {
+  const hit = projects.get(idOrSlug)
+  if (hit) return hit
+  if (!/^[\w.-]{1,64}$/.test(idOrSlug)) throw new KairoError('http-status', 'Unexpected Modrinth project')
+  const p = await fetchJson<ModrinthProject>(`${API}/project/${encodeURIComponent(idOrSlug)}`, { signal })
+  const project = { id: p.id, slug: p.slug, title: p.title }
+  projects.set(p.id, project)
+  projects.set(p.slug, project)
+  return project
 }
 
 const cache = new Map<string, { at: number; files: ModrinthFile[] }>()
@@ -34,7 +57,8 @@ function toFile(project: string, v: ModrinthVersion): ModrinthFile | null {
   const name = basename(file.filename)
   if (name !== file.filename || !name.endsWith('.jar')) return null
   if (!file.url.startsWith('https://cdn.modrinth.com/data/')) return null
-  return { project, versionNumber: v.version_number, filename: name, url: file.url, sha512: file.hashes.sha512.toLowerCase(), size: file.size }
+  const requires = (v.dependencies ?? []).filter((d) => d.dependency_type === 'required' && d.project_id).map((d) => d.project_id!)
+  return { project, versionNumber: v.version_number, filename: name, url: file.url, sha512: file.hashes.sha512.toLowerCase(), size: file.size, requires }
 }
 
 /**

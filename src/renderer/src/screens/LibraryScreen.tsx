@@ -43,6 +43,7 @@ function summary(i: Install): string {
     if (!i.installed) return 'Downloads the first time you press Play'
     return `${i.mods[0]?.name ?? i.name} ${i.mods[0]?.version ?? ''} · ${loader} · ${playtime(i)}`
   }
+  if (i.modpack) return `Modpack · ${loader} · ${playtime(i)}`
   const extras = i.extras.length ? ` · ${i.extras.join(', ')}` : ''
   return `${loader}${extras} · ${playtime(i)}`
 }
@@ -126,7 +127,9 @@ export function LibraryScreen({ active }: { active: boolean }) {
                   ? 'Installed for you'
                   : isKairo
                     ? 'Kairo, Fabric, Fabric API and Sodium download the first time you press Play'
-                    : 'Nothing extra installed'}
+                    : detail.edition === 'other' && !detail.installed
+                      ? 'Everything downloads the first time you press Play'
+                      : 'Nothing extra installed'}
               </span>
               {detail.mods.map((m) => (
                 <div key={m.name} className="mod-row">
@@ -168,6 +171,7 @@ export function LibraryScreen({ active }: { active: boolean }) {
 }
 
 function stateOf(i: Install, latestKairo: string | null): string {
+  if (i.edition === 'other') return i.installed ? 'Ready' : 'Download'
   if (i.edition !== 'kairo' && i.edition !== 'void') return 'Ready'
   if (!i.installed) return 'Download'
   const installed = i.mods[0]?.version ?? null

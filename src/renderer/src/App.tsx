@@ -14,6 +14,7 @@ export function App() {
   const setGame = useStore((s) => s.setGame)
   const refreshVersions = useStore((s) => s.refreshVersions)
   const refreshKairo = useStore((s) => s.refreshKairo)
+  const refreshCustom = useStore((s) => s.refreshCustom)
   const setAccounts = useStore((s) => s.setAccounts)
   const go = useStore((s) => s.go)
   const loaded = useStore((s) => s.accounts !== null)
@@ -31,9 +32,10 @@ export function App() {
     })
     void refreshVersions()
     void refreshKairo()
+    void refreshCustom()
     void window.kairo.game.state().then(setGame)
     return window.kairo.game.onState(setGame)
-  }, [setInfo, setGame, refreshVersions, refreshKairo, setAccounts, go])
+  }, [setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, setAccounts, go])
 
   return (
     <div className="app" data-loaded={loaded}>

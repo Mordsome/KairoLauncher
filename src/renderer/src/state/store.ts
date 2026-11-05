@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AccountsState, AppInfo, GameState, KairoEdition, KairoStatus, VersionList } from '../../../shared/api'
+import type { AccountsState, AppInfo, CustomInstallInfo, GameState, KairoEdition, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
 import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
@@ -26,6 +26,8 @@ export interface Install {
   keepUpdated: boolean
   /** False until the first Play has downloaded it. */
   installed: boolean
+  /** Modpack name, for installs imported from one. */
+  modpack?: string
 }
 
 export interface Selection {
@@ -87,7 +89,9 @@ interface State {
   closePicker(): void
   setPickFocus(edition: EditionId): void
   select(selection: Selection): void
-  createOther(loader: LoaderId, mc: string, extras: Extra['name'][]): void
+  /** A new install from Other or a modpack: list it, select it, go Home. */
+  customCreated(install: CustomInstallInfo): void
+  refreshCustom(): Promise<void>
   playOrStop(): void
   setAccounts(state: AccountsState): void
   useDevOffline(name: string): void
@@ -103,6 +107,31 @@ interface State {
   refreshVersions(): Promise<void>
   refreshKairo(): Promise<void>
   setKeepUpdated(edition: KairoEdition, on: boolean): void
+}
+
+const EXTRA_NAME: Record<string, Extra['name']> = { sodium: 'Sodium', iris: 'Iris', lithium: 'Lithium' }
+
+function fromCustom(c: CustomInstallInfo): Install {
+  return {
+    id: c.id,
+    name: c.name,
+    edition: 'other',
+    mc: c.mc,
+    loader: c.loader,
+    extras: c.extras.map((x) => EXTRA_NAME[x]).filter((x): x is Extra['name'] => !!x),
+    mods: c.mods,
+    playMinutes: c.playMinutes,
+    lastPlayed: c.lastPlayed,
+    keepUpdated: false,
+    installed: c.installed,
+    ...(c.modpack ? { modpack: c.modpack.name } : {})
+  }
+}
+
+function playTarget(selection: Selection): PlayTarget {
+  if (selection.edition === 'vanilla') return { kind: 'vanilla', mc: selection.mc }
+  if (selection.edition === 'other') return { kind: 'custom', id: selection.installId ?? '' }
+  return { kind: 'kairo', edition: selection.edition === 'void' ? 'void' : 'kairo' }
 }
 
 function applyKairo(installs: Install[], status: KairoStatus): Install[] {
@@ -177,30 +206,24 @@ export const useStore = create<State>()((set, get) => ({
     set({ selection: { ...selection, installId }, homeView: 'home', screen: 'home', notice: null })
   },
 
-  createOther: (loader, mc, extras) => {
-    const L = LOADERS[loader]
-    const installs = get().installs
-    const install: Install = {
-      id: `other-${Date.now().toString(36)}`,
-      name: uniqueName(installs, L.name),
-      edition: 'other',
-      mc,
-      loader,
-      extras,
-      mods: [{ name: `${L.name}${loader === 'optifine' ? '' : ' Loader'}`, version: 'latest' }, ...extras.map((name) => ({ name, version: 'latest' }))],
-      playMinutes: 0,
-      lastPlayed: null,
-      keepUpdated: false,
-      installed: false
-    }
-    set({
-      installs: [...installs, install],
-      selection: { edition: 'other', mc, installId: install.id },
+  customCreated: (install) => {
+    set((st) => ({
+      installs: [...st.installs.filter((i) => i.id !== install.id), fromCustom(install)],
+      selection: { edition: 'other', mc: install.mc, installId: install.id },
       librarySel: install.id,
       homeView: 'home',
       screen: 'home',
       notice: null
-    })
+    }))
+  },
+
+  refreshCustom: async () => {
+    try {
+      const list = await window.kairo.installs.list()
+      set((st) => ({ installs: [...st.installs.filter((i) => i.edition !== 'other'), ...list.map(fromCustom)] }))
+    } catch {
+      // keep what we have
+    }
   },
 
   playOrStop: () => {
@@ -211,9 +234,10 @@ export const useStore = create<State>()((set, get) => ({
     }
     if (game.phase !== 'idle') return
 
-    // Other installs come in Phase 5; Lite isn't out yet.
-    if (selection.edition === 'other' || selection.edition === 'lite') {
-      set({ notice: 'Custom installs arrive in Phase 5.\nPick Kairo, Kairo Void or a Vanilla version for now.' })
+    // Lite isn't out yet; an Other selection must point at a real install.
+    if (selection.edition === 'lite') return
+    if (selection.edition === 'other' && !selection.installId) {
+      set({ notice: 'Create the install first.\nPick Other in the picker and choose a loader.' })
       return
     }
 
@@ -238,8 +262,7 @@ export const useStore = create<State>()((set, get) => ({
     set({ notice: null })
     window.kairo.game
       .play({
-        target:
-          selection.edition === 'vanilla' ? { kind: 'vanilla', mc: selection.mc } : { kind: 'kairo', edition: selection.edition },
+        target: playTarget(selection),
         memoryGB: Math.min(settings.memoryGB, maxMemoryGB(info)),
         javaPath,
         fullscreen: settings.fullscreen,
@@ -288,7 +311,11 @@ export const useStore = create<State>()((set, get) => ({
       void get().refreshKairo()
     }
     // Play time and last played are saved when the game closes.
-    if (game.phase === 'idle' && before === 'running') void get().refreshKairo()
+    if (game.phase === 'idle' && before === 'running') {
+      void get().refreshKairo()
+      void get().refreshCustom()
+    }
+    if (game.phase !== 'download' && before === 'download') void get().refreshCustom()
   },
 
   refreshVersions: async () => {
@@ -349,5 +376,6 @@ export function describeSelection(selection: Selection, installs: Install[]): Se
   const loaderName = install?.loader ? LOADERS[install.loader].name : 'Custom'
   const extras = install?.extras ?? []
   const withExtras = extras.length ? `, with ${extras.join(' and ')}.` : ', no extra mods.'
-  return { title: install?.name ?? loaderName, mc: selection.mc, blurb: `${loaderName} for Minecraft ${selection.mc}${withExtras}` }
+  if (install?.modpack) return { title: install.modpack, mc: selection.mc, blurb: `A ${loaderName} modpack for Minecraft ${selection.mc}.` }
+  return { title: loaderName, mc: selection.mc, blurb: `${loaderName} for Minecraft ${selection.mc}${withExtras}` }
 }

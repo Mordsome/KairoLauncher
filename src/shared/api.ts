@@ -17,7 +17,13 @@ export const IPC = {
   authSignIn: 'auth:sign-in',
   authCancel: 'auth:cancel',
   authSwitch: 'auth:switch',
-  authSignOut: 'auth:sign-out'
+  authSignOut: 'auth:sign-out',
+  loaderVersions: 'loaders:versions',
+  loaderExtras: 'loaders:extras',
+  loaderOpenDownloadPage: 'loaders:open-download-page',
+  installsList: 'installs:list',
+  installsCreate: 'installs:create',
+  installsImportModpack: 'installs:import-modpack'
 } as const
 
 export interface AccountSummary {
@@ -66,7 +72,52 @@ export interface VersionList {
   ready: string[]
 }
 
-export type PlayTarget = { kind: 'vanilla'; mc: string } | { kind: 'kairo'; edition: KairoEdition }
+export type PlayTarget = { kind: 'vanilla'; mc: string } | { kind: 'kairo'; edition: KairoEdition } | { kind: 'custom'; id: string }
+
+export type CustomLoader = 'fabric' | 'neoforge' | 'forge' | 'optifine'
+
+export interface LoaderVersions {
+  /** Minecraft versions the loader supports, newest first. */
+  mcs: string[]
+  /** The loader version the launcher would use per Minecraft version (NeoForge, Forge). */
+  loaderVersions: Record<string, string>
+}
+
+export interface ExtraInfo {
+  /** Modrinth project slug. */
+  id: string
+  name: string
+  sub: string
+}
+
+export interface CustomInstallInfo {
+  id: string
+  name: string
+  mc: string
+  loader: CustomLoader
+  loaderVersion: string | null
+  /** Extras the player asked for. */
+  extras: string[]
+  /** What the launcher put in mods/ (after the first Play). */
+  mods: ModInfo[]
+  installed: boolean
+  lastPlayed: number | null
+  playMinutes: number
+  /** Set for installs made from a modpack. */
+  modpack: { name: string; version: string } | null
+}
+
+export interface CreateCustomRequest {
+  loader: CustomLoader
+  mc: string
+  extras: string[]
+}
+
+/** Creating an install or importing a modpack. A cancelled file dialog is not an error. */
+export type CreateResult =
+  | { ok: true; install: CustomInstallInfo }
+  | { ok: false; cancelled: true }
+  | { ok: false; cancelled: false; error: { title: string; message: string } }
 
 export interface ModInfo {
   name: string
@@ -139,6 +190,19 @@ export interface KairoApi {
   kairo: {
     status(): Promise<KairoStatus>
     setKeepUpdated(edition: KairoEdition, on: boolean): Promise<KairoStatus>
+  }
+  loaders: {
+    versions(loader: CustomLoader): Promise<LoaderVersions>
+    /** Sodium, Iris and Lithium, where Modrinth has them for this loader and version. */
+    extras(loader: CustomLoader, mc: string): Promise<ExtraInfo[]>
+    /** Forge and OptiFine: opens their official download page in the browser. */
+    openDownloadPage(loader: 'forge' | 'optifine', mc: string): Promise<void>
+  }
+  installs: {
+    list(): Promise<CustomInstallInfo[]>
+    /** Fabric and NeoForge are created directly; Forge and OptiFine ask for the downloaded installer. */
+    create(request: CreateCustomRequest): Promise<CreateResult>
+    importModpack(): Promise<CreateResult>
   }
   auth: {
     state(): Promise<AccountsState>

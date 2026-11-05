@@ -13,7 +13,7 @@
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {
-    "postinstall": "install-electron",
+    "postinstall": "install-electron && node scripts/fix-xmcl-unzip.mjs",
     "dev": "electron-vite dev",
     "dev:offline": "electron-vite dev --mode offline",
     "build": "npm run typecheck && electron-vite build && node scripts/check-release.mjs",
@@ -30,6 +30,7 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/yazl": "^3.3.1",
     "@vitejs/plugin-react": "^6.2.1",
     "electron": "^45.2.2",
     "electron-vite": "^6.0.0",
@@ -38,6 +39,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.1.0",
+    "yazl": "^2.5.1",
     "zustand": "^5.0.16"
   },
   "overrides": {

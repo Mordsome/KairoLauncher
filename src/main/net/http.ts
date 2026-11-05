@@ -27,6 +27,10 @@ const ALLOWED: Record<string, string[] | null> = {
   // Fabric: loader versions and libraries
   'meta.fabricmc.net': null,
   'maven.fabricmc.net': null,
+  // NeoForge and Forge: version lists, installers' checksums and libraries
+  'maven.neoforged.net': null,
+  'maven.minecraftforge.net': null,
+  'files.minecraftforge.net': ['/net/minecraftforge/forge/promotions_slim.json'],
   // Modrinth: Fabric API, Sodium and other mods
   'api.modrinth.com': ['/v2/'],
   'cdn.modrinth.com': ['/data/'],

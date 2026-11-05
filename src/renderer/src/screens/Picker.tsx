@@ -1,4 +1,5 @@
-import { useState, type KeyboardEvent, type RefObject } from 'react'
+import { useEffect, useState, type KeyboardEvent, type RefObject } from 'react'
+import type { CreateResult, ExtraInfo, LoaderVersions } from '../../../shared/api'
 import { BackIcon, TickIcon } from '../components/Icons'
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
 import {
@@ -209,25 +210,79 @@ function VanillaGrid({ onDone }: { onDone(): void }) {
   )
 }
 
+// Shown first when a loader supports them; everything else is under "More…".
+const POPULAR = ['26.3', '1.21.1', '1.20.1', '1.16.5', '1.12.2', '1.8.9']
+
 function OtherBuilder() {
-  const createOther = useStore((s) => s.createOther)
-  const go = useStore((s) => s.go)
+  const customCreated = useStore((s) => s.customCreated)
   const [loader, setLoader] = useState<LoaderId>('fabric')
   const [mc, setMc] = useState('1.20.1')
   const [more, setMore] = useState(false)
-  const [extras, setExtras] = useState<Record<Extra['id'], boolean>>({ sodium: true, iris: true, lithium: false })
+  const [picked, setPicked] = useState<Record<Extra['id'], boolean>>({ sodium: true, iris: true, lithium: false })
+  const [versions, setVersions] = useState<LoaderVersions | null>(null)
+  const [available, setAvailable] = useState<ExtraInfo[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<{ title: string; message: string } | null>(null)
 
+  // Minecraft versions, live from the loader's official source.
+  useEffect(() => {
+    let live = true
+    setVersions(null)
+    window.kairo.loaders.versions(loader).then(
+      (v) => live && setVersions(v),
+      () => live && setVersions({ mcs: [], loaderVersions: {} })
+    )
+    return () => {
+      live = false
+    }
+  }, [loader])
+
+  const all = versions?.mcs ?? []
+  const mcOk = all.includes(mc) ? mc : (POPULAR.find((p) => all.includes(p)) ?? all[0] ?? mc)
+  const popular = POPULAR.filter((p) => all.includes(p)).slice(0, 4)
+  const shortList = popular.length ? (popular.includes(mcOk) ? popular : [...popular, mcOk]) : all.slice(0, 4)
+  const mcList = more ? all : shortList
+  const handOff = loader === 'forge' || loader === 'optifine'
+
+  // Extras Modrinth actually has for this loader and version.
+  useEffect(() => {
+    let live = true
+    setAvailable(null)
+    if (!versions || handOff) {
+      setAvailable([])
+      return
+    }
+    window.kairo.loaders.extras(loader, mcOk).then(
+      (x) => live && setAvailable(x),
+      () => live && setAvailable([])
+    )
+    return () => {
+      live = false
+    }
+  }, [loader, mcOk, versions, handOff])
+
+  const chosen = (available ?? []).filter((x) => picked[x.id as Extra['id']])
   const L = LOADERS[loader]
-  const mcOk = L.all.includes(mc) ? mc : (L.popular[0] ?? mc)
-  const shortList = L.popular.includes(mcOk) ? L.popular : [...L.popular, mcOk]
-  const mcList = more ? L.all : shortList
-  const chosen = L.extras.filter((x) => extras[x.id]).map((x) => x.name)
+  const forgeVersion = versions?.loaderVersions[mcOk]
+
+  const finish = async (result: Promise<CreateResult>) => {
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await result
+      if (r.ok) customCreated(r.install)
+      else if (!r.cancelled) setError(r.error)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const create = () => void finish(window.kairo.installs.create({ loader, mc: mcOk, extras: chosen.map((x) => x.id) }))
 
   const note =
     loader === 'optifine'
-      ? 'OptiFine is downloaded from optifine.net, which is the only place allowed to share it.'
+      ? 'OptiFine is downloaded from optifine.net, which is the only place allowed to share it. Get it there, then choose the file here.'
       : loader === 'forge'
-        ? 'Forge and its mods come from their official sites.'
+        ? `Forge asks to be downloaded from its own site, which its ads pay for${forgeVersion ? ` (Forge ${forgeVersion} is the one to get)` : ''}. Then choose the file here.`
         : `Mods come from Modrinth, always the version made for ${mcOk}.`
 
   return (
@@ -247,7 +302,7 @@ function OtherBuilder() {
               tabIndex={rovingTabIndex(id === loader)}
               onClick={() => {
                 setLoader(id)
-                if (!LOADERS[id].all.includes(mc)) setMc(LOADERS[id].popular[0] ?? mc)
+                setError(null)
               }}
             >
               {LOADERS[id].name}
@@ -264,10 +319,12 @@ function OtherBuilder() {
         <div
           role="radiogroup"
           aria-labelledby="mc-label"
+          aria-busy={!versions}
           className={more ? 'chips chips-scroll scroll' : 'chips'}
           data-roving
           onKeyDown={(e) => rovingKeyDown(e, { select: true })}
         >
+          {!versions && <span className="field-label">Checking {L.name}…</span>}
           {mcList.map((v) => (
             <button
               key={v}
@@ -281,26 +338,29 @@ function OtherBuilder() {
               {v}
             </button>
           ))}
-          <button type="button" className="chip chip-more" aria-expanded={more} onClick={() => setMore(!more)}>
-            {more ? 'Fewer' : 'More…'}
-          </button>
+          {versions && all.length > shortList.length && (
+            <button type="button" className="chip chip-more" aria-expanded={more} onClick={() => setMore(!more)}>
+              {more ? 'Fewer' : 'More…'}
+            </button>
+          )}
         </div>
       </div>
 
-      {L.extras.length > 0 && (
+      {!handOff && (available === null || available.length > 0) && (
         <div className="field">
           <span className="field-label" id="extras-label">
             Add to it
           </span>
-          <div className="chips" role="group" aria-labelledby="extras-label">
-            {L.extras.map((x) => (
+          <div className="chips" role="group" aria-labelledby="extras-label" aria-busy={available === null}>
+            {available === null && <span className="field-label">Checking Modrinth…</span>}
+            {(available ?? []).map((x) => (
               <button
                 key={x.id}
                 type="button"
                 role="checkbox"
                 className="chip chip-extra"
-                aria-checked={!!extras[x.id]}
-                onClick={() => setExtras({ ...extras, [x.id]: !extras[x.id] })}
+                aria-checked={!!picked[x.id as Extra['id']]}
+                onClick={() => setPicked({ ...picked, [x.id]: !picked[x.id as Extra['id']] })}
               >
                 <span className="tickbox">
                   <TickIcon />
@@ -315,11 +375,32 @@ function OtherBuilder() {
 
       <p className="builder-note">{note}</p>
 
+      {error && (
+        <p className="builder-error" role="alert">
+          <b>{error.title}</b> {error.message}
+        </p>
+      )}
+
       <div className="builder-actions">
-        <button type="button" className="btn-accent btn-create" onClick={() => createOther(loader, mcOk, chosen)}>
-          Create {L.name} {mcOk}
-        </button>
-        <button type="button" className="link-button" onClick={() => go('library')}>
+        {handOff ? (
+          <>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => void window.kairo.loaders.openDownloadPage(loader as 'forge' | 'optifine', mcOk)}
+            >
+              {loader === 'forge' ? "Open Forge's download page" : 'Open optifine.net'}
+            </button>
+            <button type="button" className="btn-accent btn-create" disabled={busy || !versions} onClick={create}>
+              Choose the downloaded file
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn-accent btn-create" disabled={busy || !versions || !all.length} onClick={create}>
+            Create {L.name} {mcOk}
+          </button>
+        )}
+        <button type="button" className="link-button" disabled={busy} onClick={() => void finish(window.kairo.installs.importModpack())}>
           Import a modpack instead
         </button>
       </div>

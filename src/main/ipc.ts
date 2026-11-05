@@ -1,12 +1,16 @@
 import { app, BrowserWindow, ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { totalmem } from 'node:os'
-import { IPC, type AppInfo, type KairoEdition, type PlayRequest, type Platform, type SignInResult } from '../shared/api'
+import { IPC, type AppInfo, type CustomLoader, type KairoEdition, type PlayRequest, type Platform, type SignInResult } from '../shared/api'
 import { devOfflineAccount } from './account/devOffline'
 import { accounts } from './auth/accounts'
 import { describeAuthError } from './auth/errors'
 import { listVersions } from './game/manifest'
 import type { GameSession } from './game/session'
 import { kairoStatus, setKeepUpdated } from './kairo/status'
+import { listCustom, toInfo } from './installs/custom'
+import { createCustom, importModpack, openDownloadPage } from './loaders/create'
+import { availableExtras } from './loaders/extras'
+import { loaderVersions } from './loaders/meta'
 import { isAppUrl } from './origin'
 import { openExternalSafe } from './security'
 
@@ -23,6 +27,12 @@ function platform(): Platform {
 
 const totalMemoryMB = () => Math.round(totalmem() / (1024 * 1024))
 
+function isLoader(value: unknown): value is CustomLoader {
+  return value === 'fabric' || value === 'neoforge' || value === 'forge' || value === 'optifine'
+}
+
+const isMc = (value: unknown): value is string => typeof value === 'string' && /^[\w.-]{1,32}$/.test(value)
+
 function isEdition(value: unknown): value is KairoEdition {
   return value === 'kairo' || value === 'void'
 }
@@ -37,6 +47,8 @@ export function parsePlayRequest(raw: unknown): PlayRequest | null {
     target = { kind: 'vanilla', mc: t['mc'] }
   } else if (t?.['kind'] === 'kairo' && isEdition(t['edition'])) {
     target = { kind: 'kairo', edition: t['edition'] }
+  } else if (t?.['kind'] === 'custom' && typeof t['id'] === 'string' && /^[0-9a-f]{12}$/.test(t['id'])) {
+    target = { kind: 'custom', id: t['id'] }
   } else {
     return null
   }
@@ -145,5 +157,38 @@ export function registerIpc(session: GameSession): void {
   ipcMain.handle(IPC.authSignOut, (event, uuid: unknown) => {
     if (!fromApp(event) || typeof uuid !== 'string' || !/^[0-9a-f]{32}$/.test(uuid)) throw new Error('Not allowed')
     return accounts.signOut(uuid)
+  })
+
+  ipcMain.handle(IPC.loaderVersions, (event, loader: unknown) => {
+    if (!fromApp(event) || !isLoader(loader)) throw new Error('Not allowed')
+    return loaderVersions(loader)
+  })
+
+  ipcMain.handle(IPC.loaderExtras, (event, loader: unknown, mc: unknown) => {
+    if (!fromApp(event) || !isLoader(loader) || !isMc(mc)) throw new Error('Not allowed')
+    return availableExtras(loader, mc)
+  })
+
+  ipcMain.handle(IPC.loaderOpenDownloadPage, (event, loader: unknown, mc: unknown) => {
+    if (!fromApp(event) || (loader !== 'forge' && loader !== 'optifine') || !isMc(mc)) throw new Error('Not allowed')
+    return openDownloadPage(loader, mc)
+  })
+
+  ipcMain.handle(IPC.installsList, async (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return (await listCustom()).map(toInfo)
+  })
+
+  ipcMain.handle(IPC.installsCreate, (event, raw: unknown) => {
+    if (!fromApp(event) || !raw || typeof raw !== 'object') throw new Error('Not allowed')
+    const r = raw as Record<string, unknown>
+    const extras = Array.isArray(r['extras']) ? r['extras'].filter((x): x is string => typeof x === 'string').slice(0, 8) : []
+    if (!isLoader(r['loader']) || !isMc(r['mc'])) throw new Error('Not allowed')
+    return createCustom({ loader: r['loader'], mc: r['mc'], extras }, BrowserWindow.fromWebContents(event.sender))
+  })
+
+  ipcMain.handle(IPC.installsImportModpack, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return importModpack(BrowserWindow.fromWebContents(event.sender))
   })
 }

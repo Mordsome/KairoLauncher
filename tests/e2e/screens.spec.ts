@@ -42,7 +42,7 @@ test('renderer is locked down', async () => {
     process: typeof (globalThis as Record<string, unknown>)['process'],
     api: Object.keys(window.kairo).sort()
   }))
-  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'game', 'kairo', 'window'] })
+  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'game', 'installs', 'kairo', 'loaders', 'window'] })
 
   // The main process rejects malformed play requests.
   const bad = await page.evaluate(() =>
@@ -204,16 +204,24 @@ test('picker: every edition', async () => {
   await expect(page.getByRole('button', { name: /Choose what to play/ })).toBeFocused()
 })
 
-test('create an Other install; Play explains what works so far', async () => {
+test('Other builder: live versions, Modrinth extras, Forge and OptiFine hand-off', async () => {
   await page.getByRole('button', { name: /Choose what to play/ }).click()
   await page.getByRole('radio', { name: /^Other/ }).click()
-  await page.getByRole('button', { name: 'Create Fabric 1.20.1' }).click()
-  await expect(page.getByRole('heading', { name: 'Fabric', exact: true })).toBeVisible()
-  await expect(page.getByText('Fabric for Minecraft 1.20.1, with Sodium and Iris.')).toBeVisible()
-  await shot('13-home-other')
+  await expect(page.getByRole('button', { name: 'Create Fabric 1.20.1' })).toBeVisible()
+  // Extras come from Modrinth for this loader and version.
+  await expect(page.getByRole('checkbox', { name: /^Sodium/ })).toBeVisible({ timeout: 20_000 })
+  await shot('13-other-fabric')
 
-  await page.getByRole('button', { name: /^Play Fabric/ }).click()
-  await expect(page.getByRole('status')).toContainText('Custom installs arrive in Phase 5')
+  await page.getByRole('radio', { name: 'Forge', exact: true }).click()
+  await expect(page.getByRole('button', { name: "Open Forge's download page" })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Choose the downloaded file' })).toBeVisible()
+  await expect(page.getByText(/Forge asks to be downloaded from its own site/)).toBeVisible()
+  await shot('13b-other-forge')
+
+  await page.getByRole('radio', { name: 'OptiFine' }).click()
+  await expect(page.getByRole('button', { name: 'Open optifine.net' })).toBeVisible()
+  await page.getByRole('radio', { name: 'Fabric' }).click()
+  await page.keyboard.press('Escape')
 })
 
 test('Vanilla uses the live version list', async () => {

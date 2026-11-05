@@ -572,8 +572,13 @@
 
 .builder-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 12px 14px;
+}
+
+.builder-actions .link-button {
+  white-space: nowrap;
 }
 
 .btn-create {
@@ -598,4 +603,11 @@
   .fill {
     transition: none;
   }
+}
+
+.builder-error {
+  font-size: 14px;
+  line-height: 1.45;
+  color: #ffb4a8;
+  max-width: 46ch;
 }

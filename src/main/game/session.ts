@@ -1,12 +1,17 @@
 import { createMinecraftProcessWatcher, launch, MinecraftFolder, Version, type ResolvedVersion } from '@xmcl/core'
 import type { ChildProcess } from 'node:child_process'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app } from 'electron'
 import type { GameState, KairoEdition, PlayRequest } from '../../shared/api'
+import { customDir, getCustom, writeCustom } from '../installs/custom'
+import { downloadMods, modrinthLoader, resolveModrinthMods } from '../loaders/extras'
+import { installForge, installNeoForge } from '../loaders/forge'
+import { loaderVersions } from '../loaders/meta'
+import { installOptifine } from '../loaders/optifine'
 import type { GameAccount } from '../account/types'
 import { describeError, KairoError } from '../errors'
-import { emptyRecord, readRecord, writeRecord } from '../installs/record'
+import { emptyRecord, readRecord, RECORD_FILE, writeRecord } from '../installs/record'
 import { fabricLibraryFiles, installFabricProfile, pickFabricLoader } from '../kairo/fabric'
 import { installDir, resolveKairoTarget, syncMods } from '../kairo/install'
 import { dataPaths, safeName } from '../paths'
@@ -26,6 +31,21 @@ export interface SessionHooks {
   onExit(): void
 }
 
+/** Updates last played / play time in an install's kairo-launcher.json, whatever kind it is. */
+async function touchRecord(dir: string, change: { lastPlayed?: number; addMinutes?: number }): Promise<void> {
+  const file = join(dir, RECORD_FILE)
+  try {
+    const record = JSON.parse(await readFile(file, 'utf8')) as { lastPlayed?: number | null; playMinutes?: number }
+    if (typeof record !== 'object' || record === null) return
+    record.lastPlayed = change.lastPlayed ?? record.lastPlayed ?? null
+    record.playMinutes = Math.round((record.playMinutes ?? 0) + (change.addMinutes ?? 0))
+    await writeFile(`${file}.tmp`, JSON.stringify(record, null, 2))
+    await rename(`${file}.tmp`, file)
+  } catch {
+    // play time is nice to have; never fail a game over it
+  }
+}
+
 const IDLE: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null }
 
 type Stages = Record<'meta' | 'game' | 'assets' | 'java' | 'mods', Stage>
@@ -36,8 +56,8 @@ interface Prepared {
   version: ResolvedVersion
   javaPath: string
   gamePath: string
-  /** Kairo installs keep last played and play time in their record. */
-  edition: KairoEdition | null
+  /** Folder whose kairo-launcher.json keeps last played and play time (Kairo and custom installs). */
+  recordDir: string | null
 }
 
 /** One game at a time: install what's missing, start it, watch it, stop it. */
@@ -91,7 +111,9 @@ export class GameSession {
       const prepared =
         target.kind === 'vanilla'
           ? await this.prepareVanilla(target.mc, request, stages, signal)
-          : await this.prepareKairo(target.edition, request, stages, signal)
+          : target.kind === 'kairo'
+            ? await this.prepareKairo(target.edition, request, stages, signal)
+            : await this.prepareCustom(target.id, request, stages, signal)
       clearInterval(timer)
       await this.start(prepared, request, account)
     } catch (error) {
@@ -109,7 +131,7 @@ export class GameSession {
     const entry = await findVersion(mc)
     if (!entry) throw new KairoError('unknown-version', `Mojang has no Minecraft ${mc}.`)
     const { version, javaPath } = await this.installBase(entry, request, stages, signal)
-    return { version, javaPath, gamePath: join(dataPaths().installs, safeName(`vanilla-${version.id}`)), edition: null }
+    return { version, javaPath, gamePath: join(dataPaths().installs, safeName(`vanilla-${version.id}`)), recordDir: null }
   }
 
   private async prepareKairo(edition: KairoEdition, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
@@ -144,7 +166,63 @@ export class GameSession {
       keepUpdated
     })
     stages.mods.done = true
-    return { version, javaPath, gamePath: dir, edition }
+    return { version, javaPath, gamePath: dir, recordDir: dir }
+  }
+
+  /** "Other" installs and modpacks: the loader the record names, then its mods. */
+  private async prepareCustom(id: string, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
+    const record = await getCustom(id)
+    if (!record) throw new KairoError('unknown-version', 'This install no longer exists.')
+    const dir = customDir(record)
+    const folder = MinecraftFolder.from(dataPaths().game)
+    const entry = await findVersion(record.mc)
+    if (!entry) throw new KairoError('unknown-version', `Mojang has no Minecraft ${record.mc}.`)
+    // Forge and NeoForge run their installers with the game's own Java, so that comes first.
+    const { javaPath } = await this.installBase(entry, request, stages, signal)
+
+    let version: ResolvedVersion
+    let loaderVersion = record.loaderVersion
+    switch (record.loader) {
+      case 'fabric': {
+        loaderVersion = await pickFabricLoader(record.mc, undefined, record.loaderVersion)
+        const versionId = await installFabricProfile(record.mc, loaderVersion, folder, stages.mods, signal)
+        version = await Version.parse(folder, versionId)
+        await stages.mods.run(
+          { schemaVersion: 1, tasks: [{ id: 'fabric-libraries', type: 'files', files: await fabricLibraryFiles(version, folder, signal) }] },
+          signal
+        )
+        break
+      }
+      case 'neoforge': {
+        loaderVersion ??= (await loaderVersions('neoforge')).loaderVersions[record.mc] ?? null
+        if (!loaderVersion) throw new KairoError('unknown-version', `NeoForge has no version for Minecraft ${record.mc}.`)
+        version = await installNeoForge(loaderVersion, record.mc, javaPath, folder, stages.mods, signal)
+        break
+      }
+      case 'forge': {
+        const installer = record.installer
+        if (!installer?.artifactVersion) throw new KairoError('unknown-version', 'This install has no Forge installer. Create it again.')
+        version = await installForge(join(dir, installer.file), installer.sha1, installer.artifactVersion, record.mc, javaPath, folder, stages.mods, signal)
+        break
+      }
+      case 'optifine': {
+        if (!record.installer) throw new KairoError('unknown-version', 'This install has no OptiFine file. Create it again.')
+        version = await installOptifine(join(dir, record.installer.file), record.installer.sha1, javaPath, folder, stages.mods, signal)
+        break
+      }
+    }
+
+    // Mods: the recorded ones (a modpack, or an earlier Play), or the picked extras, chosen once and then kept.
+    let mods = record.mods
+    const loader = modrinthLoader(record.loader)
+    if (mods.length === 0 && record.wanted.length > 0 && loader) {
+      mods = await resolveModrinthMods(record.wanted, record.mc, loader, dir, stages.mods, signal)
+    } else {
+      await downloadMods(mods, dir, stages.mods, signal)
+    }
+    await writeCustom({ ...record, loaderVersion, versionId: version.id, mods })
+    stages.mods.done = true
+    return { version, javaPath, gamePath: dir, recordDir: dir }
   }
 
   /** The vanilla version and its Java, downloaded side by side. */
@@ -173,7 +251,7 @@ export class GameSession {
   }
 
   private async start(prepared: Prepared, request: PlayRequest, account: GameAccount): Promise<void> {
-    const { version, javaPath, gamePath, edition } = prepared
+    const { version, javaPath, gamePath, recordDir } = prepared
     await mkdir(gamePath, { recursive: true })
     this.set({ phase: 'launch', progress: 1, detail: 'Starting Minecraft' })
 
@@ -218,7 +296,7 @@ export class GameSession {
       running = true
       this.set({ phase: 'running', detail: '' })
       this.hooks.onRunning(request.hideWhilePlaying)
-      if (edition) void this.touchRecord(edition, { lastPlayed: Date.now() })
+      if (recordDir) void touchRecord(recordDir, { lastPlayed: Date.now() })
     }
     const fallback = setTimeout(markRunning, READY_FALLBACK_MS)
 
@@ -230,22 +308,13 @@ export class GameSession {
     })
     watcher.on('minecraft-exit', ({ code, crashReportLocation }) => {
       clearTimeout(fallback)
-      if (edition && running) void this.touchRecord(edition, { addMinutes: (Date.now() - startedAt) / 60_000 })
+      if (recordDir && running) void touchRecord(recordDir, { addMinutes: (Date.now() - startedAt) / 60_000 })
       const crashed = !this.stoppedByUser && code !== 0
       this.finish({ ...IDLE, crash: crashed ? { crashReport: crashReportLocation || null } : null })
     })
   }
 
-  private async touchRecord(edition: KairoEdition, change: { lastPlayed?: number; addMinutes?: number }): Promise<void> {
-    const dir = installDir(edition)
-    const record = await readRecord(dir)
-    if (!record) return
-    await writeRecord(dir, {
-      ...record,
-      lastPlayed: change.lastPlayed ?? record.lastPlayed,
-      playMinutes: Math.round(record.playMinutes + (change.addMinutes ?? 0))
-    }).catch(() => undefined)
-  }
+
 
   private finish(state: GameState): void {
     this.process = null

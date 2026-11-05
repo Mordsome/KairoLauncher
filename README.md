@@ -54,6 +54,27 @@ With **Keep Kairo updated** on, every Play moves Kairo, Fabric Loader, Fabric AP
 the newest versions that match. With it off, the install stays exactly as recorded. Files a
 player adds to `mods/` are left alone; a Kairo jar of the other edition is removed.
 
+### Other installs and modpacks
+
+**Other** builds an install from a loader and a Minecraft version, both read live from the
+loader's official source, plus optional Sodium, Iris and Lithium from Modrinth (only offered
+where Modrinth has them for that loader and version; their required dependencies come along).
+Versions are chosen on the first Play and then kept.
+
+| Loader | Where it comes from |
+| --- | --- |
+| Fabric | Fabric's meta and maven, checked against Fabric's SHA-1 |
+| NeoForge | NeoForge's maven, checked against the `.sha1` it publishes |
+| Forge | Forge asks launchers not to download it automatically (its download page's ads pay for it). The launcher opens Forge's own page; the player downloads the installer and picks it; it's checked against the SHA-1 Forge publishes before it's used. |
+| OptiFine | Its licence forbids redistributing or automatically downloading it. The launcher opens optifine.net; the player downloads the jar and picks it. |
+
+**Modpacks** (`.mrpack`) are untrusted input: every file path must stay inside the install
+folder, every download must come from a service the launcher already talks to (in practice
+Modrinth's CDN; packs that need anything else are refused, so the Privacy tab stays true), every
+file is checked against the pack's SHA-512, and unpacked files have size limits. Fabric and
+NeoForge packs install directly; Forge packs ask for the Forge installer the same way as above.
+Quilt isn't supported.
+
 ## Licence
 
 GPL-3.0. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

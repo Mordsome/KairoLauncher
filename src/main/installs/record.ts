@@ -14,7 +14,7 @@ export interface ManagedMod {
   version: string
   filename: string
   url: string
-  hash: { algorithm: 'sha256' | 'sha512'; value: string }
+  hash: { algorithm: 'sha1' | 'sha256' | 'sha512'; value: string }
 }
 
 export interface InstallRecord {
@@ -63,6 +63,8 @@ export async function readRecord(dir: string): Promise<InstallRecord | null> {
   try {
     const parsed: unknown = JSON.parse(text)
     if (isRecord(parsed)) return parsed
+    // A custom install's record (see custom.ts) is fine, just not a Kairo one.
+    if ((parsed as { kind?: unknown } | null)?.kind === 'custom') return null
   } catch {
     // fall through to backup
   }

@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IPC,
   type AccountsState,
+  type CreateCustomRequest,
+  type CreateResult,
+  type CustomInstallInfo,
+  type CustomLoader,
+  type ExtraInfo,
+  type LoaderVersions,
   type SignInResult,
   type AppInfo,
   type GameState,
@@ -35,6 +41,16 @@ const api: KairoApi = {
         ipcRenderer.removeListener(IPC.gameStateChanged, handler)
       }
     }
+  },
+  loaders: {
+    versions: (loader: CustomLoader) => ipcRenderer.invoke(IPC.loaderVersions, loader) as Promise<LoaderVersions>,
+    extras: (loader: CustomLoader, mc: string) => ipcRenderer.invoke(IPC.loaderExtras, loader, String(mc)) as Promise<ExtraInfo[]>,
+    openDownloadPage: (loader: 'forge' | 'optifine', mc: string) => ipcRenderer.invoke(IPC.loaderOpenDownloadPage, loader, String(mc)) as Promise<void>
+  },
+  installs: {
+    list: () => ipcRenderer.invoke(IPC.installsList) as Promise<CustomInstallInfo[]>,
+    create: (request: CreateCustomRequest) => ipcRenderer.invoke(IPC.installsCreate, request) as Promise<CreateResult>,
+    importModpack: () => ipcRenderer.invoke(IPC.installsImportModpack) as Promise<CreateResult>
   },
   auth: {
     state: () => ipcRenderer.invoke(IPC.authState) as Promise<AccountsState>,
