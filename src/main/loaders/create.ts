@@ -50,7 +50,7 @@ async function attachForge(win: BrowserWindow | null, record: CustomRecord, want
   const dir = join(dataPaths().installs, name)
   await mkdir(join(dir, '.kairo'), { recursive: true })
   await copyFile(file, join(dir, relative))
-  return { ...record, name, mc: info.mc, loaderVersion: info.forgeVersion, installer: { file: relative, sha1, artifactVersion: info.artifactVersion } }
+  return { ...record, name, folder: record.folder || name, mc: info.mc, loaderVersion: info.forgeVersion, installer: { file: relative, sha1, artifactVersion: info.artifactVersion } }
 }
 
 export async function createCustom(request: CreateCustomRequest, win: BrowserWindow | null): Promise<CreateResult> {

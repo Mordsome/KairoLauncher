@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { safeRelative } from './mrpack'
-import type { CustomLoader, ExtraInfo } from '../../shared/api'
+import type { CustomLoader, ExtraInfo, InstallLoader } from '../../shared/api'
 import { KairoError } from '../errors'
 import type { Stage } from '../game/runtime'
 import type { ManagedMod } from '../installs/record'
@@ -15,7 +15,7 @@ export const EXTRAS: ExtraInfo[] = [
   { id: 'lithium', name: 'Lithium', sub: 'smoother' }
 ]
 
-export function modrinthLoader(loader: CustomLoader): 'fabric' | 'neoforge' | null {
+export function modrinthLoader(loader: InstallLoader): 'fabric' | 'neoforge' | null {
   return loader === 'fabric' || loader === 'neoforge' ? loader : null
 }
 

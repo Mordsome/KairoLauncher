@@ -1,6 +1,13 @@
+import { useEffect, useState } from 'react'
 import { PlayIcon } from '../components/Icons'
 import { LOADERS, type EditionId } from '../data/catalog'
 import { useStore, type Install } from '../state/store'
+import { ChangeVersionDialog, DeleteDialog, LogsDialog, RenameDialog } from './LibraryDialogs'
+
+/** Modpacks pin their own versions; Forge and OptiFine need a new installer file. */
+function canChangeVersion(i: Install): boolean {
+  return !i.modpack && i.loader !== 'forge' && i.loader !== 'optifine'
+}
 
 const THUMB: Record<EditionId, string> = {
   kairo: 'thumb-kairo',
@@ -60,6 +67,28 @@ export function LibraryScreen({ active }: { active: boolean }) {
 
   const detail = installs.find((i) => i.id === librarySel) ?? installs[0]
   const isKairo = detail?.edition === 'kairo' || detail?.edition === 'void'
+
+  const refreshCustom = useStore((s) => s.refreshCustom)
+  const [dialog, setDialog] = useState<'logs' | 'rename' | 'version' | 'delete' | null>(null)
+  const [problem, setProblem] = useState<{ title: string; message: string } | null>(null)
+  const close = () => setDialog(null)
+  const done = () => {
+    setDialog(null)
+    setProblem(null)
+    void refreshCustom()
+  }
+
+  // A problem belongs to the install it happened on.
+  useEffect(() => setProblem(null), [detail?.id])
+
+  const duplicate = async () => {
+    if (!detail) return
+    const r = await window.kairo.installs.duplicate(detail.id)
+    if (!r.ok) return setProblem(r.error)
+    setProblem(null)
+    await refreshCustom()
+    setLibrarySel(r.install.id)
+  }
 
   const playDetail = () => {
     if (!detail) return
@@ -159,13 +188,46 @@ export function LibraryScreen({ active }: { active: boolean }) {
                 <PlayIcon size={18} />
                 Play
               </button>
-              <button type="button" className="btn-ghost">
+              <button type="button" className="btn-ghost" onClick={() => void window.kairo.installs.openFolder(detail.id)}>
                 Open folder
               </button>
             </div>
+
+            <div className="detail-more" role="group" aria-label="More for this install">
+              <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('logs')}>
+                Logs
+              </button>
+              {!isKairo && (
+                <>
+                  <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('rename')}>
+                    Rename
+                  </button>
+                  <button type="button" className="btn-ghost btn-small" onClick={() => void duplicate()} disabled={phase !== 'idle'}>
+                    Duplicate
+                  </button>
+                  {canChangeVersion(detail) && (
+                    <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('version')} disabled={phase !== 'idle'}>
+                      Change version
+                    </button>
+                  )}
+                  <button type="button" className="btn-ghost btn-small btn-danger-text" onClick={() => setDialog('delete')} disabled={phase !== 'idle'}>
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+            {problem && (
+              <p className="detail-error" role="alert">
+                <b>{problem.title}</b> {problem.message}
+              </p>
+            )}
           </aside>
         )}
       </div>
+      {detail && dialog === 'logs' && <LogsDialog install={detail} onClose={close} />}
+      {detail && dialog === 'rename' && <RenameDialog install={detail} onDone={done} onClose={close} />}
+      {detail && dialog === 'version' && <ChangeVersionDialog install={detail} onDone={done} onClose={close} />}
+      {detail && dialog === 'delete' && <DeleteDialog install={detail} onDone={done} onClose={close} />}
     </div>
   )
 }

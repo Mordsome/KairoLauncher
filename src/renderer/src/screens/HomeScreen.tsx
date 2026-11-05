@@ -1,7 +1,8 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { EDITION_ORDER, type EditionId } from '../data/catalog'
 import { GridIcon, PlayIcon } from '../components/Icons'
 import { describeSelection, lookEdition, useStore } from '../state/store'
+import { LogsDialog } from './LibraryDialogs'
 import { Picker } from './Picker'
 
 const BG_CLASS: Record<EditionId, string> = {
@@ -54,8 +55,13 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
   const account = useStore((s) => s.account)
   const playOrStop = useStore((s) => s.playOrStop)
   const openPicker = useStore((s) => s.openPicker)
+  const [showLog, setShowLog] = useState(false)
 
   const sel = describeSelection(selection, installs)
+  // The install that just ran: the selected one, or the vanilla install for that version.
+  const crashed =
+    installs.find((i) => i.id === selection.installId) ??
+    (selection.edition === 'vanilla' ? installs.find((i) => i.edition === 'vanilla' && i.mc === selection.mc) : undefined)
   const { phase, progress } = game
   const percent = Math.round(progress * 100)
 
@@ -72,7 +78,7 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
   const idleStatus = () => {
     if (notice) return notice
     if (game.error) return `${game.error.title}\n${game.error.message}`
-    if (game.crash) return 'Minecraft closed unexpectedly\nThe crash report is in the install’s folder'
+    if (game.crash) return `${game.crash.title}\n${game.crash.message}`
     const who = account?.uuid === null ? `Offline dev account: ${account.name}` : `Signed in as ${account?.name ?? ''}`
     return `${who}\nReady to play`
   }
@@ -118,7 +124,22 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
         <span className="status" role="status" data-tone={phase === 'idle' && (game.error || game.crash) ? 'error' : undefined}>
           {status}
         </span>
+        {phase === 'idle' && game.crash && !notice && (
+          <div className="crash-actions">
+            {game.crash.hasReport && (
+              <button type="button" className="btn-ghost btn-small" onClick={() => void window.kairo.game.openCrashReport()}>
+                Open crash report
+              </button>
+            )}
+            {crashed && (
+              <button type="button" className="btn-ghost btn-small" onClick={() => setShowLog(true)}>
+                View log
+              </button>
+            )}
+          </div>
+        )}
       </div>
+      {showLog && crashed && <LogsDialog install={crashed} onClose={() => setShowLog(false)} />}
     </section>
   )
 }

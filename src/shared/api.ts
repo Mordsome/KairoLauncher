@@ -23,7 +23,17 @@ export const IPC = {
   loaderOpenDownloadPage: 'loaders:open-download-page',
   installsList: 'installs:list',
   installsCreate: 'installs:create',
-  installsImportModpack: 'installs:import-modpack'
+  installsImportModpack: 'installs:import-modpack',
+  installsRename: 'installs:rename',
+  installsDuplicate: 'installs:duplicate',
+  installsDelete: 'installs:delete',
+  installsChangeVersion: 'installs:change-version',
+  installsOpenFolder: 'installs:open-folder',
+  gameLogs: 'game:logs',
+  gameOpenCrashReport: 'game:open-crash-report',
+  settingsGet: 'settings:get',
+  settingsSet: 'settings:set',
+  settingsPickJava: 'settings:pick-java'
 } as const
 
 export interface AccountSummary {
@@ -75,6 +85,22 @@ export interface VersionList {
 export type PlayTarget = { kind: 'vanilla'; mc: string } | { kind: 'kairo'; edition: KairoEdition } | { kind: 'custom'; id: string }
 
 export type CustomLoader = 'fabric' | 'neoforge' | 'forge' | 'optifine'
+/** Plain Minecraft installs use the same records as custom ones. */
+export type InstallLoader = CustomLoader | 'vanilla'
+
+export interface LauncherSettings {
+  memoryGB: number
+  customJava: boolean
+  javaPath: string
+  fullscreen: boolean
+  hideWhilePlaying: boolean
+  showSnapshots: boolean
+  matchTheme: boolean
+  autoUpdate: boolean
+  sounds: boolean
+  /** What was selected on Home, restored at the next start. */
+  lastSelection: { edition: 'kairo' | 'void' | 'lite' | 'vanilla' | 'other'; mc: string; installId: string | null } | null
+}
 
 export interface LoaderVersions {
   /** Minecraft versions the loader supports, newest first. */
@@ -94,7 +120,7 @@ export interface CustomInstallInfo {
   id: string
   name: string
   mc: string
-  loader: CustomLoader
+  loader: InstallLoader
   loaderVersion: string | null
   /** Extras the player asked for. */
   extras: string[]
@@ -111,6 +137,16 @@ export interface CreateCustomRequest {
   loader: CustomLoader
   mc: string
   extras: string[]
+}
+
+/** Rename, duplicate, change version: the updated install, or why not. */
+export type LibraryResult = { ok: true; install: CustomInstallInfo } | { ok: false; error: { title: string; message: string } }
+
+/** The game's output for one install: this session's run if there is one, else its last log file. */
+export interface LogView {
+  lines: string[]
+  /** True while this install's game is running (lines keep coming). */
+  live: boolean
 }
 
 /** Creating an install or importing a modpack. A cancelled file dialog is not an error. */
@@ -166,7 +202,7 @@ export interface GameState {
   /** Set when the last attempt failed before the game started. */
   error: GameError | null
   /** Set when the game closed with an error. */
-  crash: { crashReport: string | null } | null
+  crash: { title: string; message: string; hasReport: boolean } | null
 }
 
 export interface KairoApi {
@@ -186,6 +222,9 @@ export interface KairoApi {
     state(): Promise<GameState>
     /** Calls back on every state change. Returns an unsubscribe function. */
     onState(listener: (state: GameState) => void): () => void
+    /** A custom install id, or "kairo" / "void". */
+    logs(ref: string): Promise<LogView>
+    openCrashReport(): Promise<void>
   }
   kairo: {
     status(): Promise<KairoStatus>
@@ -203,6 +242,19 @@ export interface KairoApi {
     /** Fabric and NeoForge are created directly; Forge and OptiFine ask for the downloaded installer. */
     create(request: CreateCustomRequest): Promise<CreateResult>
     importModpack(): Promise<CreateResult>
+    rename(id: string, name: string): Promise<LibraryResult>
+    duplicate(id: string): Promise<LibraryResult>
+    /** Moves the install's folder to the Recycle Bin / Trash. */
+    remove(id: string): Promise<{ ok: true } | { ok: false; error: { title: string; message: string } }>
+    changeVersion(id: string, mc: string): Promise<LibraryResult>
+    /** A custom install id, or "kairo" / "void". */
+    openFolder(ref: string): Promise<void>
+  }
+  settings: {
+    get(): Promise<LauncherSettings>
+    set(settings: LauncherSettings): Promise<LauncherSettings>
+    /** Opens a file dialog for a java program; null if cancelled. */
+    pickJava(): Promise<string | null>
   }
   auth: {
     state(): Promise<AccountsState>

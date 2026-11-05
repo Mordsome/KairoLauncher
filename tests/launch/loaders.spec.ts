@@ -17,6 +17,9 @@ const UA = { 'User-Agent': 'KairoLauncher-tests (github.com/Mordsome/KairoLaunch
 let app: ElectronApplication
 let page: Page
 let userData = ''
+let fabricId = ''
+/** Installs that were there before this run. */
+let existing: string[] = []
 const problems: string[] = []
 
 test.describe.configure({ mode: 'serial' })
@@ -39,10 +42,21 @@ test.beforeAll(async () => {
     g.opened = []
     ;(shell as { openExternal: (url: string) => Promise<void> }).openExternal = async (url: string) => void g.opened.push(url)
   })
+  existing = (await page.evaluate(() => window.kairo.installs.list())).map((i) => i.id)
 })
 
 test.afterAll(async () => {
   await page?.evaluate(() => window.kairo.game.stop()).catch(() => undefined)
+  // Remove the installs this run made, so the Library doesn't fill up with test copies.
+  if (page && app) {
+    await expect.poll(() => page.evaluate(() => window.kairo.game.state().then((s) => s.phase)), { timeout: 30_000 }).toBe('idle')
+    await app.evaluate(({ shell }) => {
+      ;(shell as { trashItem: (p: string) => Promise<void> }).trashItem = async (p: string) =>
+        process.getBuiltinModule('node:fs').rmSync(p, { recursive: true, force: true })
+    })
+    const made = (await page.evaluate(() => window.kairo.installs.list())).filter((i) => !existing.includes(i.id))
+    for (const install of made) await page.evaluate((id) => window.kairo.installs.remove(id), install.id)
+  }
   await app?.close()
 })
 
@@ -131,12 +145,80 @@ test('Fabric 1.20.1 with Sodium, Iris and Lithium, built in the picker', async (
   await page.screenshot({ path: join(SHOTS, 'other-fabric.png') })
   await page.getByRole('button', { name: 'Create Fabric 1.20.1' }).click()
   await expect(page.getByRole('heading', { name: 'Fabric', exact: true })).toBeVisible()
-  const install = (await page.evaluate(() => window.kairo.installs.list())).find((i) => i.loader === 'fabric' && i.mc === '1.20.1')!
+  const install = (await page.evaluate(() => window.kairo.installs.list())).find(
+    (i) => i.loader === 'fabric' && i.mc === '1.20.1' && !existing.includes(i.id)
+  )!
   expect(install.extras.sort()).toEqual(['iris', 'lithium', 'sodium'])
   await playAndCheck(install, [/\bsodium\b/, /\biris\b/, /\blithium\b/])
   const after = (await page.evaluate(() => window.kairo.installs.list())).find((i) => i.id === install.id)!
   expect(after.installed).toBe(true)
   expect(after.mods.map((m) => m.name).join(' ')).toMatch(/Sodium.*|Iris/)
+  fabricId = install.id
+})
+
+test('a crash shows on Home with its report and log', async () => {
+  // A copy of the Fabric install with a mod whose start-up class doesn't exist:
+  // Minecraft writes a crash report and exits.
+  const copy = await page.evaluate((id) => window.kairo.installs.duplicate(id), fabricId)
+  if (!copy.ok) throw new Error(copy.error.message)
+  const dir = join(userData, 'installs', copy.install.name)
+  mkdirSync(join(dir, 'mods'), { recursive: true })
+  await zipTo(join(dir, 'mods', 'kairo-crash-test.jar'), {
+    'fabric.mod.json': JSON.stringify({
+      schemaVersion: 1,
+      id: 'kairo_crash_test',
+      version: '1.0.0',
+      environment: '*',
+      entrypoints: { main: ['kairo.crashtest.DoesNotExist'] }
+    })
+  })
+  await app.evaluate(({ shell }) => {
+    const g = globalThis as unknown as { openedPaths: string[] }
+    g.openedPaths = []
+    ;(shell as { openPath: (p: string) => Promise<string> }).openPath = async (p: string) => {
+      g.openedPaths.push(p)
+      return ''
+    }
+  })
+
+  // Play it from the Library, as a player would (a reload shows the new copy).
+  await page.reload()
+  await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
+  await page.getByRole('button', { name: 'Library' }).click()
+  await page.locator('.librow').filter({ has: page.locator('.librow-name').getByText(copy.install.name, { exact: true }) }).click()
+  await page.locator('.lib-detail').getByRole('button', { name: 'Play' }).click()
+
+  await expect
+    .poll(() => page.evaluate(() => window.kairo.game.state().then((s) => s.crash)), { timeout: 10 * 60_000, intervals: [2000] })
+    .not.toBeNull()
+  const state = await page.evaluate(() => window.kairo.game.state())
+  expect(state.crash?.hasReport).toBe(true)
+  await expect(page.getByRole('status')).toContainText(state.crash!.title)
+  await page.screenshot({ path: join(SHOTS, 'crash-home.png') })
+
+  await page.getByRole('button', { name: 'Open crash report' }).click()
+  await expect
+    .poll(() => app.evaluate(() => (globalThis as unknown as { openedPaths: string[] }).openedPaths))
+    .toEqual([expect.stringMatching(/[\\/]crash-reports[\\/]crash-.*\.txt$/)])
+  const [report] = await app.evaluate(() => (globalThis as unknown as { openedPaths: string[] }).openedPaths)
+  // Inside this install's folder (the data folder itself may be reached by another path).
+  expect(report).toContain(join('installs', copy.install.name, 'crash-reports'))
+
+  await page.getByRole('button', { name: 'View log' }).click()
+  const log = page.getByRole('dialog', { name: `Log: ${copy.install.name}` })
+  await expect(log).toContainText('kairo.crashtest.DoesNotExist')
+  await expect(log.locator('.log-error').first()).toBeVisible()
+  await page.waitForTimeout(500) // let the dialog fade in
+  await page.screenshot({ path: join(SHOTS, 'crash-log.png') })
+  await page.keyboard.press('Escape')
+
+  // Clean up: the copy goes away for good (not to this PC's Recycle Bin).
+  await app.evaluate(({ shell }) => {
+    ;(shell as { trashItem: (p: string) => Promise<void> }).trashItem = async (p: string) =>
+      process.getBuiltinModule('node:fs').rmSync(p, { recursive: true, force: true })
+  })
+  expect(await page.evaluate((id) => window.kairo.installs.remove(id).then((r) => r.ok), copy.install.id)).toBe(true)
+  expect(existsSync(dir)).toBe(false)
 })
 
 test('NeoForge with Sodium', async () => {
@@ -238,9 +320,13 @@ test('modpack: refuses one that downloads from somewhere else', async () => {
 })
 
 test('Library lists the new installs; no console errors', async () => {
-  await page.evaluate(() => undefined)
   await page.getByRole('button', { name: 'Library' }).click()
-  await expect(page.getByRole('button', { name: /^Kairo Test Pack/ })).toBeVisible()
+  // Every install this run made has its own row.
+  const made = (await page.evaluate(() => window.kairo.installs.list())).filter((i) => !existing.includes(i.id))
+  expect(made.length).toBeGreaterThan(0)
+  for (const install of made) {
+    await expect(page.locator('.librow-name').getByText(install.name, { exact: true })).toBeVisible()
+  }
   await page.waitForTimeout(500)
   await page.screenshot({ path: join(SHOTS, 'library-custom.png') })
   expect(problems).toEqual([])

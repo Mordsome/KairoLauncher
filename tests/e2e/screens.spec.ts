@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
+import type { LauncherSettings } from '../../src/shared/api'
 import { join } from 'node:path'
 
 // Walks through every screen of the built app (mock data), saves a
@@ -11,6 +12,8 @@ mkdirSync(SHOTS, { recursive: true })
 let app: ElectronApplication
 let page: Page
 const problems: string[] = []
+/** The settings this PC had before the run; put back at the end. */
+let savedSettings: LauncherSettings | null = null
 
 async function shot(name: string) {
   await page.waitForTimeout(900) // let crossfades and slides finish
@@ -29,9 +32,31 @@ test.beforeAll(async () => {
   })
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`))
   await page.waitForLoadState('domcontentloaded')
+  // Start from the default settings, so a saved selection can't change what the tests see.
+  savedSettings = await page.evaluate(() => window.kairo.settings.get())
+  await page.evaluate(() =>
+    window.kairo.settings.set({
+      memoryGB: 4,
+      customJava: false,
+      javaPath: '',
+      fullscreen: false,
+      hideWhilePlaying: true,
+      showSnapshots: false,
+      matchTheme: true,
+      autoUpdate: true,
+      sounds: true,
+      lastSelection: null
+    })
+  )
+  await page.reload()
+  await page.waitForLoadState('domcontentloaded')
 })
 
 test.afterAll(async () => {
+  if (savedSettings) {
+    await page.waitForTimeout(500) // let a pending save land first
+    await page.evaluate((s) => window.kairo.settings.set(s), savedSettings).catch(() => undefined)
+  }
   await app?.close()
 })
 
@@ -42,7 +67,7 @@ test('renderer is locked down', async () => {
     process: typeof (globalThis as Record<string, unknown>)['process'],
     api: Object.keys(window.kairo).sort()
   }))
-  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'game', 'installs', 'kairo', 'loaders', 'window'] })
+  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'game', 'installs', 'kairo', 'loaders', 'settings', 'window'] })
 
   // The main process rejects malformed play requests.
   const bad = await page.evaluate(() =>
@@ -252,6 +277,94 @@ test('library', async () => {
   await shot('16-library')
 })
 
+/** A Library row by install name and version. */
+const row = (name: string) => page.locator('.librow').filter({ has: page.locator('.librow-name').getByText(name, { exact: true }) })
+
+test('library: rename, duplicate, change version, logs, delete', async () => {
+  // Deleted folders are removed for real instead of filling this PC's Recycle Bin.
+  await app.evaluate(({ shell }) => {
+    const g = globalThis as unknown as { trashed: string[] }
+    g.trashed = []
+    ;(shell as { trashItem: (path: string) => Promise<void> }).trashItem = async (path: string) => {
+      g.trashed.push(path)
+      const fs = process.getBuiltinModule('node:fs')
+      fs.rmSync(path, { recursive: true, force: true })
+    }
+  })
+  const before = await page.evaluate(() => window.kairo.installs.list().then((l) => l.map((i) => i.id)))
+
+  // Make a Fabric install from the builder (nothing downloads until Play).
+  await page.getByRole('button', { name: 'Home' }).click()
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: /^Other/ }).click()
+  await page.getByRole('radio', { name: 'Fabric' }).click()
+  await page.getByRole('button', { name: 'Create Fabric 1.20.1' }).click()
+  await expect(page.getByRole('heading', { name: /Fabric/ })).toBeVisible()
+  const made = await page.evaluate((ids) => window.kairo.installs.list().then((l) => l.find((i) => !ids.includes(i.id))!), before)
+  expect(made.loader).toBe('fabric')
+
+  await page.getByRole('button', { name: 'Library' }).click()
+  await row(made.name).click()
+  await expect(page.getByRole('heading', { name: made.name, level: 2 })).toBeVisible()
+
+  // Rename.
+  await page.getByRole('button', { name: 'Rename' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('textbox', { name: 'Name' })).toBeFocused()
+  await dialog.getByRole('textbox', { name: 'Name' }).fill('E2E Test Install')
+  await shot('16b-library-rename')
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('heading', { name: 'E2E Test Install', level: 2 })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Rename' })).toBeFocused() // focus comes back
+
+  // Escape closes a dialog without changing anything.
+  await page.getByRole('button', { name: 'Rename' }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // Change version.
+  await page.getByRole('button', { name: 'Change version' }).click()
+  await page.getByRole('dialog').getByRole('radio', { name: '1.20.4', exact: true }).click()
+  await shot('16c-library-change-version')
+  await page.getByRole('dialog').getByRole('button', { name: 'Change to 1.20.4' }).click()
+  await expect(page.getByText('Minecraft 1.20.4', { exact: true })).toBeVisible()
+
+  // Logs: none yet.
+  await page.getByRole('button', { name: 'Logs' }).click()
+  await expect(page.getByRole('dialog', { name: 'Log: E2E Test Install' })).toContainText('no log yet')
+  await shot('16d-library-logs')
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
+
+  // Duplicate: a new install, selected.
+  await page.getByRole('button', { name: 'Duplicate' }).click()
+  await expect(page.getByRole('heading', { name: 'E2E Test Install copy', level: 2 })).toBeVisible()
+  const copy = await page.evaluate(() => window.kairo.installs.list().then((l) => l.find((i) => i.name === 'E2E Test Install copy')!))
+  expect(copy.mc).toBe('1.20.4')
+  expect(copy.id).not.toBe(made.id)
+
+  // Delete both.
+  for (const name of ['E2E Test Install copy', 'E2E Test Install']) {
+    await row(name).click()
+    await expect(page.getByRole('heading', { name, level: 2 })).toBeVisible()
+    await page.getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByRole('dialog', { name: `Delete ${name}?` })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Keep it' })).toBeFocused()
+    if (name === 'E2E Test Install') await shot('16e-library-delete')
+    await page.getByRole('button', { name: 'Move to Recycle Bin' }).click()
+    await expect(row(name)).toHaveCount(0)
+  }
+  const trashed = await app.evaluate(() => (globalThis as unknown as { trashed: string[] }).trashed)
+  expect(trashed).toHaveLength(2)
+  for (const path of trashed) expect(path).toMatch(/[\\/]installs[\\/]/)
+  const after = await page.evaluate(() => window.kairo.installs.list().then((l) => l.map((i) => i.id)))
+  expect(after.sort()).toEqual([...before].sort())
+
+  // Malformed ids are refused by the main process.
+  expect(await page.evaluate(() => window.kairo.installs.remove('../../x').then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  expect(await page.evaluate(() => window.kairo.game.logs('../x').then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  problems.length = 0 // the rejected calls log IPC errors on purpose
+})
+
 test('settings: every tab', async () => {
   await page.getByRole('button', { name: 'Settings' }).click()
   for (const [i, name] of ['Game', 'Launcher', 'Account', 'Privacy', 'About'].entries()) {
@@ -271,6 +384,26 @@ test('settings: every tab', async () => {
   await page.getByRole('tab', { name: 'Game' }).click()
   await page.getByRole('switch', { name: 'Use my own Java' }).click()
   await shot('22-settings-game-java')
+
+  // Browse… opens a file dialog; cancelling it keeps the path.
+  await app.evaluate(({ dialog }) => {
+    ;(dialog as unknown as { showOpenDialog: () => Promise<unknown> }).showOpenDialog = async () => ({ canceled: true, filePaths: [] })
+  })
+  await page.getByRole('button', { name: 'Browse…' }).click()
+  await expect(page.getByRole('textbox', { name: 'Path to Java' })).toHaveValue('')
+  await page.getByRole('switch', { name: 'Use my own Java' }).click()
+
+  // Changes are saved by the main process, and checked on the way in.
+  await page.getByRole('tab', { name: 'Launcher' }).click()
+  await page.getByRole('switch', { name: 'Interface sounds' }).click()
+  await expect.poll(() => page.evaluate(() => window.kairo.settings.get().then((s) => s.sounds))).toBe(false)
+  await page.getByRole('switch', { name: 'Interface sounds' }).click()
+  await expect.poll(() => page.evaluate(() => window.kairo.settings.get().then((s) => s.sounds))).toBe(true)
+  const cleaned = await page.evaluate(() =>
+    window.kairo.settings.get().then((s) => window.kairo.settings.set({ ...s, memoryGB: 9999, javaPath: 42 as unknown as string }))
+  )
+  expect(cleaned.memoryGB).toBe(4)
+  expect(cleaned.javaPath).toBe('')
 })
 
 test('Void theme follows the selected install', async () => {

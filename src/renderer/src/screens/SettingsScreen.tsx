@@ -111,14 +111,27 @@ function GameTab() {
         {settings.customJava && (
           <label className="java-path">
             <span className="field-label">Path to Java</span>
-            <input
-              className="text-input"
-              type="text"
-              spellCheck={false}
-              value={settings.javaPath}
-              placeholder={javaPlaceholder}
-              onChange={(e) => update({ javaPath: e.target.value })}
-            />
+            <span className="java-path-row">
+              <input
+                className="text-input"
+                type="text"
+                spellCheck={false}
+                value={settings.javaPath}
+                placeholder={javaPlaceholder}
+                onChange={(e) => update({ javaPath: e.target.value })}
+              />
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() =>
+                  void window.kairo.settings.pickJava().then((path) => {
+                    if (path) update({ javaPath: path })
+                  })
+                }
+              >
+                Browse…
+              </button>
+            </span>
           </label>
         )}
       </div>

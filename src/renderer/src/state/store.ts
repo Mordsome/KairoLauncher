@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AccountsState, AppInfo, CustomInstallInfo, GameState, KairoEdition, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
+import type { AccountsState, AppInfo, LauncherSettings, CustomInstallInfo, GameState, KairoEdition, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
 import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
@@ -37,17 +37,7 @@ export interface Selection {
   installId: string | null
 }
 
-export interface Settings {
-  memoryGB: number
-  customJava: boolean
-  javaPath: string
-  fullscreen: boolean
-  hideWhilePlaying: boolean
-  showSnapshots: boolean
-  matchTheme: boolean
-  autoUpdate: boolean
-  sounds: boolean
-}
+export type Settings = Omit<LauncherSettings, 'lastSelection'>
 
 // Kairo and Kairo Void are always listed; their details come from the main
 // process (kairo status). Vanilla and Other entries are kept here until Phase 6.
@@ -101,6 +91,10 @@ interface State {
   setSettingsTab(tab: SettingsTab): void
   setLibrarySel(id: string): void
   updateSettings(patch: Partial<Settings>): void
+  /** Loads saved settings and the last selection (once, at start). */
+  loadSettings(): Promise<void>
+  /** True once saved settings are loaded, so nothing is saved over them before that. */
+  settingsLoaded: boolean
   updateInstall(id: string, patch: Partial<Install>): void
   setInfo(info: AppInfo): void
   setGame(game: GameState): void
@@ -115,9 +109,9 @@ function fromCustom(c: CustomInstallInfo): Install {
   return {
     id: c.id,
     name: c.name,
-    edition: 'other',
+    edition: c.loader === 'vanilla' ? 'vanilla' : 'other',
     mc: c.mc,
-    loader: c.loader,
+    ...(c.loader !== 'vanilla' ? { loader: c.loader } : {}),
     extras: c.extras.map((x) => EXTRA_NAME[x]).filter((x): x is Extra['name'] => !!x),
     mods: c.mods,
     playMinutes: c.playMinutes,
@@ -129,7 +123,8 @@ function fromCustom(c: CustomInstallInfo): Install {
 }
 
 function playTarget(selection: Selection): PlayTarget {
-  if (selection.edition === 'vanilla') return { kind: 'vanilla', mc: selection.mc }
+  // A specific vanilla install (chosen in the Library) plays that one; otherwise the version's own install.
+  if (selection.edition === 'vanilla') return selection.installId ? { kind: 'custom', id: selection.installId } : { kind: 'vanilla', mc: selection.mc }
   if (selection.edition === 'other') return { kind: 'custom', id: selection.installId ?? '' }
   return { kind: 'kairo', edition: selection.edition === 'void' ? 'void' : 'kairo' }
 }
@@ -163,6 +158,18 @@ export function maxMemoryGB(info: AppInfo | null): number {
   return Math.max(2, Math.min(32, whole))
 }
 
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Saves settings and the selection shortly after the last change. */
+function saveSoon(get: () => State): void {
+  if (!get().settingsLoaded) return
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    const { settings, selection } = get()
+    void window.kairo.settings.set({ ...settings, lastSelection: selection }).catch(() => undefined)
+  }, 300)
+}
+
 export const useStore = create<State>()((set, get) => ({
   screen: 'signin',
   homeView: 'home',
@@ -190,6 +197,7 @@ export const useStore = create<State>()((set, get) => ({
     sounds: true
   },
   info: null,
+  settingsLoaded: false,
 
   go: (screen) => set({ screen, homeView: 'home' }),
   openPicker: () => set((s) => ({ screen: 'home', homeView: 'pick', pickFocus: s.selection.edition })),
@@ -204,6 +212,7 @@ export const useStore = create<State>()((set, get) => ({
       installId = get().installs.find((i) => i.edition === 'vanilla' && i.mc === selection.mc)?.id ?? null
     }
     set({ selection: { ...selection, installId }, homeView: 'home', screen: 'home', notice: null })
+    saveSoon(get)
   },
 
   customCreated: (install) => {
@@ -215,12 +224,24 @@ export const useStore = create<State>()((set, get) => ({
       screen: 'home',
       notice: null
     }))
+    saveSoon(get)
   },
 
   refreshCustom: async () => {
     try {
       const list = await window.kairo.installs.list()
-      set((st) => ({ installs: [...st.installs.filter((i) => i.edition !== 'other'), ...list.map(fromCustom)] }))
+      set((st) => {
+        const installs = [...st.installs.filter((i) => i.edition !== 'other' && i.edition !== 'vanilla'), ...list.map(fromCustom)]
+        // A selected install that no longer exists (deleted) falls back to Kairo.
+        const sel = st.selection
+        const gone = (sel.edition === 'other' || sel.edition === 'vanilla') && sel.installId && !installs.some((i) => i.id === sel.installId)
+        const selection = gone
+          ? sel.edition === 'vanilla'
+            ? { ...sel, installId: null }
+            : { edition: 'kairo' as const, mc: installs.find((i) => i.id === 'kairo')?.mc ?? '26.3', installId: 'kairo' }
+          : sel
+        return { installs, selection }
+      })
     } catch {
       // keep what we have
     }
@@ -239,23 +260,6 @@ export const useStore = create<State>()((set, get) => ({
     if (selection.edition === 'other' && !selection.installId) {
       set({ notice: 'Create the install first.\nPick Other in the picker and choose a loader.' })
       return
-    }
-
-    if (selection.edition === 'vanilla' && !selection.installId) {
-      const installs = get().installs
-      const install: Install = {
-        id: `vanilla-${selection.mc}`,
-        name: uniqueName(installs, `Minecraft ${selection.mc}`),
-        edition: 'vanilla',
-        mc: selection.mc,
-        extras: [],
-        mods: [],
-        playMinutes: 0,
-        lastPlayed: null,
-        keepUpdated: false,
-        installed: true
-      }
-      set({ installs: [...installs, install], selection: { ...selection, installId: install.id } })
     }
 
     const javaPath = settings.customJava && settings.javaPath.trim() ? settings.javaPath.trim() : null
@@ -294,7 +298,25 @@ export const useStore = create<State>()((set, get) => ({
   },
   setSettingsTab: (settingsTab) => set({ settingsTab }),
   setLibrarySel: (librarySel) => set({ librarySel }),
-  updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+  updateSettings: (patch) => {
+    set((st) => ({ settings: { ...st.settings, ...patch } }))
+    saveSoon(get)
+  },
+
+  loadSettings: async () => {
+    try {
+      const saved = await window.kairo.settings.get()
+      const { lastSelection, ...settings } = saved
+      set({ settings, settingsLoaded: true })
+      if (lastSelection && lastSelection.edition !== 'lite') {
+        const { installs } = get()
+        const exists = lastSelection.installId === null || installs.some((i) => i.id === lastSelection.installId)
+        if (exists) set({ selection: lastSelection })
+      }
+    } catch {
+      set({ settingsLoaded: true })
+    }
+  },
   updateInstall: (id, patch) => set((s) => ({ installs: s.installs.map((i) => (i.id === id ? { ...i, ...patch } : i)) })),
   setInfo: (info) => set({ info }),
 

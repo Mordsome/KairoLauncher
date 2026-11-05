@@ -75,6 +75,24 @@ file is checked against the pack's SHA-512, and unpacked files have size limits.
 NeoForge packs install directly; Forge packs ask for the Forge installer the same way as above.
 Quilt isn't supported.
 
+### Library, settings and crashes
+
+Plain Minecraft installs are real installs too (`installs/vanilla-<version>`), made the first
+time a version is played. In the **Library**, every install except Kairo and Kairo Void can be
+renamed (only the name changes, not the folder), duplicated (worlds, settings and mods are
+copied; logs and crash reports aren't), moved to another Minecraft version (the mods the
+launcher added are swapped on the next Play; modpacks, Forge and OptiFine can't, since they're
+tied to their version), or deleted, which moves the folder to the Recycle Bin / Trash. **Logs**
+shows the game's output, live while it runs.
+
+Settings and the last selection are saved in `settings.json`. Every field is checked when it's
+read and written; a file that can't be read is set aside as `settings.json.broken-<time>` and
+the defaults are used.
+
+When Minecraft closes with an error, Home says why in plain words where it can (out of
+memory, Java refusing the memory setting, mods that don't fit together, Java too old) and
+offers **Open crash report** (only a report inside that install's folder) and **View log**.
+
 ## Licence
 
 GPL-3.0. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

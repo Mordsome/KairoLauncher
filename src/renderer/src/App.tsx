@@ -6,6 +6,7 @@ import { LibraryScreen } from './screens/LibraryScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { selectTheme, useStore } from './state/store'
+import { useInterfaceSounds } from './state/sounds'
 
 export function App() {
   const screen = useStore((s) => s.screen)
@@ -16,6 +17,7 @@ export function App() {
   const refreshKairo = useStore((s) => s.refreshKairo)
   const refreshCustom = useStore((s) => s.refreshCustom)
   const setAccounts = useStore((s) => s.setAccounts)
+  const loadSettings = useStore((s) => s.loadSettings)
   const go = useStore((s) => s.go)
   const loaded = useStore((s) => s.accounts !== null)
 
@@ -32,10 +34,13 @@ export function App() {
     })
     void refreshVersions()
     void refreshKairo()
-    void refreshCustom()
+    // Saved settings and the last selection need the installs list to check against.
+    void refreshCustom().finally(() => void loadSettings())
     void window.kairo.game.state().then(setGame)
     return window.kairo.game.onState(setGame)
-  }, [setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, setAccounts, go])
+  }, [setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, loadSettings, setAccounts, go])
+
+  useInterfaceSounds()
 
   return (
     <div className="app" data-loaded={loaded}>

@@ -7,7 +7,11 @@ import { describeAuthError } from './auth/errors'
 import { listVersions } from './game/manifest'
 import type { GameSession } from './game/session'
 import { kairoStatus, setKeepUpdated } from './kairo/status'
-import { listCustom, toInfo } from './installs/custom'
+import { adoptVanillaFolders, listCustom, toInfo } from './installs/custom'
+import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refDir, renameInstall } from './installs/library'
+import { checkCustomJava } from './game/java'
+import { loadSettings, saveSettings } from './settings'
+import { dialog } from 'electron'
 import { createCustom, importModpack, openDownloadPage } from './loaders/create'
 import { availableExtras } from './loaders/extras'
 import { loaderVersions } from './loaders/meta'
@@ -174,8 +178,13 @@ export function registerIpc(session: GameSession): void {
     return openDownloadPage(loader, mc)
   })
 
+  let adopted = false
   ipcMain.handle(IPC.installsList, async (event) => {
     if (!fromApp(event)) throw new Error('Not allowed')
+    if (!adopted) {
+      adopted = true
+      await adoptVanillaFolders().catch(() => undefined)
+    }
     return (await listCustom()).map(toInfo)
   })
 
@@ -190,5 +199,74 @@ export function registerIpc(session: GameSession): void {
   ipcMain.handle(IPC.installsImportModpack, (event) => {
     if (!fromApp(event)) throw new Error('Not allowed')
     return importModpack(BrowserWindow.fromWebContents(event.sender))
+  })
+
+  const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{12}$/.test(v)
+  const isRef = (v: unknown): v is string => isId(v) || v === 'kairo' || v === 'void'
+  const busy = { ok: false as const, error: { title: 'Minecraft is running', message: 'Close the game first, then try again.' } }
+  const idle = () => session.current().phase === 'idle'
+
+  ipcMain.handle(IPC.installsRename, (event, id: unknown, name: unknown) => {
+    if (!fromApp(event) || !isId(id) || typeof name !== 'string' || name.length > 200) throw new Error('Not allowed')
+    return renameInstall(id, name)
+  })
+
+  ipcMain.handle(IPC.installsDuplicate, (event, id: unknown) => {
+    if (!fromApp(event) || !isId(id)) throw new Error('Not allowed')
+    return idle() ? duplicateInstall(id) : busy
+  })
+
+  ipcMain.handle(IPC.installsDelete, (event, id: unknown) => {
+    if (!fromApp(event) || !isId(id)) throw new Error('Not allowed')
+    return idle() ? deleteInstall(id) : busy
+  })
+
+  ipcMain.handle(IPC.installsChangeVersion, (event, id: unknown, mc: unknown) => {
+    if (!fromApp(event) || !isId(id) || !isMc(mc)) throw new Error('Not allowed')
+    return idle() ? changeVersion(id, mc) : busy
+  })
+
+  ipcMain.handle(IPC.installsOpenFolder, (event, ref: unknown) => {
+    if (!fromApp(event) || !isRef(ref)) throw new Error('Not allowed')
+    return openInstallFolder(ref)
+  })
+
+  ipcMain.handle(IPC.gameLogs, async (event, ref: unknown) => {
+    if (!fromApp(event) || !isRef(ref)) throw new Error('Not allowed')
+    const dir = await refDir(ref)
+    return dir ? session.logsFor(dir) : { lines: [], live: false }
+  })
+
+  ipcMain.handle(IPC.gameOpenCrashReport, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return session.openCrashReport()
+  })
+
+  ipcMain.handle(IPC.settingsGet, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return loadSettings()
+  })
+
+  ipcMain.handle(IPC.settingsSet, (event, raw: unknown) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return saveSettings(raw)
+  })
+
+  ipcMain.handle(IPC.settingsPickJava, async (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: 'Choose the java program to run Minecraft with',
+      properties: ['openFile' as const],
+      filters: process.platform === 'win32' ? [{ name: 'Java', extensions: ['exe'] }] : []
+    }
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+    const picked = result.canceled ? null : result.filePaths[0]
+    if (!picked) return null
+    try {
+      return await checkCustomJava(picked)
+    } catch {
+      return null
+    }
   })
 }

@@ -1,10 +1,10 @@
 import { createMinecraftProcessWatcher, launch, MinecraftFolder, Version, type ResolvedVersion } from '@xmcl/core'
 import type { ChildProcess } from 'node:child_process'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { app } from 'electron'
-import type { GameState, KairoEdition, PlayRequest } from '../../shared/api'
-import { customDir, getCustom, writeCustom } from '../installs/custom'
+import { mkdir, open, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { join, normalize, sep } from 'node:path'
+import { app, shell } from 'electron'
+import type { GameState, KairoEdition, LogView, PlayRequest } from '../../shared/api'
+import { customDir, getCustom, vanillaRecord, writeCustom } from '../installs/custom'
 import { downloadMods, modrinthLoader, resolveModrinthMods } from '../loaders/extras'
 import { installForge, installNeoForge } from '../loaders/forge'
 import { loaderVersions } from '../loaders/meta'
@@ -46,6 +46,24 @@ async function touchRecord(dir: string, change: { lastPlayed?: number; addMinute
   }
 }
 
+/** A plain reason for a crash, from the game's last output. */
+export function crashReason(lines: readonly string[]): { title: string; message: string } {
+  const tail = lines.slice(-400).join('\n')
+  if (/OutOfMemoryError|GC overhead limit exceeded/.test(tail)) {
+    return { title: 'Minecraft ran out of memory', message: 'Give it more in Settings → Game, or use fewer mods or a lighter shader pack.' }
+  }
+  if (/Could not reserve enough space|Invalid maximum heap size|Could not create the Java Virtual Machine/.test(tail)) {
+    return { title: "Java couldn't start with this much memory", message: 'Lower the memory for Minecraft in Settings → Game and try again.' }
+  }
+  if (/Incompatible mods? found|Mod resolution (failed|encountered)|requires (any version|version) .* of .*, which is missing|Missing or unsupported mandatory dependencies|depends on .* which is missing/i.test(tail)) {
+    return { title: "Some mods don't fit together", message: 'A mod is missing something it needs, or two mods clash. The log shows which ones.' }
+  }
+  if (/UnsupportedClassVersionError|has been compiled by a more recent version of the Java Runtime/.test(tail)) {
+    return { title: 'This needs a newer Java', message: 'Turn off "Use my own Java" in Settings → Game so the launcher picks the right one.' }
+  }
+  return { title: 'Minecraft closed unexpectedly', message: 'The crash report and the log show what happened.' }
+}
+
 const IDLE: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null }
 
 type Stages = Record<'meta' | 'game' | 'assets' | 'java' | 'mods', Stage>
@@ -67,6 +85,10 @@ export class GameSession {
   private process: ChildProcess | null = null
   private stoppedByUser = false
   private readonly log: string[] = []
+  /** Folder of the install the log above belongs to. */
+  private logDir: string | null = null
+  /** Crash report of the last crash, if Minecraft wrote one inside the install. */
+  private crashReport: string | null = null
 
   constructor(private readonly hooks: SessionHooks) {}
 
@@ -76,6 +98,38 @@ export class GameSession {
 
   logLines(): readonly string[] {
     return this.log
+  }
+
+  /** The output of an install's game: live from this session if it ran here, else its last log file. */
+  async logsFor(dir: string): Promise<LogView> {
+    const live = this.process !== null && this.logDir === dir
+    if (this.logDir === dir && this.log.length > 0) return { lines: [...this.log], live }
+    try {
+      const file = join(dir, 'logs', 'latest.log')
+      const info = await stat(file)
+      const handle = await open(file, 'r')
+      try {
+        // The end of the file is what matters: read at most the last 2 MB.
+        const size = Math.min(info.size, 2 * 1024 * 1024)
+        const buffer = Buffer.alloc(size)
+        await handle.read(buffer, 0, size, info.size - size)
+        const lines = redact(buffer.toString('utf8')).split(/\r?\n/).filter(Boolean)
+        return { lines: lines.slice(-LOG_LINES), live: false }
+      } finally {
+        await handle.close()
+      }
+    } catch {
+      return { lines: [], live: false }
+    }
+  }
+
+  /** Opens the last crash report, or the logs folder if Minecraft didn't write one. */
+  async openCrashReport(): Promise<void> {
+    if (this.crashReport) {
+      await shell.openPath(this.crashReport)
+      return
+    }
+    if (this.logDir) await shell.openPath(join(this.logDir, 'logs'))
   }
 
   private set(patch: Partial<GameState>): void {
@@ -90,6 +144,7 @@ export class GameSession {
     const signal = this.abort.signal
     this.stoppedByUser = false
     this.log.length = 0
+    this.crashReport = null
     this.set({ ...IDLE, phase: 'download', detail: 'Checking game files' })
 
     const stages: Stages = { meta: new Stage(), game: new Stage(), assets: new Stage(), java: new Stage(), mods: new Stage() }
@@ -127,11 +182,11 @@ export class GameSession {
     }
   }
 
+  /** A plain Minecraft version: its own record and folder (vanilla-<mc>), played like any other install. */
   private async prepareVanilla(mc: string, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
-    const entry = await findVersion(mc)
-    if (!entry) throw new KairoError('unknown-version', `Mojang has no Minecraft ${mc}.`)
-    const { version, javaPath } = await this.installBase(entry, request, stages, signal)
-    return { version, javaPath, gamePath: join(dataPaths().installs, safeName(`vanilla-${version.id}`)), recordDir: null }
+    if (!(await findVersion(mc))) throw new KairoError('unknown-version', `Mojang has no Minecraft ${mc}.`)
+    const record = await vanillaRecord(mc)
+    return this.prepareCustom(record.id, request, stages, signal)
   }
 
   private async prepareKairo(edition: KairoEdition, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
@@ -178,11 +233,15 @@ export class GameSession {
     const entry = await findVersion(record.mc)
     if (!entry) throw new KairoError('unknown-version', `Mojang has no Minecraft ${record.mc}.`)
     // Forge and NeoForge run their installers with the game's own Java, so that comes first.
-    const { javaPath } = await this.installBase(entry, request, stages, signal)
+    const base = await this.installBase(entry, request, stages, signal)
+    const javaPath = base.javaPath
 
     let version: ResolvedVersion
     let loaderVersion = record.loaderVersion
     switch (record.loader) {
+      case 'vanilla':
+        version = base.version
+        break
       case 'fabric': {
         loaderVersion = await pickFabricLoader(record.mc, undefined, record.loaderVersion)
         const versionId = await installFabricProfile(record.mc, loaderVersion, folder, stages.mods, signal)
@@ -279,6 +338,7 @@ export class GameSession {
 
     this.process = child
     this.abort = null
+    this.logDir = gamePath
     const startedAt = Date.now()
     const capture = (chunk: Buffer) => {
       for (const line of redact(chunk.toString('utf8')).split(/\r?\n/)) {
@@ -310,11 +370,12 @@ export class GameSession {
       clearTimeout(fallback)
       if (recordDir && running) void touchRecord(recordDir, { addMinutes: (Date.now() - startedAt) / 60_000 })
       const crashed = !this.stoppedByUser && code !== 0
-      this.finish({ ...IDLE, crash: crashed ? { crashReport: crashReportLocation || null } : null })
+      // Only a report inside this install's folder is ever opened.
+      const report = crashReportLocation ? normalize(crashReportLocation.trim()) : null
+      this.crashReport = crashed && report && report.startsWith(normalize(gamePath) + sep) ? report : null
+      this.finish({ ...IDLE, crash: crashed ? { ...crashReason(this.log), hasReport: this.crashReport !== null } : null })
     })
   }
-
-
 
   private finish(state: GameState): void {
     this.process = null

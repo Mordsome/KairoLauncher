@@ -2,6 +2,9 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IPC,
   type AccountsState,
+  type LauncherSettings,
+  type LibraryResult,
+  type LogView,
   type CreateCustomRequest,
   type CreateResult,
   type CustomInstallInfo,
@@ -40,7 +43,9 @@ const api: KairoApi = {
       return () => {
         ipcRenderer.removeListener(IPC.gameStateChanged, handler)
       }
-    }
+    },
+    logs: (ref: string) => ipcRenderer.invoke(IPC.gameLogs, String(ref)) as Promise<LogView>,
+    openCrashReport: () => ipcRenderer.invoke(IPC.gameOpenCrashReport) as Promise<void>
   },
   loaders: {
     versions: (loader: CustomLoader) => ipcRenderer.invoke(IPC.loaderVersions, loader) as Promise<LoaderVersions>,
@@ -50,7 +55,18 @@ const api: KairoApi = {
   installs: {
     list: () => ipcRenderer.invoke(IPC.installsList) as Promise<CustomInstallInfo[]>,
     create: (request: CreateCustomRequest) => ipcRenderer.invoke(IPC.installsCreate, request) as Promise<CreateResult>,
-    importModpack: () => ipcRenderer.invoke(IPC.installsImportModpack) as Promise<CreateResult>
+    importModpack: () => ipcRenderer.invoke(IPC.installsImportModpack) as Promise<CreateResult>,
+    rename: (id: string, name: string) => ipcRenderer.invoke(IPC.installsRename, String(id), String(name)) as Promise<LibraryResult>,
+    duplicate: (id: string) => ipcRenderer.invoke(IPC.installsDuplicate, String(id)) as Promise<LibraryResult>,
+    remove: (id: string) =>
+      ipcRenderer.invoke(IPC.installsDelete, String(id)) as Promise<{ ok: true } | { ok: false; error: { title: string; message: string } }>,
+    changeVersion: (id: string, mc: string) => ipcRenderer.invoke(IPC.installsChangeVersion, String(id), String(mc)) as Promise<LibraryResult>,
+    openFolder: (ref: string) => ipcRenderer.invoke(IPC.installsOpenFolder, String(ref)) as Promise<void>
+  },
+  settings: {
+    get: () => ipcRenderer.invoke(IPC.settingsGet) as Promise<LauncherSettings>,
+    set: (settings: LauncherSettings) => ipcRenderer.invoke(IPC.settingsSet, settings) as Promise<LauncherSettings>,
+    pickJava: () => ipcRenderer.invoke(IPC.settingsPickJava) as Promise<string | null>
   },
   auth: {
     state: () => ipcRenderer.invoke(IPC.authState) as Promise<AccountsState>,
