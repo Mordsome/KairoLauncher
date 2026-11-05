@@ -1,4 +1,5 @@
 import type { GameError } from '../shared/api'
+import { AuthError, describeAuthError } from './auth/errors'
 
 export type KairoErrorCode =
   | 'blocked-host'
@@ -52,6 +53,10 @@ function codeOf(error: unknown): string | undefined {
 /** Turns any failure into a short, specific message for the Home screen. Never includes secrets. */
 export function describeError(error: unknown, redact: (text: string) => string = (t) => t): GameError {
   for (const e of walk(error)) {
+    if (e instanceof AuthError) {
+      const info = describeAuthError(e)
+      return { title: info.title, message: info.message }
+    }
     if (e instanceof KairoError) {
       switch (e.code) {
         case 'checksum':

@@ -29,8 +29,7 @@ test.beforeAll(async () => {
   page.on('pageerror', (e) => problems.push(e.message))
   userData = await app.evaluate(({ app }) => app.getPath('userData'))
 
-  await page.getByRole('button', { name: 'Sign in with Microsoft' }).click()
-  await page.getByRole('button', { name: 'Continue' }).click({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
   await expect(page.getByRole('status')).toContainText('Offline dev account')
 })
 

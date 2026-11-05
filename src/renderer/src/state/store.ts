@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppInfo, GameState, KairoEdition, KairoStatus, VersionList } from '../../../shared/api'
+import type { AccountsState, AppInfo, GameState, KairoEdition, KairoStatus, VersionList } from '../../../shared/api'
 import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
@@ -9,6 +9,8 @@ export type Theme = 'kairo' | 'void'
 
 export interface Account {
   name: string
+  /** Null for the dev offline account. */
+  uuid: string | null
 }
 
 export interface Install {
@@ -61,7 +63,12 @@ interface State {
   pickFocus: EditionId
   settingsTab: SettingsTab
   librarySel: string
+  /** The account that plays: the active Microsoft account, or the dev offline one. */
   account: Account | null
+  /** Signed-in Microsoft accounts; null until loaded. */
+  accounts: AccountsState | null
+  /** 'add' when the sign-in screen was opened to add another account. */
+  signInMode: 'first' | 'add'
   installs: Install[]
   selection: Selection
   /** Live state of the game, from the main process. */
@@ -82,8 +89,11 @@ interface State {
   select(selection: Selection): void
   createOther(loader: LoaderId, mc: string, extras: Extra['name'][]): void
   playOrStop(): void
-  signIn(account: Account): void
-  signOut(): void
+  setAccounts(state: AccountsState): void
+  useDevOffline(name: string): void
+  addAccount(): void
+  switchAccount(uuid: string): void
+  signOut(uuid: string): void
   setSettingsTab(tab: SettingsTab): void
   setLibrarySel(id: string): void
   updateSettings(patch: Partial<Settings>): void
@@ -131,6 +141,8 @@ export const useStore = create<State>()((set, get) => ({
   settingsTab: 'game',
   librarySel: 'kairo',
   account: null,
+  accounts: null,
+  signInMode: 'first',
   installs: KAIRO_INSTALLS,
   selection: { edition: 'kairo', mc: '26.3', installId: 'kairo' },
   game: IDLE_GAME,
@@ -236,10 +248,26 @@ export const useStore = create<State>()((set, get) => ({
       .catch(() => set({ notice: "The launcher couldn't start that.\nCheck the Java path and memory in Settings." }))
   },
 
-  signIn: (account) => set({ account, screen: 'home', homeView: 'home' }),
-  signOut: () => {
-    void window.kairo.game.stop()
-    set({ account: null, screen: 'signin', homeView: 'home' })
+  setAccounts: (accounts) => {
+    const active = accounts.accounts.find((a) => a.uuid === accounts.active) ?? null
+    set((s) => ({
+      accounts,
+      // Keep the dev offline account if that's what is being used and nobody signed in.
+      account: active ? { name: active.name, uuid: active.uuid } : s.account?.uuid === null ? s.account : null
+    }))
+  },
+  useDevOffline: (name) => set({ account: { name, uuid: null }, screen: 'home', homeView: 'home' }),
+  addAccount: () => set({ signInMode: 'add', screen: 'signin' }),
+  switchAccount: (uuid) => {
+    void window.kairo.auth.switchTo(uuid).then((state) => get().setAccounts(state))
+  },
+  signOut: (uuid) => {
+    const active = get().accounts?.active === uuid
+    if (active) void window.kairo.game.stop()
+    void window.kairo.auth.signOut(uuid).then((state) => {
+      get().setAccounts(state)
+      if (state.accounts.length === 0 && get().account === null) set({ screen: 'signin', signInMode: 'first', homeView: 'home' })
+    })
   },
   setSettingsTab: (settingsTab) => set({ settingsTab }),
   setLibrarySel: (librarySel) => set({ librarySel }),

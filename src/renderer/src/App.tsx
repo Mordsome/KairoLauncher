@@ -14,6 +14,9 @@ export function App() {
   const setGame = useStore((s) => s.setGame)
   const refreshVersions = useStore((s) => s.refreshVersions)
   const refreshKairo = useStore((s) => s.refreshKairo)
+  const setAccounts = useStore((s) => s.setAccounts)
+  const go = useStore((s) => s.go)
+  const loaded = useStore((s) => s.accounts !== null)
 
   useEffect(() => {
     document.documentElement.dataset['theme'] = theme
@@ -21,14 +24,19 @@ export function App() {
 
   useEffect(() => {
     void window.kairo.app.info().then(setInfo)
+    // Someone already signed in goes straight to Home.
+    void window.kairo.auth.state().then((state) => {
+      setAccounts(state)
+      if (state.active) go('home')
+    })
     void refreshVersions()
     void refreshKairo()
     void window.kairo.game.state().then(setGame)
     return window.kairo.game.onState(setGame)
-  }, [setInfo, setGame, refreshVersions, refreshKairo])
+  }, [setInfo, setGame, refreshVersions, refreshKairo, setAccounts, go])
 
   return (
-    <div className="app">
+    <div className="app" data-loaded={loaded}>
       <HomeScreen active={screen === 'home'} />
       <LibraryScreen active={screen === 'library'} />
       <SettingsScreen active={screen === 'settings'} />

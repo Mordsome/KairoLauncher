@@ -13,8 +13,9 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "resolveJsonModule": true,
     // @xmcl/unzip 2.2.0 ships no usable entry point; see electron.vite.config.ts.
     "paths": { "@xmcl/unzip": ["./node_modules/@xmcl/unzip/dist/index.d.ts"] }
   },
-  "include": ["src/main/**/*.ts", "src/preload/**/*.ts", "src/shared/**/*.ts", "electron.vite.config.ts"]
+  "include": ["src/main/**/*.ts", "src/preload/**/*.ts", "src/shared/**/*.ts", "electron.vite.config.ts", "config/*.json"]
 }

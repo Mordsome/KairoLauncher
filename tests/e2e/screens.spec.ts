@@ -42,10 +42,9 @@ test('renderer is locked down', async () => {
     process: typeof (globalThis as Record<string, unknown>)['process'],
     api: Object.keys(window.kairo).sort()
   }))
-  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'game', 'kairo', 'window'] })
+  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'game', 'kairo', 'window'] })
 
-  // A normal build has no offline account, and the main process rejects malformed play requests.
-  expect(await page.evaluate(() => window.kairo.app.info().then((i) => i.devOfflineName))).toBeNull()
+  // The main process rejects malformed play requests.
   const bad = await page.evaluate(() =>
     window.kairo.game
       .play({ target: { kind: 'vanilla', mc: '../../evil' }, memoryGB: 4, javaPath: null, fullscreen: false, hideWhilePlaying: false })
@@ -111,16 +110,62 @@ test('main process only reaches allowed services, over HTTPS', async () => {
   expect(result.kairoReleases).toBe('ok 200')
 })
 
-test('sign-in flow', async () => {
+test('sign-in: Microsoft page, browser hand-back, errors, cancel', async () => {
   await expect(page.getByRole('heading', { name: 'Welcome to Kairo' })).toBeVisible()
   await shot('01-sign-in')
+
+  // Catch the page the launcher would open in the browser instead of opening it.
+  await app.evaluate(({ shell }) => {
+    const g = globalThis as unknown as { signInUrls: string[] }
+    g.signInUrls = []
+    ;(shell as { openExternal: (url: string) => Promise<void> }).openExternal = async (url: string) => {
+      g.signInUrls.push(url)
+    }
+  })
+  const lastUrl = async (count: number) => {
+    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { signInUrls: string[] }).signInUrls.length)).toBe(count)
+    const urls = await app.evaluate(() => (globalThis as unknown as { signInUrls: string[] }).signInUrls)
+    return new URL(urls[urls.length - 1]!)
+  }
+  const backToLauncher = (url: URL, query: string) =>
+    fetch(`${url.searchParams.get('redirect_uri')!.replace('localhost', '127.0.0.1')}/?${query}&state=${encodeURIComponent(url.searchParams.get('state')!)}`)
+
   await page.getByRole('button', { name: 'Sign in with Microsoft' }).click()
   await expect(page.getByRole('heading', { name: 'Finish in your browser' })).toBeVisible()
   await shot('02-sign-in-wait')
-  await expect(page.getByRole('heading', { name: 'Hi, Mordsome' })).toBeVisible({ timeout: 6000 })
-  await shot('03-sign-in-done')
-  await page.getByRole('button', { name: 'Continue' }).click()
+  let url = await lastUrl(1)
+  expect(url.origin + url.pathname).toBe('https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize')
+  expect(url.searchParams.get('client_id')).toBe('c86421b8-05da-4075-9d21-27f26fc61712')
+  expect(url.searchParams.get('code_challenge_method')).toBe('S256')
+  expect(url.searchParams.get('code_challenge')).toMatch(/^[\w-]{43}$/)
+  expect(url.searchParams.get('scope')).toContain('XboxLive.signin')
+  expect(url.searchParams.get('redirect_uri')).toMatch(/^http:\/\/localhost:\d+$/)
+
+  // The player says no on Microsoft's page.
+  await backToLauncher(url, 'error=access_denied')
+  await expect(page.getByRole('heading', { name: 'Sign-in cancelled' })).toBeVisible()
+  await shot('03-sign-in-cancelled')
+
+  // A code Microsoft doesn't accept: the real token endpoint answers, and the launcher shows an error.
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByRole('heading', { name: 'Finish in your browser' })).toBeVisible()
+  url = await lastUrl(2)
+  await backToLauncher(url, 'code=not-a-real-code')
+  await expect(page.getByRole('alert')).toBeVisible({ timeout: 20_000 })
+  await shot('03b-sign-in-error')
+
+  // Cancel in the launcher goes straight back.
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByRole('heading', { name: 'Finish in your browser' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('button', { name: 'Sign in with Microsoft' })).toBeVisible()
+
+  // Nothing got saved by any of that.
+  expect((await page.evaluate(() => window.kairo.auth.state())).accounts).toEqual([])
+
+  await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
   await expect(page.getByRole('heading', { name: 'Kairo', exact: true })).toBeVisible()
+  await expect(page.getByRole('status')).toContainText('Offline dev account')
   await shot('04-home-kairo')
 })
 
@@ -171,7 +216,7 @@ test('create an Other install; Play explains what works so far', async () => {
   await expect(page.getByRole('status')).toContainText('Custom installs arrive in Phase 5')
 })
 
-test('Vanilla uses the live version list, and asks for sign-in in a normal build', async () => {
+test('Vanilla uses the live version list', async () => {
   await page.getByRole('button', { name: /Choose what to play/ }).click()
   await page.getByRole('radio', { name: /^Vanilla/ }).click()
   await page.getByRole('button', { name: /More versions/ }).click()
@@ -179,13 +224,10 @@ test('Vanilla uses the live version list, and asks for sign-in in a normal build
   await expect(page.getByRole('radio', { name: '1.8', exact: true })).toBeVisible()
   await page.getByRole('radio', { name: '1.20.1', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Minecraft', exact: true })).toBeVisible()
-
-  await page.getByRole('button', { name: /^Play Minecraft on Minecraft 1\.20\.1/ }).click()
-  await expect(page.getByRole('status')).toContainText('Sign in to play')
-  await shot('14-home-vanilla-needs-sign-in')
+  await shot('14-home-vanilla')
 })
 
-test('Kairo shows the real release, and asks for sign-in in a normal build', async () => {
+test('Kairo shows the real release', async () => {
   await page.getByRole('button', { name: /Choose what to play/ }).click()
   await page.getByRole('radio', { name: /^Kairo/ }).first().click()
   // Read from GitHub: the newest release that has both jars and SHA256SUMS.txt.
@@ -193,8 +235,6 @@ test('Kairo shows the real release, and asks for sign-in in a normal build', asy
   expect(latest).toMatch(/^\d+\.\d+/)
   await expect(page.getByText(`Kairo ${latest} · latest`)).toBeVisible()
   await page.getByRole('button', { name: /^Kairo for Minecraft/ }).first().click()
-  await page.getByRole('button', { name: /^Play Kairo on Minecraft/ }).click()
-  await expect(page.getByRole('status')).toContainText('Sign in to play')
 })
 
 test('library', async () => {
@@ -211,6 +251,15 @@ test('settings: every tab', async () => {
     await expect(page.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true')
     await shot(`${17 + i}-settings-${name.toLowerCase()}`)
   }
+  await page.getByRole('tab', { name: 'Account' }).click()
+  await page.getByRole('button', { name: 'Add another account' }).click()
+  await expect(page.getByRole('heading', { name: 'Add an account' })).toBeVisible()
+  await shot('17b-add-account')
+  await page.getByRole('button', { name: 'Back to Settings' }).click()
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+  expect(await page.evaluate(() => window.kairo.auth.switchTo('../../x').then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  problems.length = 0 // the rejected call logs an IPC error on purpose
+
   await page.getByRole('tab', { name: 'Game' }).click()
   await page.getByRole('switch', { name: 'Use my own Java' }).click()
   await shot('22-settings-game-java')

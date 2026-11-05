@@ -179,28 +179,61 @@ function secureStoreName(platform: string | undefined): string {
 }
 
 function AccountTab() {
+  const accounts = useStore((s) => s.accounts)
   const account = useStore((s) => s.account)
+  const switchAccount = useStore((s) => s.switchAccount)
   const signOut = useStore((s) => s.signOut)
+  const addAccount = useStore((s) => s.addAccount)
+  const busy = useStore((s) => s.game.phase !== 'idle')
   const info = useStore((s) => s.info)
-  const name = account?.name ?? ''
+  const list = accounts?.accounts ?? []
 
   return (
     <>
-      <div className="card account-card">
-        <span className="avatar" aria-hidden="true">
-          {name.slice(0, 1).toUpperCase()}
-        </span>
-        <span className="account-text">
-          <b className="account-name">{name}</b>
-          <span className="setting-desc">Microsoft account · Minecraft Java Edition</span>
-        </span>
-        <button type="button" className="btn-ghost" onClick={signOut}>
-          Sign out
-        </button>
-      </div>
+      {list.length === 0 && account?.uuid === null && (
+        <div className="card account-card">
+          <span className="avatar" aria-hidden="true">
+            {account.name.slice(0, 1).toUpperCase()}
+          </span>
+          <span className="account-text">
+            <b className="account-name">{account.name}</b>
+            <span className="setting-desc">Offline dev account · only in development builds</span>
+          </span>
+        </div>
+      )}
+
+      <ul className="account-list" aria-label="Minecraft accounts">
+        {list.map((a) => {
+          const isActive = a.uuid === accounts?.active
+          return (
+            <li key={a.uuid} className="card account-card" data-active={isActive}>
+              <span className="avatar" aria-hidden="true">
+                {a.name.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="account-text">
+                <b className="account-name">{a.name}</b>
+                <span className="setting-desc">{isActive ? 'Plays now · Microsoft account' : 'Microsoft account'}</span>
+              </span>
+              {!isActive && (
+                <button type="button" className="btn-accent account-use" disabled={busy} onClick={() => switchAccount(a.uuid)} aria-label={`Play as ${a.name}`}>
+                  Play as {a.name}
+                </button>
+              )}
+              <button type="button" className="btn-ghost" disabled={busy && isActive} onClick={() => signOut(a.uuid)} aria-label={`Sign out ${a.name}`}>
+                Sign out
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+
+      <button type="button" className="btn-ghost account-add" onClick={addAccount}>
+        Add another account
+      </button>
+
       <p className="prose">
-        You sign in on Microsoft's own page. The launcher never sees your password, and it keeps the sign-in token in your
-        system's secure storage ({secureStoreName(info?.platform)}), not in a file.
+        You sign in on Microsoft's own page. The launcher never sees your password, and it keeps each account's sign-in
+        tokens in your system's secure storage ({secureStoreName(info?.platform)}), not in a file. Signing out deletes them.
       </p>
     </>
   )

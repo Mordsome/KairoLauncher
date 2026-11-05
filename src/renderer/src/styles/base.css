@@ -368,3 +368,9 @@ input,
     scroll-behavior: auto !important;
   }
 }
+
+/* Until the saved accounts are known, show only the background (no sign-in flash). */
+.app[data-loaded='false'] > .page,
+.app[data-loaded='false'] > .rail {
+  visibility: hidden;
+}

@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IPC,
+  type AccountsState,
+  type SignInResult,
   type AppInfo,
   type GameState,
   type KairoApi,
@@ -33,6 +35,13 @@ const api: KairoApi = {
         ipcRenderer.removeListener(IPC.gameStateChanged, handler)
       }
     }
+  },
+  auth: {
+    state: () => ipcRenderer.invoke(IPC.authState) as Promise<AccountsState>,
+    signIn: () => ipcRenderer.invoke(IPC.authSignIn) as Promise<SignInResult>,
+    cancel: () => ipcRenderer.invoke(IPC.authCancel) as Promise<void>,
+    switchTo: (uuid: string) => ipcRenderer.invoke(IPC.authSwitch, String(uuid)) as Promise<AccountsState>,
+    signOut: (uuid: string) => ipcRenderer.invoke(IPC.authSignOut, String(uuid)) as Promise<AccountsState>
   },
   kairo: {
     status: () => ipcRenderer.invoke(IPC.kairoStatus) as Promise<KairoStatus>,

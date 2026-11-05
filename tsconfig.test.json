@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["playwright.config.ts", "playwright.launch.config.ts", "tests/**/*.ts", "src/renderer/src/env.d.ts"]
+  "include": ["playwright.config.ts", "playwright.launch.config.ts", "vitest.config.ts", "tests/**/*.ts", "src/renderer/src/env.d.ts"]
 }

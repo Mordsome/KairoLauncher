@@ -145,3 +145,34 @@
     transform: none;
   }
 }
+
+.ring-dot-error {
+  fill: var(--hot);
+}
+
+.signin-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.signin-retry {
+  min-height: 48px;
+  padding: 0 26px;
+}
+
+.signin-back {
+  position: absolute;
+  left: 24px;
+  top: 52px;
+  z-index: 2;
+}
+
+.signin-alert {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}

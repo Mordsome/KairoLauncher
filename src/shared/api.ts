@@ -12,8 +12,36 @@ export const IPC = {
   gameState: 'game:state',
   gameStateChanged: 'game:state-changed',
   kairoStatus: 'kairo:status',
-  kairoSetKeepUpdated: 'kairo:set-keep-updated'
+  kairoSetKeepUpdated: 'kairo:set-keep-updated',
+  authState: 'auth:state',
+  authSignIn: 'auth:sign-in',
+  authCancel: 'auth:cancel',
+  authSwitch: 'auth:switch',
+  authSignOut: 'auth:sign-out'
 } as const
+
+export interface AccountSummary {
+  /** Minecraft profile UUID. */
+  uuid: string
+  /** Minecraft player name. */
+  name: string
+}
+
+export interface AccountsState {
+  accounts: AccountSummary[]
+  /** UUID of the account that plays. */
+  active: string | null
+}
+
+export interface AuthErrorInfo {
+  code: string
+  title: string
+  message: string
+  /** An official help page, opened in the browser. */
+  help?: { label: string; url: string }
+}
+
+export type SignInResult = { ok: true; account: AccountSummary; state: AccountsState } | { ok: false; error: AuthErrorInfo }
 
 export type KairoEdition = 'kairo' | 'void'
 
@@ -111,5 +139,13 @@ export interface KairoApi {
   kairo: {
     status(): Promise<KairoStatus>
     setKeepUpdated(edition: KairoEdition, on: boolean): Promise<KairoStatus>
+  }
+  auth: {
+    state(): Promise<AccountsState>
+    /** Opens Microsoft's page in the browser; resolves when the player finishes or cancels. */
+    signIn(): Promise<SignInResult>
+    cancel(): Promise<void>
+    switchTo(uuid: string): Promise<AccountsState>
+    signOut(uuid: string): Promise<AccountsState>
   }
 }

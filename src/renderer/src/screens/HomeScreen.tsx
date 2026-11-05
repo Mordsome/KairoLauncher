@@ -52,7 +52,6 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
   const game = useStore((s) => s.game)
   const notice = useStore((s) => s.notice)
   const account = useStore((s) => s.account)
-  const devOffline = useStore((s) => s.info?.devOfflineName ?? null)
   const playOrStop = useStore((s) => s.playOrStop)
   const openPicker = useStore((s) => s.openPicker)
 
@@ -74,7 +73,7 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
     if (notice) return notice
     if (game.error) return `${game.error.title}\n${game.error.message}`
     if (game.crash) return 'Minecraft closed unexpectedly\nThe crash report is in the install’s folder'
-    const who = devOffline ? `Offline dev account: ${devOffline}` : `Signed in as ${account?.name ?? ''}`
+    const who = account?.uuid === null ? `Offline dev account: ${account.name}` : `Signed in as ${account?.name ?? ''}`
     return `${who}\nReady to play`
   }
   const status =

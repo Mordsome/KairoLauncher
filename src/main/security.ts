@@ -33,7 +33,14 @@ export function hardenApp(): void {
 }
 
 // Links the UI may open in the system browser. Exact https prefixes only.
-const EXTERNAL_PREFIXES = ['https://github.com/Mordsome/', 'https://mordsome.github.io/Kairo']
+const EXTERNAL_PREFIXES = [
+  'https://github.com/Mordsome/',
+  'https://mordsome.github.io/Kairo',
+  // Official help pages linked from sign-in errors
+  'https://www.xbox.com/',
+  'https://account.microsoft.com/family/',
+  'https://www.minecraft.net/'
+]
 
 export async function openExternalSafe(raw: string): Promise<boolean> {
   let url: URL

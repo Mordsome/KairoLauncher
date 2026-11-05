@@ -11,6 +11,12 @@ export const USER_AGENT = `KairoLauncher/${app.getVersion()} (github.com/Mordsom
 
 // Host, and optionally the only path prefixes allowed on it.
 const ALLOWED: Record<string, string[] | null> = {
+  // Microsoft and Xbox: sign-in, then the Minecraft login and profile
+  'login.microsoftonline.com': null,
+  'login.live.com': null,
+  'user.auth.xboxlive.com': ['/user/authenticate'],
+  'xsts.auth.xboxlive.com': ['/xsts/authorize'],
+  'api.minecraftservices.com': null,
   // Mojang: version lists, game files, Java runtimes
   'launchermeta.mojang.com': null,
   'piston-meta.mojang.com': null,

@@ -4,6 +4,7 @@ export interface GameAccount {
   /** Minecraft profile UUID, without dashes. */
   uuid: string
   accessToken: string
-  userType: 'mojang' | 'legacy'
+  /** "msa" for Microsoft accounts; "legacy" only for the dev offline account. */
+  userType: 'msa' | 'legacy'
   offline: boolean
 }

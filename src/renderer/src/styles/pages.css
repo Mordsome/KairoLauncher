@@ -476,3 +476,27 @@
   gap: 10px;
   flex-wrap: wrap;
 }
+
+.account-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.account-card[data-active='true'] {
+  border-color: var(--sel-line);
+  background: var(--sel-bg);
+}
+
+.account-use {
+  min-height: 44px;
+  font-size: 15px;
+  padding: 0 18px;
+}
+
+.account-add {
+  align-self: flex-start;
+}

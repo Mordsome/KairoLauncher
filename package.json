@@ -16,11 +16,12 @@
     "postinstall": "install-electron",
     "dev": "electron-vite dev",
     "dev:offline": "electron-vite dev --mode offline",
-    "build": "npm run typecheck && electron-vite build",
+    "build": "npm run typecheck && electron-vite build && node scripts/check-release.mjs",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",
-    "test:e2e": "electron-vite build && playwright test",
-    "test:launch": "electron-vite build --mode offline && playwright test -c playwright.launch.config.ts"
+    "test:e2e": "electron-vite build --mode offline && playwright test",
+    "test:launch": "electron-vite build --mode offline && playwright test -c playwright.launch.config.ts",
+    "test:unit": "vitest run"
   },
   "devDependencies": {
     "@fontsource-variable/outfit": "^5.3.0",
@@ -36,6 +37,7 @@
     "react-dom": "^19.3.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
+    "vitest": "^5.1.0",
     "zustand": "^5.0.16"
   },
   "overrides": {
@@ -44,6 +46,8 @@
     }
   },
   "dependencies": {
+    "@azure/msal-node": "^7.2.0",
+    "@napi-rs/keyring": "^2.1.2",
     "@xmcl/core": "^2.16.3",
     "@xmcl/file-transfer": "^2.1.4",
     "@xmcl/installer": "^6.3.7",

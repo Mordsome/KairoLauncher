@@ -63,7 +63,8 @@ export class GameSession {
     this.hooks.onState(this.state)
   }
 
-  async play(request: PlayRequest, account: GameAccount | null): Promise<void> {
+  /** getAccount runs inside the attempt, so a sign-in problem shows on Home like any other error. */
+  async play(request: PlayRequest, getAccount: () => Promise<GameAccount | null>): Promise<void> {
     if (this.state.phase !== 'idle') return
     this.abort = new AbortController()
     const signal = this.abort.signal
@@ -83,9 +84,8 @@ export class GameSession {
     }, 200)
 
     try {
-      if (!account) {
-        throw new KairoError('not-signed-in', 'Microsoft sign-in comes in Phase 3. To test launches now, run "npm run dev:offline".')
-      }
+      const account = await getAccount()
+      if (!account) throw new KairoError('not-signed-in', 'Sign in with a Microsoft account that owns Minecraft: Java Edition.')
       addSecret(account.accessToken)
       const target = request.target
       const prepared =
@@ -186,7 +186,8 @@ export class GameSession {
         version,
         gameProfile: { name: account.name, id: account.uuid },
         accessToken: account.accessToken,
-        userType: account.userType,
+        // xmcl's type only lists the old values; Minecraft expects "msa" for Microsoft accounts.
+        userType: account.userType as 'mojang',
         launcherName: 'KairoLauncher',
         launcherBrand: app.getVersion(),
         maxMemory: request.memoryGB * 1024,

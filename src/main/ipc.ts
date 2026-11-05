@@ -1,7 +1,9 @@
 import { app, BrowserWindow, ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { totalmem } from 'node:os'
-import { IPC, type AppInfo, type KairoEdition, type PlayRequest, type Platform } from '../shared/api'
+import { IPC, type AppInfo, type KairoEdition, type PlayRequest, type Platform, type SignInResult } from '../shared/api'
 import { devOfflineAccount } from './account/devOffline'
+import { accounts } from './auth/accounts'
+import { describeAuthError } from './auth/errors'
 import { listVersions } from './game/manifest'
 import type { GameSession } from './game/session'
 import { kairoStatus, setKeepUpdated } from './kairo/status'
@@ -96,7 +98,8 @@ export function registerIpc(session: GameSession): void {
     const request = parsePlayRequest(raw)
     if (!request) throw new Error('Invalid play request')
     // Runs in the background; progress and errors arrive as state events.
-    void session.play(request, devOfflineAccount())
+    // The active Microsoft account; the dev offline account only exists in offline builds.
+    void session.play(request, async () => (await accounts.forLaunch()) ?? devOfflineAccount())
   })
 
   ipcMain.handle(IPC.gameStop, (event) => {
@@ -112,5 +115,35 @@ export function registerIpc(session: GameSession): void {
   ipcMain.handle(IPC.kairoSetKeepUpdated, (event, edition: unknown, on: unknown) => {
     if (!fromApp(event) || !isEdition(edition) || typeof on !== 'boolean') throw new Error('Not allowed')
     return setKeepUpdated(edition, on)
+  })
+
+  ipcMain.handle(IPC.authState, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return accounts.state()
+  })
+
+  ipcMain.handle(IPC.authSignIn, async (event): Promise<SignInResult> => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    try {
+      const { account, state } = await accounts.add()
+      return { ok: true, account, state }
+    } catch (error) {
+      return { ok: false, error: describeAuthError(error) }
+    }
+  })
+
+  ipcMain.handle(IPC.authCancel, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    accounts.cancel()
+  })
+
+  ipcMain.handle(IPC.authSwitch, (event, uuid: unknown) => {
+    if (!fromApp(event) || typeof uuid !== 'string' || !/^[0-9a-f]{32}$/.test(uuid)) throw new Error('Not allowed')
+    return accounts.switchTo(uuid)
+  })
+
+  ipcMain.handle(IPC.authSignOut, (event, uuid: unknown) => {
+    if (!fromApp(event) || typeof uuid !== 'string' || !/^[0-9a-f]{32}$/.test(uuid)) throw new Error('Not allowed')
+    return accounts.signOut(uuid)
   })
 }
