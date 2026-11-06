@@ -1,13 +1,17 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import type { LauncherSettings } from '../../src/shared/api'
 import { join } from 'node:path'
 
 // Walks through every screen of the built app (mock data), saves a
 // screenshot of each, and fails on any console error or CSP violation.
+// It runs on an empty data folder, so accounts, settings and installs on
+// this PC don't change what it sees, and it never changes them.
 
 const SHOTS = join('test-results', 'screens')
 mkdirSync(SHOTS, { recursive: true })
+const DATA = mkdtempSync(join(tmpdir(), 'kairo-screens-'))
 
 let app: ElectronApplication
 let page: Page
@@ -25,7 +29,7 @@ test.beforeAll(async () => {
   const env = Object.fromEntries(
     Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined && e[0] !== 'ELECTRON_RENDERER_URL')
   )
-  app = await electron.launch({ args: ['.'], env })
+  app = await electron.launch({ args: ['.', `--user-data-dir=${DATA}`], env })
   page = await app.firstWindow()
   page.on('console', (m) => {
     if (m.type() === 'error' || m.type() === 'warning') problems.push(`${m.type()}: ${m.text()}`)
@@ -44,7 +48,6 @@ test.beforeAll(async () => {
       showSnapshots: false,
       matchTheme: true,
       autoUpdate: true,
-      sounds: true,
       voidWarningSeen: false,
       lastSelection: null
     })
@@ -59,6 +62,7 @@ test.afterAll(async () => {
     await page.evaluate((s) => window.kairo.settings.set(s), savedSettings).catch(() => undefined)
   }
   await app?.close()
+  rmSync(DATA, { recursive: true, force: true })
 })
 
 test('renderer is locked down', async () => {
@@ -396,10 +400,10 @@ test('settings: every tab', async () => {
 
   // Changes are saved by the main process, and checked on the way in.
   await page.getByRole('tab', { name: 'Launcher' }).click()
-  await page.getByRole('switch', { name: 'Interface sounds' }).click()
-  await expect.poll(() => page.evaluate(() => window.kairo.settings.get().then((s) => s.sounds))).toBe(false)
-  await page.getByRole('switch', { name: 'Interface sounds' }).click()
-  await expect.poll(() => page.evaluate(() => window.kairo.settings.get().then((s) => s.sounds))).toBe(true)
+  await page.getByRole('switch', { name: 'Update the launcher automatically' }).click()
+  await expect.poll(() => page.evaluate(() => window.kairo.settings.get().then((s) => s.autoUpdate))).toBe(false)
+  await page.getByRole('switch', { name: 'Update the launcher automatically' }).click()
+  await expect.poll(() => page.evaluate(() => window.kairo.settings.get().then((s) => s.autoUpdate))).toBe(true)
   const cleaned = await page.evaluate(() =>
     window.kairo.settings.get().then((s) => window.kairo.settings.set({ ...s, memoryGB: 9999, javaPath: 42 as unknown as string }))
   )

@@ -20,7 +20,7 @@ describe('cleanSettings', () => {
     const saved = {
       ...DEFAULT_SETTINGS,
       memoryGB: 8,
-      sounds: false,
+      autoUpdate: false,
       customJava: true,
       javaPath: 'C:\\Java\\bin\\java.exe',
       lastSelection: { edition: 'other', mc: '1.21.1', installId: '0123456789ab' }
@@ -31,18 +31,20 @@ describe('cleanSettings', () => {
   it('drops odd values field by field', () => {
     const out = cleanSettings({
       memoryGB: 999,
-      sounds: 'yes',
+      autoUpdate: 'yes',
       javaPath: 'x'.repeat(5000),
       fullscreen: true,
       extra: 'ignored',
+      sounds: true, // a setting that no longer exists
       lastSelection: { edition: 'hacked', mc: '1.21', installId: null }
     })
     expect(out.memoryGB).toBe(DEFAULT_SETTINGS.memoryGB)
-    expect(out.sounds).toBe(DEFAULT_SETTINGS.sounds)
+    expect(out.autoUpdate).toBe(DEFAULT_SETTINGS.autoUpdate)
     expect(out.javaPath).toBe('')
     expect(out.fullscreen).toBe(true)
     expect(out.lastSelection).toBeNull()
     expect(out).not.toHaveProperty('extra')
+    expect(out).not.toHaveProperty('sounds')
   })
 
   it('refuses memory that is not a whole number of gigabytes', () => {

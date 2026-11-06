@@ -175,12 +175,6 @@ function LauncherTab() {
         checked={settings.autoUpdate}
         onChange={(autoUpdate) => update({ autoUpdate })}
       />
-      <SwitchRow
-        label="Interface sounds"
-        description="The same soft clicks as in the client"
-        checked={settings.sounds}
-        onChange={(sounds) => update({ sounds })}
-      />
     </>
   )
 }

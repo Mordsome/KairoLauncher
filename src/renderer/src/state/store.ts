@@ -199,7 +199,6 @@ export const useStore = create<State>()((set, get) => ({
     showSnapshots: false,
     matchTheme: true,
     autoUpdate: true,
-    sounds: true,
     voidWarningSeen: false
   },
   info: null,

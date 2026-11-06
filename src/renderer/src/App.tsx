@@ -6,7 +6,6 @@ import { LibraryScreen } from './screens/LibraryScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { selectTheme, useStore } from './state/store'
-import { useInterfaceSounds } from './state/sounds'
 import { VoidWarning } from './screens/VoidWarning'
 
 export function App() {
@@ -41,7 +40,6 @@ export function App() {
     return window.kairo.game.onState(setGame)
   }, [setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, loadSettings, setAccounts, go])
 
-  useInterfaceSounds()
 
   return (
     <div className="app" data-loaded={loaded}>

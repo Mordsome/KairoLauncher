@@ -16,7 +16,6 @@ export const DEFAULT_SETTINGS: LauncherSettings = {
   showSnapshots: false,
   matchTheme: true,
   autoUpdate: true,
-  sounds: true,
   voidWarningSeen: false,
   lastSelection: null
 }
@@ -50,7 +49,6 @@ export function cleanSettings(raw: unknown): LauncherSettings {
     showSnapshots: bool('showSnapshots'),
     matchTheme: bool('matchTheme'),
     autoUpdate: bool('autoUpdate'),
-    sounds: bool('sounds'),
     voidWarningSeen: bool('voidWarningSeen'),
     lastSelection
   }
