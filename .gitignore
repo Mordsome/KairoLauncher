@@ -12,3 +12,12 @@ Thumbs.db
 
 # Local build brief, kept out of the public repo
 LAUNCHER_PROMPT.md
+
+# Files Minecraft writes if it's ever started from the project folder
+/logs/
+/crash-reports/
+/config/*
+!/config/auth.json
+/options.txt
+/mods/
+/saves/

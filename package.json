@@ -16,7 +16,7 @@
     "postinstall": "install-electron && node scripts/fix-xmcl-unzip.mjs",
     "dev": "electron-vite dev",
     "dev:offline": "electron-vite dev --mode offline",
-    "build": "npm run typecheck && electron-vite build && node scripts/check-release.mjs",
+    "build": "npm run typecheck && node scripts/check-privacy.mjs && electron-vite build && node scripts/check-release.mjs",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",
     "test:e2e": "electron-vite build --mode offline && playwright test",
