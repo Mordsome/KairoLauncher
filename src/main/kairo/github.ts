@@ -1,11 +1,17 @@
+import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { KairoError } from '../errors'
 import { fetchJson, fetchOk } from '../net/http'
 import { dataPaths } from '../paths'
+import { RELEASE_KEY, REQUIRE_KAIRO_SIGNATURE } from '../releaseKey'
+import { kairoStatement, verifyStatement } from '../signature'
 
 // Kairo releases on GitHub. A release counts only if it has both jars and a
 // SHA256SUMS.txt that lists them: anything we can't verify is never installed.
+// If the release has a SHA256SUMS.txt.sig (Mordsome's signature, see
+// src/main/signature.ts) it must check out; with requireKairoSignature in
+// config/release-key.json, releases without one are skipped too.
 
 const RELEASES_URL = 'https://api.github.com/repos/Mordsome/Kairo/releases?per_page=15'
 const DOWNLOAD_PREFIX = 'https://github.com/Mordsome/Kairo/releases/download/'
@@ -64,7 +70,15 @@ async function resolveLatest(signal?: AbortSignal): Promise<KairoRelease> {
     // Only follow download links into Mordsome's own release pages.
     if (![kairo, voidJar, sumsAsset].every((a) => a.browser_download_url.startsWith(DOWNLOAD_PREFIX))) continue
 
-    const sums = parseSha256Sums(await (await fetchOk(sumsAsset.browser_download_url, { signal })).text())
+    const sumsBytes = Buffer.from(await (await fetchOk(sumsAsset.browser_download_url, { signal })).arrayBuffer())
+    const sigAsset = asset('SHA256SUMS.txt.sig')
+    if (sigAsset || REQUIRE_KAIRO_SIGNATURE) {
+      if (!sigAsset || !sigAsset.browser_download_url.startsWith(DOWNLOAD_PREFIX)) continue
+      const signature = await (await fetchOk(sigAsset.browser_download_url, { signal })).text()
+      const sha256 = createHash('sha256').update(sumsBytes).digest('hex')
+      if (!verifyStatement(RELEASE_KEY, kairoStatement(r.tag_name, sha256), signature)) continue
+    }
+    const sums = parseSha256Sums(sumsBytes.toString('utf8'))
     const k = sums.get(kairo.name)
     const v = sums.get(voidJar.name)
     if (!k || !v) continue
@@ -79,7 +93,7 @@ async function resolveLatest(signal?: AbortSignal): Promise<KairoRelease> {
       }
     }
   }
-  throw new KairoError('http-status', 'No Kairo release on GitHub has both jars and a SHA256SUMS.txt yet.')
+  throw new KairoError('http-status', 'No Kairo release on GitHub has both jars and a SHA256SUMS.txt (with a valid signature, if it has one) yet.')
 }
 
 /** The newest verifiable release; the last one seen when GitHub can't be reached. */

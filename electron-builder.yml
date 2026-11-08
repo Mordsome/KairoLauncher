@@ -23,6 +23,19 @@ extraResources:
 electronLanguages:
   - en-US
 icon: build/icon.png
+# Refuses to package a build that has the dev-only offline account in it.
+beforePack: scripts/before-pack.cjs
+
+# Electron "fuses": switches baked into the app that close ways to misuse it.
+electronFuses:
+  runAsNode: false # ELECTRON_RUN_AS_NODE can't turn it into a plain Node.js
+  enableNodeOptionsEnvironmentVariable: false # NODE_OPTIONS is ignored
+  enableNodeCliInspectArguments: false # --inspect can't attach a debugger to the main process
+  enableEmbeddedAsarIntegrityValidation: true # app.asar must match the hash built into the exe
+  onlyLoadAppFromAsar: true # code only from app.asar, never a loose folder next to it
+  enableCookieEncryption: true
+  grantFileProtocolExtraPrivileges: false
+  loadBrowserProcessSpecificV8Snapshot: false
 
 win:
   target:

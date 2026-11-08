@@ -1,0 +1,5 @@
+{
+  "//": "Public half of Mordsome's release signing key (Ed25519, base64 SPKI). Made once with `npm run release:keygen`; the private half stays on Mordsome's PC. Launcher updates must be signed with it. requireKairoSignature: also refuse Kairo releases without a valid SHA256SUMS.txt.sig.",
+  "publicKey": "MCowBQYDK2VwAyEAR1A0vSaI9iTlzt9gOT82GlVn0ohvaBegZneZupHlU5o=",
+  "requireKairoSignature": false
+}

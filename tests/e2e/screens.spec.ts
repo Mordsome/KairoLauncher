@@ -129,7 +129,9 @@ test('main process only reaches allowed services, over HTTPS', async () => {
       mojang: await tryFetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'),
       otherGitHubRepo: await tryFetch('https://api.github.com/repos/torvalds/linux/releases'),
       otherGitHubPage: await tryFetch('https://github.com/torvalds'),
-      kairoReleases: await tryFetch('https://api.github.com/repos/Mordsome/Kairo/releases?per_page=1')
+      kairoReleases: await tryFetch('https://api.github.com/repos/Mordsome/Kairo/releases?per_page=1'),
+      // Allowed address that redirects somewhere that isn't (codeload.github.com): the hop is refused.
+      redirectOffList: await tryFetch('https://api.github.com/repos/Mordsome/Kairo/tarball')
     }
   })
   expect(result.other).toMatch(/^blocked: Refused to connect to example\.com/)
@@ -138,6 +140,25 @@ test('main process only reaches allowed services, over HTTPS', async () => {
   expect(result.otherGitHubRepo).toMatch(/^blocked/)
   expect(result.otherGitHubPage).toMatch(/^blocked/)
   expect(result.kairoReleases).toBe('ok 200')
+  expect(result.redirectOffList).toMatch(/^blocked: Refused to connect to codeload\.github\.com/)
+})
+
+test("the updater's own network only reaches Mordsome on GitHub", async () => {
+  const result = await app.evaluate(async ({ session }) => {
+    const ses = session.fromPartition('electron-updater', { cache: false })
+    const get = (url: string) =>
+      ses.fetch(url, { method: 'HEAD' }).then(
+        (r) => `ok ${r.status}`,
+        () => 'blocked'
+      )
+    return {
+      kairo: await get('https://github.com/Mordsome/Kairo/releases.atom'),
+      otherRepo: await get('https://github.com/electron/electron/releases.atom'),
+      otherSite: await get('https://example.com/'),
+      plainHttp: await get('http://github.com/Mordsome/Kairo/releases.atom')
+    }
+  })
+  expect(result).toEqual({ kairo: 'ok 200', otherRepo: 'blocked', otherSite: 'blocked', plainHttp: 'blocked' })
 })
 
 test('sign-in: Microsoft page, browser hand-back, errors, cancel', async () => {

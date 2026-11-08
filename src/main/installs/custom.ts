@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import type { CustomInstallInfo, InstallLoader, ModInfo } from '../../shared/api'
 import { dataPaths } from '../paths'
 import { RECORD_FILE, type ManagedMod } from './record'
@@ -38,7 +38,25 @@ export interface CustomRecord {
 
 const ID = /^[0-9a-f]{12}$/
 
-function isCustom(x: unknown): x is CustomRecord {
+/** A path inside the install folder: relative, no "..", no drive letters. */
+function insideFile(p: unknown): boolean {
+  return (
+    typeof p === 'string' &&
+    p.length > 0 &&
+    p.length < 260 &&
+    !isAbsolute(p) &&
+    !p.includes(':') &&
+    p.split(/[\\/]/).every((part) => part !== '' && part !== '.' && part !== '..')
+  )
+}
+
+function validInstaller(x: unknown): boolean {
+  if (x === null) return true
+  const i = x as CustomRecord['installer']
+  return !!i && insideFile(i.file) && typeof i.sha1 === 'string' && /^[0-9a-f]{40}$/i.test(i.sha1)
+}
+
+export function isCustom(x: unknown): x is CustomRecord {
   const r = x as CustomRecord
   return (
     !!r &&
@@ -51,7 +69,9 @@ function isCustom(x: unknown): x is CustomRecord {
     ['fabric', 'neoforge', 'forge', 'optifine', 'vanilla'].includes(r.loader) &&
     (r.folder === undefined || (typeof r.folder === 'string' && r.folder.length > 0 && !/[\/]/.test(r.folder))) &&
     Array.isArray(r.mods) &&
-    Array.isArray(r.wanted)
+    r.mods.every((m) => !!m && insideFile(m.filename)) &&
+    Array.isArray(r.wanted) &&
+    validInstaller(r.installer ?? null)
   )
 }
 

@@ -42,6 +42,13 @@ const EXTERNAL_PREFIXES = [
   'https://www.minecraft.net/'
 ]
 
+/** href is prefix itself, or continues it at a "/", "?" or "#". */
+export function isUnder(href: string, prefix: string): boolean {
+  if (!href.startsWith(prefix)) return false
+  if (prefix.endsWith('/') || href.length === prefix.length) return true
+  return ['/', '?', '#'].includes(href[prefix.length]!)
+}
+
 export async function openExternalSafe(raw: string): Promise<boolean> {
   let url: URL
   try {
@@ -51,7 +58,7 @@ export async function openExternalSafe(raw: string): Promise<boolean> {
   }
   if (url.protocol !== 'https:' || url.username || url.password) return false
   const href = url.toString()
-  if (!EXTERNAL_PREFIXES.some((prefix) => href.startsWith(prefix))) return false
+  if (!EXTERNAL_PREFIXES.some((prefix) => isUnder(href, prefix))) return false
   await shell.openExternal(href)
   return true
 }

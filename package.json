@@ -25,7 +25,10 @@
     "dist:win": "npm run build && electron-builder --win nsis --publish never",
     "dist:linux": "npm run build && electron-builder --linux AppImage --publish never",
     "icon": "electron scripts/render-icon.cjs",
-    "test:packaged": "playwright test -c playwright.packaged.config.ts"
+    "test:packaged": "playwright test -c playwright.packaged.config.ts",
+    "release:keygen": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/release-sign.mjs keygen",
+    "release:sign": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/release-sign.mjs sign",
+    "release:sign-kairo": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/release-sign.mjs sign-kairo"
   },
   "devDependencies": {
     "@fontsource-variable/outfit": "^5.3.0",
@@ -36,7 +39,7 @@
     "@types/react-dom": "^19.3.0",
     "@types/yazl": "^3.3.1",
     "@vitejs/plugin-react": "^6.2.1",
-    "electron": "^45.2.2",
+    "electron": "^45.2.3",
     "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
     "react": "^19.3.1",

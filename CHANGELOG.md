@@ -35,7 +35,9 @@ The first public version of Kairo Launcher, for Windows and Linux.
 ### The launcher
 
 - Remembers your settings and what you last played.
-- Updates itself from GitHub, checked against the release's checksum.
+- Updates itself from GitHub. Every update must carry Mordsome's signature, so a fake update
+  can't be installed even if someone got into the GitHub account.
+- Logs and error messages hide your user folder's name.
 - A photosensitivity warning before Kairo Void is installed for the first time.
 - No analytics, no telemetry, no accounts of our own.
 

@@ -6,7 +6,6 @@ import { pipeline } from 'node:stream/promises'
 import type { CustomLoader } from '../../shared/api'
 import { KairoError } from '../errors'
 import type { ManagedMod } from '../installs/record'
-import { isAllowedUrl } from '../net/http'
 
 // Modrinth modpacks (.mrpack): a zip with modrinth.index.json (files to
 // download, with hashes) and overrides/ (configs, resource packs...).
@@ -50,6 +49,16 @@ export function safeRelative(raw: string): string | null {
   const norm = normalize(raw.replace(/\\/g, '/'))
   if (norm === '.' || norm.startsWith('..') || norm.split(sep).includes('..') || isAbsolute(norm)) return null
   return norm
+}
+
+/** Modpack files may only come from Modrinth's CDN, over HTTPS. */
+export function isModrinthCdn(raw: string): boolean {
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'https:' && !url.username && !url.password && url.hostname === 'cdn.modrinth.com' && url.pathname.startsWith('/data/')
+  } catch {
+    return false
+  }
 }
 
 function host(url: string): string {
@@ -106,10 +115,10 @@ export async function readModpack(file: string): Promise<Modpack> {
     if (!path) throw new KairoError('unknown-version', `This modpack tries to put a file outside its folder (${f.path.slice(0, 60)}), so it wasn't imported.`)
     const sha512 = f.hashes?.sha512?.toLowerCase()
     if (!sha512 || !/^[0-9a-f]{128}$/.test(sha512)) throw new KairoError('checksum', `This modpack gives no SHA-512 for ${path}.`)
-    const url = f.downloads?.find((u) => isAllowedUrl(u))
+    const url = f.downloads?.find((u) => isModrinthCdn(u))
     if (!url) {
       const where = f.downloads?.[0] ? host(f.downloads[0]) : 'nowhere'
-      throw new KairoError('blocked-host', `This modpack downloads ${path} from ${where}, which Kairo Launcher doesn't connect to.`)
+      throw new KairoError('blocked-host', `This modpack downloads ${path} from ${where}, and Kairo Launcher only downloads modpack files from Modrinth.`)
     }
     files.push({ project: 'modpack', name: path.split(sep).pop() ?? path, version: '', filename: path, url, hash: { algorithm: 'sha512', value: sha512 } })
   }

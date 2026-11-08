@@ -268,7 +268,7 @@ function updateText(u: UpdateState | null): string {
   switch (u?.status) {
     case undefined:
     case 'off':
-      return 'Updates are off in development builds.'
+      return u?.message ?? 'Updates are off in development builds.'
     case 'idle':
       return 'Updates come from the GitHub releases of Mordsome/KairoLauncher.'
     case 'checking':
@@ -277,6 +277,8 @@ function updateText(u: UpdateState | null): string {
       return 'You have the newest version.'
     case 'downloading':
       return `Downloading ${u.version ?? 'the update'}: ${Math.round(u.progress * 100)}%`
+    case 'verifying':
+      return "Checking that the update really comes from Mordsome…"
     case 'ready':
       return `Version ${u.version} is ready. It installs when you restart the launcher.`
     case 'error':
@@ -286,7 +288,7 @@ function updateText(u: UpdateState | null): string {
 
 function UpdateLine() {
   const update = useStore((s) => s.update)
-  const busy = update?.status === 'checking' || update?.status === 'downloading'
+  const busy = update?.status === 'checking' || update?.status === 'downloading' || update?.status === 'verifying'
   const canCheck = update !== null && update.status !== 'off' && update.status !== 'ready' && !busy
   return (
     <div className="update-line">

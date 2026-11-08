@@ -1,7 +1,7 @@
 import { createMinecraftProcessWatcher, launch, MinecraftFolder, Version, type ResolvedVersion } from '@xmcl/core'
 import type { ChildProcess } from 'node:child_process'
 import { mkdir, open, readFile, rename, stat, writeFile } from 'node:fs/promises'
-import { join, normalize, sep } from 'node:path'
+import { basename, dirname, join, normalize } from 'node:path'
 import { app, shell } from 'electron'
 import type { GameState, KairoEdition, LogView, PlayRequest } from '../../shared/api'
 import { customDir, getCustom, vanillaRecord, writeCustom } from '../installs/custom'
@@ -44,6 +44,17 @@ async function touchRecord(dir: string, change: { lastPlayed?: number; addMinute
   } catch {
     // play time is nice to have; never fail a game over it
   }
+}
+
+/**
+ * True for a crash report Minecraft wrote for this install: a .txt file directly
+ * in <install>/crash-reports. Anything else the game prints is never opened, so
+ * a fake path can't make the launcher open a program.
+ */
+export function isCrashReport(file: string, gamePath: string): boolean {
+  const fold = (p: string) => (process.platform === 'win32' ? p.toLowerCase() : p)
+  const report = normalize(file.trim())
+  return fold(dirname(report)) === fold(join(normalize(gamePath), 'crash-reports')) && /^crash-[\w.-]+\.txt$/i.test(basename(report))
 }
 
 /** A plain reason for a crash, from the game's last output. */
@@ -125,8 +136,9 @@ export class GameSession {
 
   /** Opens the last crash report, or the logs folder if Minecraft didn't write one. */
   async openCrashReport(): Promise<void> {
-    if (this.crashReport) {
-      await shell.openPath(this.crashReport)
+    const report = this.crashReport && (await stat(this.crashReport).catch(() => null))?.isFile() ? this.crashReport : null
+    if (report) {
+      await shell.openPath(report)
       return
     }
     if (this.logDir) await shell.openPath(join(this.logDir, 'logs'))
@@ -372,7 +384,7 @@ export class GameSession {
       const crashed = !this.stoppedByUser && code !== 0
       // Only a report inside this install's folder is ever opened.
       const report = crashReportLocation ? normalize(crashReportLocation.trim()) : null
-      this.crashReport = crashed && report && report.startsWith(normalize(gamePath) + sep) ? report : null
+      this.crashReport = crashed && report && isCrashReport(report, gamePath) ? report : null
       this.finish({ ...IDLE, crash: crashed ? { ...crashReason(this.log), hasReport: this.crashReport !== null } : null })
     })
   }

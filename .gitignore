@@ -18,6 +18,11 @@ LAUNCHER_PROMPT.md
 /crash-reports/
 /config/*
 !/config/auth.json
+!/config/release-key.json
 /options.txt
 /mods/
 /saves/
+
+# Release signing keys never belong in the project
+*.pem
+*.key

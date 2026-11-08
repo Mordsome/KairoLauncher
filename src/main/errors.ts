@@ -1,5 +1,6 @@
 import type { GameError } from '../shared/api'
 import { AuthError, describeAuthError } from './auth/errors'
+import { redact as hidePrivate } from './redact'
 
 export type KairoErrorCode =
   | 'blocked-host'
@@ -51,7 +52,8 @@ function codeOf(error: unknown): string | undefined {
 }
 
 /** Turns any failure into a short, specific message for the Home screen. Never includes secrets. */
-export function describeError(error: unknown, redact: (text: string) => string = (t) => t): GameError {
+/** Tokens and the home folder are always hidden; callers can't forget to. */
+export function describeError(error: unknown, redact: (text: string) => string = hidePrivate): GameError {
   for (const e of walk(error)) {
     if (e instanceof AuthError) {
       const info = describeAuthError(e)

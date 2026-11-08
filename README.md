@@ -32,12 +32,17 @@ from Mojang, and loaders and mods from their official sources; it doesn't bundle
 **Updates:** the launcher checks this repository's releases a few seconds after it starts and
 every few hours (Settings → Launcher → "Update the launcher automatically"; you can also check
 in Settings → About). An update downloads in the background, is checked against the SHA-512 in
-the release's `latest.yml`, and installs when you restart the launcher. It never restarts while
+the release's `latest.yml` and against Mordsome's release signature, and installs when you
+restart the launcher; an unsigned update is never installed. It never restarts while
 Minecraft is running. Uninstalling keeps your installs, worlds and settings.
 
-**Privacy:** no analytics, no telemetry, no accounts of our own. The launcher only talks to
+**Privacy:** no analytics, no telemetry, no accounts of our own. Logs and errors shown in the
+launcher hide your user folder's name. The launcher only talks to
 Microsoft/Xbox/Mojang, Fabric, NeoForge, Forge, Modrinth and GitHub, as listed in
 Settings → Privacy.
+
+**Security:** see [SECURITY.md](SECURITY.md) for how to report a problem, and
+[docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) for the review done before the first release.
 
 ## Develop
 

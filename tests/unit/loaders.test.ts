@@ -90,7 +90,12 @@ describe('modpacks', () => {
 
   it('refuses plain http, even from Modrinth', async () => {
     const http = { ...sodium, downloads: ['http://cdn.modrinth.com/data/AANobbMI/versions/x/sodium.jar'] }
-    await expect(readModpack(await zip('http.mrpack', { 'modrinth.index.json': index([http]) }))).rejects.toThrow(/doesn't connect/)
+    await expect(readModpack(await zip('http.mrpack', { 'modrinth.index.json': index([http]) }))).rejects.toThrow(/only downloads modpack files from Modrinth/)
+  })
+
+  it('refuses GitHub files too: modpacks come from Modrinth only', async () => {
+    const github = { ...sodium, downloads: ['https://objects.githubusercontent.com/github-production-release-asset/1/sodium.jar'] }
+    await expect(readModpack(await zip('github.mrpack', { 'modrinth.index.json': index([github]) }))).rejects.toThrow(/objects\.githubusercontent\.com/)
   })
 
   it('needs a SHA-512 for every file', async () => {

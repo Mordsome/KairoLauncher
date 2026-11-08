@@ -1,5 +1,6 @@
-// Fails the build if a committed file could reveal who made it: a path inside
-// someone's home folder, or game output (logs, crash reports) that contains them.
+// Fails the build if a committed file could reveal who made it (a path inside
+// someone's home folder, or game output like logs and crash reports), or is a
+// private key.
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
@@ -10,13 +11,24 @@ const gameOutput = /(^|\/)(logs|crash-reports)\/|\.log(\.gz)?$|(^|\/)hs_err_pid\
 // A home folder followed by a real name, as in C:\Users\<name>\ or /home/<name>/. Placeholders in <> are fine.
 const homePath = /\b[A-Za-z]:[\\/]+Users[\\/]+(?!Public\b|Default\b|<|%|\$|\{)[^\\/\s"'`<>]+|(?:^|[\s"'`(=])\/(?:home|Users)\/(?!<|\$|\{)[^/\s"'`<>]+/m
 
+// A private key (release signing or any other) must never be committed.
+const privateKey = /-----BEGIN [A-Z ]*PRIVATE KEY-----/
+
 for (const file of files) {
+  if (/\.(pem|key|p12|pfx)$/i.test(file)) {
+    problems.push(`${file}: key files should never be committed`)
+    continue
+  }
   if (gameOutput.test(file)) {
     problems.push(`${file}: game output should never be committed`)
     continue
   }
   if (/\.(png|jpe?g|gif|webp|ico|icns|woff2?|ttf|otf|gz|zip|jar)$/i.test(file)) continue
   const text = readFileSync(file, 'utf8')
+  if (privateKey.test(text)) {
+    problems.push(`${file}: contains a private key`)
+    continue
+  }
   const hit = text.match(homePath)
   if (hit) problems.push(`${file}: a path inside a home folder ("${hit[0].trim().slice(0, 12)}…")`)
 }

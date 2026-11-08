@@ -109,12 +109,12 @@ export interface LauncherSettings {
 
 /** The launcher's own updates, from GitHub releases. "off" in dev runs. */
 export interface UpdateState {
-  status: 'off' | 'idle' | 'checking' | 'latest' | 'downloading' | 'ready' | 'error'
+  status: 'off' | 'idle' | 'checking' | 'latest' | 'downloading' | 'verifying' | 'ready' | 'error'
   /** The new version, while downloading or ready. */
   version: string | null
   /** 0 to 1, while downloading. */
   progress: number
-  /** Why the last check failed, in plain words. */
+  /** Why the last check failed (or why updates are off), in plain words. */
   message: string | null
 }
 
