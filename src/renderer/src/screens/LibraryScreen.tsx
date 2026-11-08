@@ -4,6 +4,8 @@ import { Logo } from '../components/Logo'
 import { LOADERS, type EditionId } from '../data/catalog'
 import { useStore, type Install } from '../state/store'
 import { ChangeVersionDialog, DeleteDialog, LogsDialog, RenameDialog } from './LibraryDialogs'
+import { ModsDialog } from './ModsDialog'
+import { sharesMinecraft } from './GameFolderCard'
 
 /** Modpacks pin their own versions; Forge and OptiFine need a new installer file. */
 function canChangeVersion(i: Install): boolean {
@@ -70,7 +72,9 @@ export function LibraryScreen({ active }: { active: boolean }) {
   const isKairo = detail?.edition === 'kairo' || detail?.edition === 'void'
 
   const refreshCustom = useStore((s) => s.refreshCustom)
-  const [dialog, setDialog] = useState<'logs' | 'rename' | 'version' | 'delete' | null>(null)
+  const sharedSetting = useStore((s) => s.settings.sharedMinecraft && s.info?.minecraftFolder != null)
+  const sharedNow = !!detail && sharedSetting && sharesMinecraft(detail)
+  const [dialog, setDialog] = useState<'logs' | 'rename' | 'version' | 'delete' | 'mods' | null>(null)
   const [problem, setProblem] = useState<{ title: string; message: string } | null>(null)
   const close = () => setDialog(null)
   const done = () => {
@@ -171,6 +175,8 @@ export function LibraryScreen({ active }: { active: boolean }) {
               ))}
             </div>
 
+            {sharedNow && <span className="detail-shared">Worlds, packs and settings: your .minecraft folder</span>}
+
             {isKairo && (
               <label className="keep-updated">
                 <span>
@@ -202,6 +208,11 @@ export function LibraryScreen({ active }: { active: boolean }) {
               </button>
               {!isKairo && (
                 <>
+                  {(detail.loader === 'fabric' || detail.loader === 'neoforge' || detail.loader === 'forge') && (
+                    <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('mods')}>
+                      Mods
+                    </button>
+                  )}
                   <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('rename')}>
                     Rename
                   </button>
@@ -228,6 +239,7 @@ export function LibraryScreen({ active }: { active: boolean }) {
         )}
       </div>
       {detail && dialog === 'logs' && <LogsDialog install={detail} onClose={close} />}
+      {detail && dialog === 'mods' && <ModsDialog install={detail} onClose={done} />}
       {detail && dialog === 'rename' && <RenameDialog install={detail} onDone={done} onClose={close} />}
       {detail && dialog === 'version' && <ChangeVersionDialog install={detail} onDone={done} onClose={close} />}
       {detail && dialog === 'delete' && <DeleteDialog install={detail} onDone={done} onClose={close} />}

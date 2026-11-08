@@ -19,6 +19,11 @@ The first public version of Kairo Launcher, for Windows and Linux.
 
 ### Your installs
 
+- **Mods from Modrinth** for Fabric, NeoForge and Forge installs: search, install with
+  dependencies, turn on and off, remove.
+- **Share your .minecraft** (Settings → Game): your worlds, packs and settings, while mods stay in
+  each install's own folder. Your `.minecraft/mods` is never used or changed.
+
 - Every install has its own folder: mods, worlds, settings and screenshots never mix.
 - Rename, duplicate, change the Minecraft version, or delete (to the Recycle Bin / Trash).
 - See the game's log, live while it runs.
@@ -33,6 +38,10 @@ The first public version of Kairo Launcher, for Windows and Linux.
   or the Secret Service keyring on Linux).
 
 ### The launcher
+
+- New backgrounds: the **Pixel field** (a calm dot grid with a soft trail), **Aurora**, or your own
+  picture or GIF. Reduce motion keeps everything still.
+- **Patch notes** for the latest Kairo on Home (can be turned off).
 
 - Remembers your settings and what you last played.
 - Updates itself from GitHub. Every update must carry Mordsome's signature, so a fake update

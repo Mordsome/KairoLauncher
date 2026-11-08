@@ -52,6 +52,7 @@ test.beforeAll(async () => {
       voidWarningSeen: false,
       background: { kind: 'pixels', trailSize: 50, trailStrength: 'normal', hoverWaves: true, clickRipple: true, fit: 'fill', dim: 35, blur: 0, pixelsOnTop: true, separateVoid: false },
       showPatchNotes: true,
+      sharedMinecraft: false,
       reduceMotion: false,
       lastSelection: null
     })
@@ -76,7 +77,7 @@ test('renderer is locked down', async () => {
     process: typeof (globalThis as Record<string, unknown>)['process'],
     api: Object.keys(window.kairo).sort()
   }))
-  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'background', 'game', 'installs', 'kairo', 'loaders', 'settings', 'window'] })
+  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'background', 'game', 'installs', 'kairo', 'loaders', 'mods', 'settings', 'window'] })
 
   // The main process rejects malformed play requests.
   const bad = await page.evaluate(() =>
@@ -419,6 +420,60 @@ test('library: rename, duplicate, change version, logs, delete', async () => {
   expect(await page.evaluate(() => window.kairo.installs.remove('../../x').then(() => 'ok', () => 'rejected'))).toBe('rejected')
   expect(await page.evaluate(() => window.kairo.game.logs('../x').then(() => 'ok', () => 'rejected'))).toBe('rejected')
   problems.length = 0 // the rejected calls log IPC errors on purpose
+})
+
+test('mods: find on Modrinth, install, turn off, remove', async () => {
+  await app.evaluate(({ shell }) => {
+    ;(shell as { trashItem: (p: string) => Promise<void> }).trashItem = async (p: string) =>
+      process.getBuiltinModule('node:fs').rmSync(p, { recursive: true, force: true })
+  })
+  const before = await page.evaluate(() => window.kairo.installs.list().then((l) => l.map((i) => i.id)))
+  await page.getByRole('button', { name: 'Home' }).click()
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: /^Other/ }).click()
+  await page.getByRole('radio', { name: 'Fabric' }).click()
+  await page.getByRole('button', { name: 'Create Fabric 1.20.1' }).click()
+  const made = await page.evaluate((ids) => window.kairo.installs.list().then((l) => l.find((i) => !ids.includes(i.id))!), before)
+
+  await page.getByRole('button', { name: 'Library' }).click()
+  await page.locator('.librow').filter({ has: page.locator('.librow-name').getByText(made.name, { exact: true }) }).click()
+  await page.getByRole('button', { name: 'Mods', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: `Mods: ${made.name}` })
+  await expect(dialog.getByText(/No mods yet/)).toBeVisible()
+
+  // Search shows only mods for this loader and version; icons come through kairo-icon://.
+  await dialog.getByRole('tab', { name: 'Find mods' }).click()
+  await dialog.getByRole('searchbox', { name: 'Search mods' }).fill('mod menu')
+  const install = dialog.getByRole('button', { name: 'Install Mod Menu', exact: true })
+  await expect(install).toBeVisible({ timeout: 20_000 })
+  await shot('16f-mods-find')
+  await install.click()
+  await expect(dialog.getByRole('button', { name: 'Mod Menu is installed', exact: true })).toBeVisible({ timeout: 60_000 })
+
+  await dialog.getByRole('tab', { name: /^Installed/ }).click()
+  await expect(dialog.locator('.mod-item').filter({ hasText: 'Mod Menu' })).toBeVisible()
+  await dialog.getByRole('switch', { name: 'Mod Menu on', exact: true }).click()
+  await expect(dialog.getByRole('switch', { name: 'Mod Menu on', exact: true })).toHaveAttribute('aria-checked', 'false')
+  const files = await app.evaluate(({ app }, name) => {
+    const fs = process.getBuiltinModule('node:fs')
+    const path = process.getBuiltinModule('node:path')
+    return fs.readdirSync(path.join(app.getPath('userData'), 'installs', name, 'mods'))
+  }, made.name)
+  // Turned off = renamed. Anything the builder had ticked (Sodium, Iris) came along on this first install.
+  expect(files).toContainEqual(expect.stringMatching(/^modmenu.*\.jar\.disabled$/))
+  expect(files.filter((f) => f.startsWith('modmenu'))).toHaveLength(1)
+  await shot('16g-mods-installed')
+
+  await dialog.getByRole('button', { name: 'Remove Mod Menu', exact: true }).click()
+  await expect(dialog.getByRole('switch', { name: 'Mod Menu on', exact: true })).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Done' }).click()
+
+  // Malformed calls are refused by the main process.
+  expect(await page.evaluate((id) => window.kairo.mods.remove(id, '../../x.jar').then((r) => r.ok), made.id)).toBe(false)
+  expect(await page.evaluate(() => window.kairo.mods.install('../x', 'AANobbMI').then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  problems.length = 0 // the rejected call logs an IPC error on purpose
+
+  expect(await page.evaluate((id) => window.kairo.installs.remove(id).then((r) => r.ok), made.id)).toBe(true)
 })
 
 test('settings: every tab', async () => {

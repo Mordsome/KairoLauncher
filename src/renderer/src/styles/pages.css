@@ -724,3 +724,153 @@
 .update-pill + .winctl {
   margin-left: 0;
 }
+
+/* ---------- Mods ---------- */
+
+.seg-item[aria-selected='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.mods-tabs {
+  align-self: flex-start;
+}
+
+.mods-find {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.mods-list {
+  height: min(46vh, 360px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.mod-item,
+.mod-hit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: var(--r-row);
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+
+.mod-item[data-off='true'] .mod-item-text {
+  opacity: 0.55;
+}
+
+.mod-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ink);
+}
+
+.mod-item-text b {
+  font-size: 15px;
+}
+
+.mod-item-sub {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.mod-tag {
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.mod-desc {
+  font-size: 13px;
+  color: var(--ink2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mod-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--r-small);
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.mod-icon-empty {
+  display: block;
+  border: 1px solid var(--line-soft);
+}
+
+.mods-more {
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* ---------- Game folder ---------- */
+
+.folder-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.folder-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  text-align: left;
+  border-radius: var(--r-row);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.folder-choice b {
+  font-size: 15px;
+}
+
+.folder-choice span {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink2);
+}
+
+.folder-choice:hover:not(:disabled) {
+  background: var(--sel-bg);
+}
+
+.folder-choice[aria-checked='true'] {
+  border-color: var(--sel-line);
+  background: var(--sel-bg);
+}
+
+.folder-choice:disabled {
+  opacity: 0.5;
+}
+
+.detail-shared {
+  font-size: 13px;
+  color: var(--accent);
+}

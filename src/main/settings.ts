@@ -32,6 +32,7 @@ export const DEFAULT_SETTINGS: LauncherSettings = {
   voidWarningSeen: false,
   background: DEFAULT_BACKGROUND,
   showPatchNotes: true,
+  sharedMinecraft: false,
   reduceMotion: false,
   lastSelection: null
 }
@@ -94,6 +95,7 @@ export function cleanSettings(raw: unknown): LauncherSettings {
     voidWarningSeen: bool('voidWarningSeen'),
     background: cleanBackground(r['background']),
     showPatchNotes: bool('showPatchNotes'),
+    sharedMinecraft: bool('sharedMinecraft'),
     reduceMotion: bool('reduceMotion'),
     lastSelection
   }

@@ -9,6 +9,8 @@ import { loaderVersions } from '../loaders/meta'
 import { safeRelative } from '../loaders/mrpack'
 import { redact } from '../redact'
 import { customDir, freeName, getCustom, installsDir, newRecord, toInfo, writeCustom, type CustomRecord } from './custom'
+import { canShare, minecraftDir } from '../minecraftDir'
+import { loadSettings } from '../settings'
 
 // Library actions on custom and vanilla installs. Kairo and Kairo Void are
 // the launcher's own installs: they can be opened and their logs read, but
@@ -126,6 +128,14 @@ export async function changeVersion(id: string, mc: string): Promise<LibraryResu
   } catch (error) {
     return fail(error)
   }
+}
+
+/** .minecraft, when this install shares it (Settings > Game > Game folder); else null. */
+export async function sharedGameDir(ref: InstallRef): Promise<string | null> {
+  if (!(await loadSettings()).sharedMinecraft) return null
+  if (ref === 'kairo' || ref === 'void') return minecraftDir()
+  const record = await getCustom(ref)
+  return record && canShare(record.loader, record.modpack !== null) ? minecraftDir() : null
 }
 
 export async function openInstallFolder(ref: InstallRef): Promise<void> {

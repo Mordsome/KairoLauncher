@@ -1,7 +1,7 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 // Downloads, checks and launches real vanilla versions with the dev offline
 // account, then confirms in the game's own log that it got through start-up.
@@ -10,8 +10,25 @@ const VERSIONS = ['26.3', '1.20.1', '1.12.2', '1.8.9']
 const SHOTS = join('test-results', 'launch')
 mkdirSync(SHOTS, { recursive: true })
 
+// The launch tests' own data folder (game files are downloaded once and reused). Never this
+// PC's real launcher data: no real accounts, installs or settings are touched, and it sits
+// outside AppData, which Windows can redirect for apps started from another app.
+const LAUNCH_DATA = resolve('test-results', 'launch-data')
+mkdirSync(LAUNCH_DATA, { recursive: true })
+
 let app: ElectronApplication
 let page: Page
+/** This PC's settings before the run; put back at the end. */
+let savedSettings: unknown = null
+
+/** "Continue with the offline dev account", when the sign-in screen shows (nobody signed in). */
+async function continueOffline() {
+  const offline = page.getByRole('button', { name: 'Continue with the offline dev account' })
+  await offline.waitFor({ timeout: 5000 }).then(
+    () => offline.click(),
+    () => undefined
+  )
+}
 let userData = ''
 const problems: string[] = []
 
@@ -21,7 +38,7 @@ test.beforeAll(async () => {
   const env = Object.fromEntries(
     Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined && e[0] !== 'ELECTRON_RENDERER_URL')
   )
-  app = await electron.launch({ args: ['.'], env })
+  app = await electron.launch({ args: ['.', `--user-data-dir=${LAUNCH_DATA}`], env: { ...env, KAIRO_DEV_ACCOUNT: 'offline' } })
   page = await app.firstWindow()
   page.on('console', (m) => {
     if (m.type() === 'error') problems.push(m.text())
@@ -29,11 +46,13 @@ test.beforeAll(async () => {
   page.on('pageerror', (e) => problems.push(e.message))
   userData = await app.evaluate(({ app }) => app.getPath('userData'))
 
-  await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
+  savedSettings = await page.evaluate(() => window.kairo.settings.get())
+  await continueOffline()
   await expect(page.getByRole('status')).toContainText('Offline dev account')
 })
 
 test.afterAll(async () => {
+  if (savedSettings) await page?.evaluate((s) => window.kairo.settings.set(s as never), savedSettings).catch(() => undefined)
   await page?.evaluate(() => window.kairo.game.stop()).catch(() => undefined)
   await app?.close()
 })

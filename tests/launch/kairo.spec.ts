@@ -1,17 +1,39 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { join, relative, resolve } from 'node:path'
+import yazl from 'yazl'
 
 // Installs and plays Kairo and Kairo Void for real (dev offline account),
 // and checks the rules: one Kairo jar per install, player files kept,
 // "Keep Kairo updated" off pins versions, on updates them together.
 
 const SHOTS = join('test-results', 'launch')
+// A stand-in for Minecraft's own .minecraft (never the real one): dev builds read KAIRO_DEV_MINECRAFT_DIR.
+const FAKE_MC = resolve('test-results', 'fake-minecraft', '.minecraft')
+mkdirSync(FAKE_MC, { recursive: true })
 mkdirSync(SHOTS, { recursive: true })
 const UA = { 'User-Agent': 'KairoLauncher-tests (github.com/Mordsome/KairoLauncher)' }
 
+// The launch tests' own data folder (game files are downloaded once and reused). Never this
+// PC's real launcher data: no real accounts, installs or settings are touched, and it sits
+// outside AppData, which Windows can redirect for apps started from another app.
+const LAUNCH_DATA = resolve('test-results', 'launch-data')
+mkdirSync(LAUNCH_DATA, { recursive: true })
+
 let app: ElectronApplication
 let page: Page
+/** This PC's settings before the run; put back at the end. */
+let savedSettings: unknown = null
+
+/** "Continue with the offline dev account", when the sign-in screen shows (nobody signed in). */
+async function continueOffline() {
+  const offline = page.getByRole('button', { name: 'Continue with the offline dev account' })
+  await offline.waitFor({ timeout: 5000 }).then(
+    () => offline.click(),
+    () => undefined
+  )
+}
 let userData = ''
 const problems: string[] = []
 
@@ -33,14 +55,15 @@ test.beforeAll(async () => {
   const env = Object.fromEntries(
     Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined && e[0] !== 'ELECTRON_RENDERER_URL')
   )
-  app = await electron.launch({ args: ['.'], env })
+  app = await electron.launch({ args: ['.', `--user-data-dir=${LAUNCH_DATA}`], env: { ...env, KAIRO_DEV_ACCOUNT: 'offline', KAIRO_DEV_MINECRAFT_DIR: FAKE_MC } })
   page = await app.firstWindow()
   page.on('console', (m) => {
     if (m.type() === 'error') problems.push(m.text())
   })
   page.on('pageerror', (e) => problems.push(e.message))
   userData = await app.evaluate(({ app }) => app.getPath('userData'))
-  await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
+  savedSettings = await page.evaluate(() => window.kairo.settings.get())
+  await continueOffline()
   // Keep the launcher on screen during these runs.
   await page.getByRole('button', { name: 'Settings' }).click()
   const hide = page.getByRole('switch', { name: 'Hide the launcher while playing' })
@@ -49,6 +72,7 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
+  if (savedSettings) await page?.evaluate((s) => window.kairo.settings.set(s as never), savedSettings).catch(() => undefined)
   await page?.evaluate(() => window.kairo.game.stop()).catch(() => undefined)
   await app?.close()
 })
@@ -189,4 +213,100 @@ test('Library shows the real install, and no console errors', async () => {
   await page.waitForTimeout(600)
   await page.screenshot({ path: join(SHOTS, 'library-kairo.png') })
   expect(problems).toEqual([])
+})
+
+/** Every file under a folder with its size, time and content hash. */
+function snapshot(dir: string): { [path: string]: string } {
+  const out: { [path: string]: string } = {}
+  const walk = (d: string) => {
+    for (const name of readdirSync(d)) {
+      const p = join(d, name)
+      const st = statSync(p)
+      if (st.isDirectory()) walk(p)
+      else out[relative(dir, p)] = `${st.size}:${st.mtimeMs}:${createHash('sha1').update(readFileSync(p)).digest('hex')}`
+    }
+  }
+  walk(dir)
+  return out
+}
+
+async function zipTo(path: string, entries: { [name: string]: string }) {
+  const z = new yazl.ZipFile()
+  for (const [p, c] of Object.entries(entries)) z.addBuffer(Buffer.from(c), p)
+  z.end()
+  const chunks: Buffer[] = []
+  await new Promise<void>((done, fail) => {
+    z.outputStream.on('data', (c: Buffer) => chunks.push(c))
+    z.outputStream.on('end', () => done())
+    z.outputStream.on('error', fail)
+  })
+  writeFileSync(path, Buffer.concat(chunks))
+}
+
+test('shares a .minecraft folder, never touching its mods', async () => {
+  // A .minecraft with a world, settings, and a mod that would crash the game if it were ever loaded.
+  rmSync(FAKE_MC, { recursive: true, force: true })
+  mkdirSync(join(FAKE_MC, 'mods'), { recursive: true })
+  mkdirSync(join(FAKE_MC, 'saves', 'Test World'), { recursive: true })
+  writeFileSync(join(FAKE_MC, 'options.txt'), 'lang:en_us\n')
+  writeFileSync(join(FAKE_MC, 'saves', 'Test World', 'level.dat'), 'world')
+  await zipTo(join(FAKE_MC, 'mods', 'poison.jar'), {
+    'fabric.mod.json': JSON.stringify({ schemaVersion: 1, id: 'kairo_poison_test', version: '1.0.0', entrypoints: { main: ['kairo.poison.DoesNotExist'] } })
+  })
+  const modsBefore = snapshot(join(FAKE_MC, 'mods'))
+  const savesBefore = snapshot(join(FAKE_MC, 'saves'))
+  const marker = join(userData, 'backups', 'minecraft-backup.json')
+  const hadBackup = existsSync(marker)
+
+  // Turned on the way a player does it.
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: 'Game' }).click()
+  const share = page.getByRole('radio', { name: /Share with Minecraft/ })
+  await expect(share).toBeEnabled()
+  await share.click()
+  await expect(share).toHaveAttribute('aria-checked', 'true')
+  await page.screenshot({ path: join(SHOTS, 'game-folder-shared.png') })
+  await pick('kairo')
+
+  const log = join(FAKE_MC, 'logs', 'latest.log')
+  await page.getByRole('button', { name: /^Play Kairo/ }).click()
+  await expect
+    .poll(
+      async () => {
+        const state = await page.evaluate(() => window.kairo.game.state())
+        if (state.error) throw new Error(`${state.error.title}: ${state.error.message}`)
+        if (state.crash) throw new Error('The game crashed')
+        return state.phase
+      },
+      { timeout: 30 * 60_000, intervals: [2000] }
+    )
+    .toBe('running')
+  // The game's own log is in .minecraft: it really ran there.
+  await expect.poll(() => (existsSync(log) ? readFileSync(log, 'utf8') : ''), { timeout: 5 * 60_000, intervals: [2000] }).toMatch(/Sound engine started|Created: \d+x\d+/)
+  const text = readFileSync(log, 'utf8')
+  expect(text).toMatch(/\bkairo\b/)
+  expect(text).not.toMatch(/kairo_poison_test/)
+  expect((await page.evaluate(() => window.kairo.game.state())).crash).toBeNull()
+  await page.evaluate(() => window.kairo.game.stop())
+  await expect.poll(() => page.evaluate(() => window.kairo.game.state().then((st) => st.phase)), { timeout: 30_000 }).toBe('idle')
+
+  // .minecraft/mods and the worlds are exactly as they were; Kairo's mods stayed in its own folder.
+  expect(snapshot(join(FAKE_MC, 'mods'))).toEqual(modsBefore)
+  expect(snapshot(join(FAKE_MC, 'saves'))).toEqual(savesBefore)
+  expect(mods('kairo').some((m) => /^kairo-\d/.test(m))).toBe(true)
+
+  // A copy of the settings was kept in the launcher's own folder before the first shared Play.
+  if (!hadBackup) {
+    expect(existsSync(marker)).toBe(true)
+    const { folder } = JSON.parse(readFileSync(marker, 'utf8')) as { folder: string }
+    expect(readFileSync(join(folder, 'options.txt'), 'utf8')).toBe('lang:en_us\n')
+    // That copy was of the stand-in folder: remove it, so the real .minecraft still gets its own first backup.
+    rmSync(folder, { recursive: true, force: true })
+    rmSync(marker, { force: true })
+  }
+
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: 'Game' }).click()
+  await page.getByRole('radio', { name: /Kairo's own folders/ }).click()
+  await page.getByRole('button', { name: 'Home' }).click()
 })

@@ -222,6 +222,7 @@ export const useStore = create<State>()((set, get) => ({
       separateVoid: false
     },
     showPatchNotes: true,
+    sharedMinecraft: false,
     reduceMotion: false
   },
   info: null,

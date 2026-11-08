@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 import { CSP_HEADER } from '../shared/csp'
 import { BG_SCHEME } from './background'
+import { ICON_SCHEME } from './installs/mods'
 import { APP_HOST, APP_SCHEME } from './origin'
 
 // The UI is served from kairo://app/ instead of file://, so the page gets a
@@ -31,7 +32,9 @@ export function registerAppScheme(): void {
       privileges: { standard: true, secure: true, supportFetchAPI: true, codeCache: true }
     },
     // The player's background pictures, as images only (see background.ts).
-    { scheme: BG_SCHEME, privileges: { standard: true, secure: true } }
+    { scheme: BG_SCHEME, privileges: { standard: true, secure: true } },
+    // Mod icons from Modrinth search results (see installs/mods.ts).
+    { scheme: ICON_SCHEME, privileges: { standard: true, secure: true } }
   ])
 }
 

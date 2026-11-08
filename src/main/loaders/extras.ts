@@ -42,19 +42,21 @@ export async function availableExtras(loader: CustomLoader, mc: string): Promise
 export async function resolveModrinthMods(
   wanted: string[],
   mc: string,
-  loader: 'fabric' | 'neoforge',
+  loader: 'fabric' | 'neoforge' | 'forge',
   installDir: string,
   stage: Stage,
-  signal: AbortSignal
+  signal: AbortSignal,
+  /** Projects (slugs) already installed: not chosen again. */
+  skip: Set<string> = new Set()
 ): Promise<ManagedMod[]> {
   const chosen = new Map<string, ManagedMod>()
   const queue = [...wanted]
   while (queue.length > 0) {
     const next = queue.shift()!
     const project = await modrinthProject(next, signal)
-    if (chosen.has(project.id)) continue
+    if (chosen.has(project.id) || skip.has(project.slug)) continue
     const [file] = await modrinthCandidates(project.slug, mc, loader, signal).catch(() => {
-      throw new KairoError('http-status', `Modrinth has no ${project.title} for ${loader === 'fabric' ? 'Fabric' : 'NeoForge'} ${mc}.`)
+      throw new KairoError('http-status', `Modrinth has no ${project.title} for ${loader === 'fabric' ? 'Fabric' : loader === 'forge' ? 'Forge' : 'NeoForge'} ${mc}.`)
     })
     if (!file) continue
     chosen.set(project.id, {
@@ -84,7 +86,8 @@ export async function downloadMods(mods: ManagedMod[], installDir: string, stage
           id: 'mods',
           type: 'files',
           files: mods.map((m) => ({
-            path: join(installDir, m.filename),
+            // A mod turned off in the browser stays off: it's checked where it is, as .disabled.
+            path: join(installDir, m.disabled ? `${m.filename}.disabled` : m.filename),
             urls: [m.url],
             checksum: { algorithm: m.hash.algorithm, value: m.hash.value },
             // Modpacks can also ship configs; only archives get the zip check.

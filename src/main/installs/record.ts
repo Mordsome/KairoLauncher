@@ -15,6 +15,8 @@ export interface ManagedMod {
   filename: string
   url: string
   hash: { algorithm: 'sha1' | 'sha256' | 'sha512'; value: string }
+  /** Turned off in the mod browser: kept as <filename>.disabled, which loaders skip. */
+  disabled?: boolean
 }
 
 export interface InstallRecord {

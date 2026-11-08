@@ -17,6 +17,11 @@ function offlineUuid(name: string): string {
   return bytes.toString('hex')
 }
 
+/** Launch tests can ask for the dev account even while a real one is signed in (offline dev builds only). */
+export function devOfflineForced(): boolean {
+  return __KAIRO_DEV_OFFLINE__ && !app.isPackaged && process.env['KAIRO_DEV_ACCOUNT'] === 'offline'
+}
+
 export function devOfflineAccount(): GameAccount | null {
   if (!__KAIRO_DEV_OFFLINE__ || app.isPackaged) return null
   return { name: NAME, uuid: offlineUuid(NAME), accessToken: 'offline', userType: 'legacy', offline: true }

@@ -2,6 +2,7 @@ import type { UpdateState } from '../../../shared/api'
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
 import { Switch, SwitchRow } from '../components/Switch'
 import { BackgroundSection } from './BackgroundSettings'
+import { GameFolderCard } from './GameFolderCard'
 import { maxMemoryGB, useStore, type SettingsTab } from '../state/store'
 
 const TABS: [SettingsTab, string][] = [
@@ -97,6 +98,8 @@ function GameTab() {
             : `4 GB is plenty for Kairo. More only helps with big modpacks or shader packs. Your PC has ${totalGB} GB.`}
         </span>
       </div>
+
+      <GameFolderCard />
 
       <div className="card">
         <div className="setting-text-row">
@@ -263,8 +266,8 @@ function PrivacyTab() {
       <ul>
         <li>Microsoft, Xbox and Mojang, to sign you in and download Minecraft and the Java it runs on.</li>
         <li>Fabric, NeoForge and Forge, to download mod loaders from their official servers.</li>
-        <li>Modrinth, to download mods and modpacks.</li>
-        <li>GitHub, to download Kairo and launcher updates.</li>
+        <li>Modrinth, to find and download mods and modpacks.</li>
+        <li>GitHub, for Kairo, its patch notes and launcher updates.</li>
         <li>optifine.net, opened in your browser when you install OptiFine.</li>
       </ul>
       <span className="muted">Nothing else. No accounts of its own, no analytics, no telemetry.</span>

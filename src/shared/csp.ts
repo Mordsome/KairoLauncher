@@ -6,8 +6,8 @@ const strict = [
   "default-src 'none'",
   "script-src 'self'",
   "style-src 'self'",
-  // Background pictures come only through the launcher's own kairo-bg: scheme.
-  "img-src 'self' kairo-bg:",
+  // Pictures come only through the launcher's own schemes: backgrounds and mod icons.
+  "img-src 'self' kairo-bg: kairo-icon:",
   "font-src 'self'",
   "connect-src 'self'",
   "media-src 'self'",
@@ -25,7 +25,7 @@ export const CSP_DEV = [
   "default-src 'none'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: kairo-bg:",
+  "img-src 'self' data: blob: kairo-bg: kairo-icon:",
   "font-src 'self' data:",
   "connect-src 'self' ws://localhost:* http://localhost:*",
   "base-uri 'none'",

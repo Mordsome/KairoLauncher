@@ -15,6 +15,8 @@ import { emptyRecord, readRecord, RECORD_FILE, writeRecord } from '../installs/r
 import { fabricLibraryFiles, installFabricProfile, pickFabricLoader } from '../kairo/fabric'
 import { installDir, resolveKairoTarget, syncMods } from '../kairo/install'
 import { dataPaths, safeName } from '../paths'
+import { backupMinecraftOnce, canShare, minecraftDir } from '../minecraftDir'
+import { loadSettings } from '../settings'
 import { addSecret, redact } from '../redact'
 import { installVersion } from './install'
 import { checkCustomJava, ensureJava } from './java'
@@ -87,6 +89,8 @@ interface Prepared {
   gamePath: string
   /** Folder whose kairo-launcher.json keeps last played and play time (Kairo and custom installs). */
   recordDir: string | null
+  /** Whether this install may use .minecraft, and whether its mods load through Fabric. */
+  share: { allowed: boolean; fabric: boolean }
 }
 
 /** One game at a time: install what's missing, start it, watch it, stop it. */
@@ -98,6 +102,8 @@ export class GameSession {
   private readonly log: string[] = []
   /** Folder of the install the log above belongs to. */
   private logDir: string | null = null
+  /** Where that game actually ran: the install's folder, or .minecraft when shared. */
+  private gameDir: string | null = null
   /** Crash report of the last crash, if Minecraft wrote one inside the install. */
   private crashReport: string | null = null
 
@@ -112,11 +118,12 @@ export class GameSession {
   }
 
   /** The output of an install's game: live from this session if it ran here, else its last log file. */
-  async logsFor(dir: string): Promise<LogView> {
+  /** dir: the install's folder. sharedDir: .minecraft when the install shares it (its log file is there). */
+  async logsFor(dir: string, sharedDir: string | null = null): Promise<LogView> {
     const live = this.process !== null && this.logDir === dir
     if (this.logDir === dir && this.log.length > 0) return { lines: [...this.log], live }
     try {
-      const file = join(dir, 'logs', 'latest.log')
+      const file = join(sharedDir ?? dir, 'logs', 'latest.log')
       const info = await stat(file)
       const handle = await open(file, 'r')
       try {
@@ -141,7 +148,8 @@ export class GameSession {
       await shell.openPath(report)
       return
     }
-    if (this.logDir) await shell.openPath(join(this.logDir, 'logs'))
+    const dir = this.gameDir ?? this.logDir
+    if (dir) await shell.openPath(join(dir, 'logs'))
   }
 
   private set(patch: Partial<GameState>): void {
@@ -182,7 +190,10 @@ export class GameSession {
             ? await this.prepareKairo(target.edition, request, stages, signal)
             : await this.prepareCustom(target.id, request, stages, signal)
       clearInterval(timer)
-      await this.start(prepared, request, account)
+      // Sharing .minecraft: Minecraft runs there; Fabric loads mods from the install's own folder.
+      const mcDir = prepared.share.allowed && (await loadSettings()).sharedMinecraft ? minecraftDir() : null
+      if (mcDir) await backupMinecraftOnce(mcDir, dataPaths().root)
+      await this.start(prepared, request, account, mcDir)
     } catch (error) {
       clearInterval(timer)
       this.abort = null
@@ -233,7 +244,7 @@ export class GameSession {
       keepUpdated
     })
     stages.mods.done = true
-    return { version, javaPath, gamePath: dir, recordDir: dir }
+    return { version, javaPath, gamePath: dir, recordDir: dir, share: { allowed: true, fabric: true } }
   }
 
   /** "Other" installs and modpacks: the loader the record names, then its mods. */
@@ -293,7 +304,8 @@ export class GameSession {
     }
     await writeCustom({ ...record, loaderVersion, versionId: version.id, mods })
     stages.mods.done = true
-    return { version, javaPath, gamePath: dir, recordDir: dir }
+    const share = { allowed: canShare(record.loader, record.modpack !== null), fabric: record.loader === 'fabric' }
+    return { version, javaPath, gamePath: dir, recordDir: dir, share }
   }
 
   /** The vanilla version and its Java, downloaded side by side. */
@@ -321,9 +333,14 @@ export class GameSession {
     }
   }
 
-  private async start(prepared: Prepared, request: PlayRequest, account: GameAccount): Promise<void> {
-    const { version, javaPath, gamePath, recordDir } = prepared
-    await mkdir(gamePath, { recursive: true })
+  private async start(prepared: Prepared, request: PlayRequest, account: GameAccount, sharedDir: string | null): Promise<void> {
+    const { version, javaPath, recordDir } = prepared
+    const installPath = prepared.gamePath
+    const gamePath = sharedDir ?? installPath
+    // Nothing is ever created in .minecraft by the launcher: only the install's own folder.
+    if (!sharedDir) await mkdir(gamePath, { recursive: true })
+    // Shared: Fabric loads mods from the install's folder, never from .minecraft/mods.
+    const extraJVMArgs = sharedDir && prepared.share.fabric ? [`-Dfabric.modsFolder=${join(installPath, 'mods')}`] : []
     this.set({ phase: 'launch', progress: 1, detail: 'Starting Minecraft' })
 
     let child: ChildProcess
@@ -342,7 +359,8 @@ export class GameSession {
         maxMemory: request.memoryGB * 1024,
         minMemory: 512,
         resolution: request.fullscreen ? { fullscreen: true } : undefined,
-        extraExecOption: { windowsHide: false, detached: false }
+        extraExecOption: { windowsHide: false, detached: false },
+        extraJVMArgs
       })
     } catch (error) {
       throw new KairoError('java-start', error instanceof Error ? error.message : String(error))
@@ -350,7 +368,8 @@ export class GameSession {
 
     this.process = child
     this.abort = null
-    this.logDir = gamePath
+    this.logDir = installPath
+    this.gameDir = gamePath
     const startedAt = Date.now()
     const capture = (chunk: Buffer) => {
       for (const line of redact(chunk.toString('utf8')).split(/\r?\n/)) {

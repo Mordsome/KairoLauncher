@@ -41,7 +41,12 @@ export const IPC = {
   backgroundFiles: 'background:files',
   backgroundPick: 'background:pick',
   backgroundImport: 'background:import',
-  backgroundRemove: 'background:remove'
+  backgroundRemove: 'background:remove',
+  modsList: 'mods:list',
+  modsSearch: 'mods:search',
+  modsInstall: 'mods:install',
+  modsSetEnabled: 'mods:set-enabled',
+  modsRemove: 'mods:remove'
 } as const
 
 export interface AccountSummary {
@@ -78,6 +83,8 @@ export interface AppInfo {
   totalMemoryMB: number
   /** Name of the dev-only offline account, or null when it's off (always off in releases). */
   devOfflineName: string | null
+  /** Where Minecraft's own .minecraft folder is (home shown as ~), or null if there isn't one. */
+  minecraftFolder: string | null
 }
 
 export interface VersionList {
@@ -147,6 +154,8 @@ export interface LauncherSettings {
   background: BackgroundSettings
   /** The "What's new in Kairo" card on Home. */
   showPatchNotes: boolean
+  /** Share Minecraft's own .minecraft folder (worlds, packs, settings) where an install can. */
+  sharedMinecraft: boolean
   /** Still backgrounds (also on when the system asks for less motion). */
   reduceMotion: boolean
   /** What was selected on Home, restored at the next start. */
@@ -200,6 +209,40 @@ export interface CreateCustomRequest {
   mc: string
   extras: string[]
 }
+
+/** A jar in an install's mods folder. */
+export interface InstalledMod {
+  /** The file name in mods/ (without ".disabled"). */
+  file: string
+  name: string
+  version: string | null
+  enabled: boolean
+  /** Added by the launcher from Modrinth; false for files the player put there. */
+  managed: boolean
+  /** Modrinth project slug, for the launcher's own. */
+  project: string | null
+}
+
+export interface ModHit {
+  /** Modrinth project id. */
+  id: string
+  slug: string
+  title: string
+  description: string
+  author: string
+  downloads: number
+  /** Shown through kairo-icon://modrinth/<id>. */
+  hasIcon: boolean
+  installed: boolean
+}
+
+export interface ModSearch {
+  hits: ModHit[]
+  total: number
+}
+
+export type ModsResult = { ok: true; mods: InstalledMod[] } | { ok: false; error: { title: string; message: string } }
+export type ModSearchResult = { ok: true; search: ModSearch } | { ok: false; error: { title: string; message: string } }
 
 /** Rename, duplicate, change version: the updated install, or why not. */
 export type LibraryResult = { ok: true; install: CustomInstallInfo } | { ok: false; error: { title: string; message: string } }
@@ -326,6 +369,14 @@ export interface KairoApi {
     changeVersion(id: string, mc: string): Promise<LibraryResult>
     /** A custom install id, or "kairo" / "void". */
     openFolder(ref: string): Promise<void>
+  }
+  mods: {
+    list(installId: string): Promise<ModsResult>
+    /** Modrinth, for this install's loader and Minecraft version only. */
+    search(installId: string, query: string, offset: number): Promise<ModSearchResult>
+    install(installId: string, projectId: string): Promise<ModsResult>
+    setEnabled(installId: string, file: string, enabled: boolean): Promise<ModsResult>
+    remove(installId: string, file: string): Promise<ModsResult>
   }
   background: {
     files(): Promise<BackgroundFiles>

@@ -14,7 +14,7 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 | | |
 | --- | --- |
 | ![Library](docs/screenshots/library.png) | ![Library in the Kairo Void theme](docs/screenshots/library-void.png) |
-| ![Building a Fabric install](docs/screenshots/other-builder.png) | ![Settings](docs/screenshots/settings.png) |
+| ![Building a Fabric install](docs/screenshots/other-builder.png) | ![Settings: backgrounds](docs/screenshots/settings.png) |
 
 ## Install
 
@@ -134,6 +134,32 @@ the defaults are used.
 When Minecraft closes with an error, Home says why in plain words where it can (out of
 memory, Java refusing the memory setting, mods that don't fit together, Java too old) and
 offers **Open crash report** (only a report inside that install's folder) and **View log**.
+
+### Mods
+
+In the Library, Fabric, NeoForge and Forge installs have a **Mods** button: search Modrinth (only
+mods made for that install's loader and Minecraft version), install with required dependencies
+(each file checked against Modrinth's SHA-512), turn mods on and off (a turned-off mod is renamed
+`.jar.disabled`, which loaders skip, and Play keeps it that way) or remove them. Mods added here
+follow the install to a new Minecraft version. Icons come through `kairo-icon://`, which only
+fetches icons Modrinth itself listed, and only real pictures.
+
+### Game folder: your own .minecraft
+
+Settings → Game → **Game folder**: each install keeps its own folders (the default), or **Share
+with Minecraft**, which runs the game in the official launcher's `.minecraft`, so your worlds,
+resource packs, shader packs and settings are there. It never breaks that folder:
+
+- Mods never come from or go to `.minecraft/mods`: Fabric loads them from the install's own
+  folder (`fabric.modsFolder`). So only Kairo, Kairo Void, plain Minecraft and Fabric installs
+  share; NeoForge, Forge, OptiFine and modpacks keep their own folders.
+- The launcher itself never writes, moves or deletes anything in `.minecraft`; only the game
+  does, as it would from Mojang's launcher. Deleting an install never touches it.
+- Before the first shared Play, it copies your `options.txt`, server list and `config` folder into
+  its own data folder (`backups/`).
+
+A world opened in a newer Minecraft may not open in an older one again; Minecraft offers to
+back it up first.
 
 ### Backgrounds
 

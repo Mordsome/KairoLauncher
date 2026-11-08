@@ -8,6 +8,7 @@ import { registerAppScheme, serveRenderer } from './protocol'
 import { hardenApp } from './security'
 import { initUpdater } from './updater'
 import { serveBackgrounds } from './background'
+import { serveModIcons } from './installs/mods'
 import { createMainWindow } from './window'
 
 registerAppScheme()
@@ -50,6 +51,7 @@ if (!app.requestSingleInstanceLock()) {
     hardenApp()
     serveRenderer(join(__dirname, '../renderer'))
     serveBackgrounds()
+    serveModIcons()
     registerIpc(session)
     Menu.setApplicationMenu(null)
     mainWindow = createMainWindow()

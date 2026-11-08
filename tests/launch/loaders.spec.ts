@@ -14,8 +14,25 @@ mkdirSync(SHOTS, { recursive: true })
 mkdirSync(WORK, { recursive: true })
 const UA = { 'User-Agent': 'KairoLauncher-tests (github.com/Mordsome/KairoLauncher)' }
 
+// The launch tests' own data folder (game files are downloaded once and reused). Never this
+// PC's real launcher data: no real accounts, installs or settings are touched, and it sits
+// outside AppData, which Windows can redirect for apps started from another app.
+const LAUNCH_DATA = resolve('test-results', 'launch-data')
+mkdirSync(LAUNCH_DATA, { recursive: true })
+
 let app: ElectronApplication
 let page: Page
+/** This PC's settings before the run; put back at the end. */
+let savedSettings: unknown = null
+
+/** "Continue with the offline dev account", when the sign-in screen shows (nobody signed in). */
+async function continueOffline() {
+  const offline = page.getByRole('button', { name: 'Continue with the offline dev account' })
+  await offline.waitFor({ timeout: 5000 }).then(
+    () => offline.click(),
+    () => undefined
+  )
+}
 let userData = ''
 let fabricId = ''
 /** Installs that were there before this run. */
@@ -28,14 +45,15 @@ test.beforeAll(async () => {
   const env = Object.fromEntries(
     Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined && e[0] !== 'ELECTRON_RENDERER_URL')
   )
-  app = await electron.launch({ args: ['.'], env })
+  app = await electron.launch({ args: ['.', `--user-data-dir=${LAUNCH_DATA}`], env: { ...env, KAIRO_DEV_ACCOUNT: 'offline' } })
   page = await app.firstWindow()
   page.on('console', (m) => {
     if (m.type() === 'error') problems.push(m.text())
   })
   page.on('pageerror', (e) => problems.push(e.message))
   userData = await app.evaluate(({ app }) => app.getPath('userData'))
-  await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
+  savedSettings = await page.evaluate(() => window.kairo.settings.get())
+  await continueOffline()
   // Catch pages the launcher would open in the browser.
   await app.evaluate(({ shell }) => {
     const g = globalThis as unknown as { opened: string[] }
@@ -46,6 +64,7 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
+  if (savedSettings) await page?.evaluate((s) => window.kairo.settings.set(s as never), savedSettings).catch(() => undefined)
   await page?.evaluate(() => window.kairo.game.stop()).catch(() => undefined)
   // Remove the installs this run made, so the Library doesn't fill up with test copies.
   if (page && app) {
@@ -183,7 +202,7 @@ test('a crash shows on Home with its report and log', async () => {
 
   // Play it from the Library, as a player would (a reload shows the new copy).
   await page.reload()
-  await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
+  await continueOffline()
   await page.getByRole('button', { name: 'Library' }).click()
   await page.locator('.librow').filter({ has: page.locator('.librow-name').getByText(copy.install.name, { exact: true }) }).click()
   await page.locator('.lib-detail').getByRole('button', { name: 'Play' }).click()

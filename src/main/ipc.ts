@@ -1,18 +1,22 @@
 import { app, BrowserWindow, ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { totalmem } from 'node:os'
 import { IPC, type AppInfo, type CustomLoader, type KairoEdition, type PlayRequest, type Platform, type SignInResult } from '../shared/api'
-import { devOfflineAccount } from './account/devOffline'
+import { devOfflineAccount, devOfflineForced } from './account/devOffline'
+import { minecraftDir } from './minecraftDir'
+import { redact } from './redact'
 import { accounts } from './auth/accounts'
 import { describeAuthError } from './auth/errors'
 import { listVersions } from './game/manifest'
 import type { GameSession } from './game/session'
 import { kairoStatus, setKeepUpdated } from './kairo/status'
 import { adoptVanillaFolders, listCustom, toInfo } from './installs/custom'
-import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refDir, renameInstall } from './installs/library'
+import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refDir, renameInstall, sharedGameDir } from './installs/library'
 import { checkCustomJava } from './game/java'
 import { loadSettings, saveSettings } from './settings'
 import { checkForUpdate, installUpdate, updateState } from './updater'
 import { backgroundFiles, importBackground, pickBackground, removeBackground } from './background'
+import { installMod, listMods, removeMod, searchMods, setModEnabled } from './installs/mods'
+import { describeError } from './errors'
 import { dialog } from 'electron'
 import { createCustom, importModpack, openDownloadPage } from './loaders/create'
 import { availableExtras } from './loaders/extras'
@@ -92,11 +96,51 @@ export function registerIpc(session: GameSession): void {
       version: app.getVersion(),
       platform: platform(),
       totalMemoryMB: totalMemoryMB(),
-      devOfflineName: devOfflineAccount()?.name ?? null
+      devOfflineName: devOfflineAccount()?.name ?? null,
+      minecraftFolder: (() => {
+        const dir = minecraftDir()
+        return dir ? redact(dir) : null
+      })()
     }
   })
 
   const isSlot = (v: unknown): v is 'main' | 'void' => v === 'main' || v === 'void'
+  const isInstall = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{12}$/.test(v)
+  const modsBusy = { ok: false as const, error: { title: 'Minecraft is running', message: 'Close the game first, then change its mods.' } }
+  const modsResult = (work: Promise<import('../shared/api').InstalledMod[]>) =>
+    work.then(
+      (mods) => ({ ok: true as const, mods }),
+      (error: unknown) => ({ ok: false as const, error: describeError(error) })
+    )
+
+  ipcMain.handle(IPC.modsList, (event, id: unknown) => {
+    if (!fromApp(event) || !isInstall(id)) throw new Error('Not allowed')
+    return modsResult(listMods(id))
+  })
+
+  ipcMain.handle(IPC.modsSearch, (event, id: unknown, query: unknown, offset: unknown) => {
+    if (!fromApp(event) || !isInstall(id) || typeof query !== 'string' || query.length > 200) throw new Error('Not allowed')
+    if (typeof offset !== 'number' || !Number.isInteger(offset) || offset < 0 || offset > 10_000) throw new Error('Not allowed')
+    return searchMods(id, query, offset).then(
+      (search) => ({ ok: true as const, search }),
+      (error: unknown) => ({ ok: false as const, error: describeError(error) })
+    )
+  })
+
+  ipcMain.handle(IPC.modsInstall, (event, id: unknown, projectId: unknown) => {
+    if (!fromApp(event) || !isInstall(id) || typeof projectId !== 'string' || !/^[A-Za-z0-9]{8}$/.test(projectId)) throw new Error('Not allowed')
+    return session.current().phase === 'idle' ? modsResult(installMod(id, projectId)) : modsBusy
+  })
+
+  ipcMain.handle(IPC.modsSetEnabled, (event, id: unknown, file: unknown, enabled: unknown) => {
+    if (!fromApp(event) || !isInstall(id) || typeof file !== 'string' || typeof enabled !== 'boolean') throw new Error('Not allowed')
+    return session.current().phase === 'idle' ? modsResult(setModEnabled(id, file, enabled)) : modsBusy
+  })
+
+  ipcMain.handle(IPC.modsRemove, (event, id: unknown, file: unknown) => {
+    if (!fromApp(event) || !isInstall(id) || typeof file !== 'string') throw new Error('Not allowed')
+    return session.current().phase === 'idle' ? modsResult(removeMod(id, file)) : modsBusy
+  })
 
   ipcMain.handle(IPC.backgroundFiles, (event) => {
     if (!fromApp(event)) throw new Error('Not allowed')
@@ -155,7 +199,7 @@ export function registerIpc(session: GameSession): void {
     if (!request) throw new Error('Invalid play request')
     // Runs in the background; progress and errors arrive as state events.
     // The active Microsoft account; the dev offline account only exists in offline builds.
-    void session.play(request, async () => (await accounts.forLaunch()) ?? devOfflineAccount())
+    void session.play(request, async () => (devOfflineForced() ? devOfflineAccount() : null) ?? (await accounts.forLaunch()) ?? devOfflineAccount())
   })
 
   ipcMain.handle(IPC.gameStop, (event) => {
@@ -274,7 +318,7 @@ export function registerIpc(session: GameSession): void {
   ipcMain.handle(IPC.gameLogs, async (event, ref: unknown) => {
     if (!fromApp(event) || !isRef(ref)) throw new Error('Not allowed')
     const dir = await refDir(ref)
-    return dir ? session.logsFor(dir) : { lines: [], live: false }
+    return dir ? session.logsFor(dir, await sharedGameDir(ref)) : { lines: [], live: false }
   })
 
   ipcMain.handle(IPC.gameOpenCrashReport, (event) => {

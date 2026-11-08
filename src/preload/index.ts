@@ -8,6 +8,8 @@ import {
   type LauncherSettings,
   type LibraryResult,
   type LogView,
+  type ModSearchResult,
+  type ModsResult,
   type UpdateState,
   type CreateCustomRequest,
   type CreateResult,
@@ -78,6 +80,15 @@ const api: KairoApi = {
       ipcRenderer.invoke(IPC.installsDelete, String(id)) as Promise<{ ok: true } | { ok: false; error: { title: string; message: string } }>,
     changeVersion: (id: string, mc: string) => ipcRenderer.invoke(IPC.installsChangeVersion, String(id), String(mc)) as Promise<LibraryResult>,
     openFolder: (ref: string) => ipcRenderer.invoke(IPC.installsOpenFolder, String(ref)) as Promise<void>
+  },
+  mods: {
+    list: (id: string) => ipcRenderer.invoke(IPC.modsList, String(id)) as Promise<ModsResult>,
+    search: (id: string, query: string, offset: number) =>
+      ipcRenderer.invoke(IPC.modsSearch, String(id), String(query), Number(offset)) as Promise<ModSearchResult>,
+    install: (id: string, projectId: string) => ipcRenderer.invoke(IPC.modsInstall, String(id), String(projectId)) as Promise<ModsResult>,
+    setEnabled: (id: string, file: string, enabled: boolean) =>
+      ipcRenderer.invoke(IPC.modsSetEnabled, String(id), String(file), Boolean(enabled)) as Promise<ModsResult>,
+    remove: (id: string, file: string) => ipcRenderer.invoke(IPC.modsRemove, String(id), String(file)) as Promise<ModsResult>
   },
   background: {
     files: () => ipcRenderer.invoke(IPC.backgroundFiles) as Promise<BackgroundFiles>,
