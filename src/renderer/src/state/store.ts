@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AccountsState, AppInfo, LauncherSettings, CustomInstallInfo, GameState, KairoEdition, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
+import type { AccountsState, AppInfo, LauncherSettings, UpdateState, CustomInstallInfo, GameState, KairoEdition, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
 import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
@@ -77,6 +77,9 @@ interface State {
   kairo: KairoStatus | null
   settings: Settings
   info: AppInfo | null
+  /** The launcher's own update, from GitHub. */
+  update: UpdateState | null
+  setUpdate(update: UpdateState): void
 
   go(screen: Screen): void
   openPicker(): void
@@ -202,6 +205,7 @@ export const useStore = create<State>()((set, get) => ({
     voidWarningSeen: false
   },
   info: null,
+  update: null,
   settingsLoaded: false,
 
   go: (screen) => set({ screen, homeView: 'home' }),
@@ -339,6 +343,7 @@ export const useStore = create<State>()((set, get) => ({
   },
   updateInstall: (id, patch) => set((s) => ({ installs: s.installs.map((i) => (i.id === id ? { ...i, ...patch } : i)) })),
   setInfo: (info) => set({ info }),
+  setUpdate: (update) => set({ update }),
 
   setGame: (game) => {
     const before = get().game.phase

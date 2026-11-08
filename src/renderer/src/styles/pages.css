@@ -683,3 +683,36 @@
   display: flex;
   gap: 8px;
 }
+
+/* ---------- Launcher updates ---------- */
+
+.update-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.update-pill {
+  margin-left: auto;
+  margin-right: 8px;
+  align-self: center;
+  min-height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 700;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.update-pill:disabled {
+  opacity: 0.5;
+}
+
+.update-pill + .winctl {
+  margin-left: 0;
+}

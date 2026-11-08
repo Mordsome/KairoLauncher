@@ -1,0 +1,50 @@
+# Builds the Windows installer and the Linux AppImage when a version tag (v1.2.3)
+# is pushed, and attaches them to a DRAFT release. Nothing is public until the
+# draft is checked and published by hand on GitHub. See docs/RELEASING.md.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win nsis
+          - os: ubuntu-latest
+            target: --linux AppImage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tag matches package.json
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match package.json version $version"; exit 1
+          fi
+
+      - run: npm run test:unit
+
+      # Typecheck, privacy check, build, and the check that no offline account is inside.
+      - run: npm run build
+
+      - name: Package and attach to the draft release
+        run: npx electron-builder ${{ matrix.target }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

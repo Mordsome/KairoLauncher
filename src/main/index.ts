@@ -6,12 +6,13 @@ import { registerIpc } from './ipc'
 import { installGlobalGuard } from './net/http'
 import { registerAppScheme, serveRenderer } from './protocol'
 import { hardenApp } from './security'
+import { initUpdater } from './updater'
 import { createMainWindow } from './window'
 
 registerAppScheme()
 app.enableSandbox()
 installGlobalGuard()
-if (process.platform === 'win32') app.setAppUserModelId('com.mordsome.kairolauncher')
+if (process.platform === 'win32') app.setAppUserModelId('com.mordsome.kairolauncher') // same as appId in electron-builder.yml
 
 let mainWindow: BrowserWindow | null = null
 let hiddenForGame = false
@@ -50,6 +51,9 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc(session)
     Menu.setApplicationMenu(null)
     mainWindow = createMainWindow()
+    initUpdater((state) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(IPC.updateChanged, state)
+    })
     mainWindow.on('closed', () => {
       mainWindow = null
     })

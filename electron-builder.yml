@@ -1,0 +1,58 @@
+# Installers: Windows (NSIS) and Linux (AppImage).
+# Build with `npm run dist:win` or `npm run dist:linux`; nothing is ever published from here.
+appId: com.mordsome.kairolauncher
+productName: Kairo Launcher
+copyright: Copyright © Mordsome
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  # The OS keyring module is native code; it has to sit outside the archive.
+  - '**/*.node'
+extraResources:
+  - from: LICENSE
+    to: LICENSE
+  - from: THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
+  - from: licenses
+    to: licenses
+# The UI is in English; leaving other Chromium languages out saves ~40 MB.
+electronLanguages:
+  - en-US
+icon: build/icon.png
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: KairoLauncher-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Kairo Launcher
+  # Game files, installs and settings stay when the launcher is removed.
+  deleteAppDataOnUninstall: false
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: Game
+  synopsis: Launcher for the Kairo Minecraft clients
+  artifactName: KairoLauncher-${version}.${ext}
+
+# Where the launcher looks for its own updates (written into app-update.yml).
+# Local builds never upload (`--publish never`); only the CI workflow does, to a draft.
+publish:
+  - provider: github
+    owner: Mordsome
+    repo: KairoLauncher
+    # The CI workflow uploads to a draft; publishing is always done by hand.
+    releaseType: draft

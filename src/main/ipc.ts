@@ -11,6 +11,7 @@ import { adoptVanillaFolders, listCustom, toInfo } from './installs/custom'
 import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refDir, renameInstall } from './installs/library'
 import { checkCustomJava } from './game/java'
 import { loadSettings, saveSettings } from './settings'
+import { checkForUpdate, installUpdate, updateState } from './updater'
 import { dialog } from 'electron'
 import { createCustom, importModpack, openDownloadPage } from './loaders/create'
 import { availableExtras } from './loaders/extras'
@@ -92,6 +93,22 @@ export function registerIpc(session: GameSession): void {
       totalMemoryMB: totalMemoryMB(),
       devOfflineName: devOfflineAccount()?.name ?? null
     }
+  })
+
+  ipcMain.handle(IPC.updateState, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return updateState()
+  })
+
+  ipcMain.handle(IPC.updateCheck, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return checkForUpdate()
+  })
+
+  ipcMain.handle(IPC.updateInstall, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    // Never restart from under a running game.
+    return session.current().phase === 'idle' ? installUpdate() : false
   })
 
   ipcMain.handle(IPC.openExternal, async (event, url: unknown) => {

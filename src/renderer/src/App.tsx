@@ -18,6 +18,7 @@ export function App() {
   const refreshCustom = useStore((s) => s.refreshCustom)
   const setAccounts = useStore((s) => s.setAccounts)
   const loadSettings = useStore((s) => s.loadSettings)
+  const setUpdate = useStore((s) => s.setUpdate)
   const go = useStore((s) => s.go)
   const loaded = useStore((s) => s.accounts !== null)
 
@@ -37,8 +38,14 @@ export function App() {
     // Saved settings and the last selection need the installs list to check against.
     void refreshCustom().finally(() => void loadSettings())
     void window.kairo.game.state().then(setGame)
-    return window.kairo.game.onState(setGame)
-  }, [setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, loadSettings, setAccounts, go])
+    void window.kairo.app.update.state().then(setUpdate)
+    const offUpdate = window.kairo.app.update.onState(setUpdate)
+    const offGame = window.kairo.game.onState(setGame)
+    return () => {
+      offUpdate()
+      offGame()
+    }
+  }, [setUpdate, setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, loadSettings, setAccounts, go])
 
 
   return (

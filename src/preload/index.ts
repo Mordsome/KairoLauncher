@@ -5,6 +5,7 @@ import {
   type LauncherSettings,
   type LibraryResult,
   type LogView,
+  type UpdateState,
   type CreateCustomRequest,
   type CreateResult,
   type CustomInstallInfo,
@@ -29,7 +30,19 @@ const api: KairoApi = {
   },
   app: {
     info: () => ipcRenderer.invoke(IPC.appInfo) as Promise<AppInfo>,
-    openExternal: (url: string) => ipcRenderer.invoke(IPC.openExternal, String(url)) as Promise<boolean>
+    openExternal: (url: string) => ipcRenderer.invoke(IPC.openExternal, String(url)) as Promise<boolean>,
+    update: {
+      state: () => ipcRenderer.invoke(IPC.updateState) as Promise<UpdateState>,
+      check: () => ipcRenderer.invoke(IPC.updateCheck) as Promise<UpdateState>,
+      install: () => ipcRenderer.invoke(IPC.updateInstall) as Promise<boolean>,
+      onState: (listener: (state: UpdateState) => void) => {
+        const handler = (_event: IpcRendererEvent, state: UpdateState) => listener(state)
+        ipcRenderer.on(IPC.updateChanged, handler)
+        return () => {
+          ipcRenderer.removeListener(IPC.updateChanged, handler)
+        }
+      }
+    }
   },
   game: {
     versions: () => ipcRenderer.invoke(IPC.gameVersions) as Promise<VersionList>,

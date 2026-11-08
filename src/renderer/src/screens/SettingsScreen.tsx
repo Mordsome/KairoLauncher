@@ -1,3 +1,4 @@
+import type { UpdateState } from '../../../shared/api'
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
 import { Switch, SwitchRow } from '../components/Switch'
 import { maxMemoryGB, useStore, type SettingsTab } from '../state/store'
@@ -263,6 +264,44 @@ function PrivacyTab() {
   )
 }
 
+function updateText(u: UpdateState | null): string {
+  switch (u?.status) {
+    case undefined:
+    case 'off':
+      return 'Updates are off in development builds.'
+    case 'idle':
+      return 'Updates come from the GitHub releases of Mordsome/KairoLauncher.'
+    case 'checking':
+      return 'Checking for updates…'
+    case 'latest':
+      return 'You have the newest version.'
+    case 'downloading':
+      return `Downloading ${u.version ?? 'the update'}: ${Math.round(u.progress * 100)}%`
+    case 'ready':
+      return `Version ${u.version} is ready. It installs when you restart the launcher.`
+    case 'error':
+      return u.message ?? "The update couldn't be checked."
+  }
+}
+
+function UpdateLine() {
+  const update = useStore((s) => s.update)
+  const busy = update?.status === 'checking' || update?.status === 'downloading'
+  const canCheck = update !== null && update.status !== 'off' && update.status !== 'ready' && !busy
+  return (
+    <div className="update-line">
+      <span className="muted" role="status">
+        {updateText(update)}
+      </span>
+      {update?.status !== 'off' && update?.status !== 'ready' && (
+        <button type="button" className="btn-ghost btn-small" disabled={!canCheck} onClick={() => void window.kairo.app.update.check()}>
+          Check for updates
+        </button>
+      )}
+    </div>
+  )
+}
+
 function AboutTab() {
   const info = useStore((s) => s.info)
   const open = (url: string) => void window.kairo.app.openExternal(url)
@@ -272,6 +311,7 @@ function AboutTab() {
         <b className="list-card-title">Kairo Launcher {info?.version ?? ''}</b>
         <span className="muted">Made by Mordsome. Free software under the GPL-3.0 licence.</span>
         <span className="muted">Fonts: Outfit and Pixelify Sans, under the SIL Open Font License.</span>
+        <UpdateLine />
         <div className="about-links">
           <button type="button" className="btn-ghost" onClick={() => open('https://github.com/Mordsome/KairoLauncher')}>
             Source code

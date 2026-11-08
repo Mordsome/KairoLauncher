@@ -21,7 +21,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",
     "test:e2e": "electron-vite build --mode offline && playwright test",
     "test:launch": "electron-vite build --mode offline && playwright test -c playwright.launch.config.ts",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never",
+    "dist:linux": "npm run build && electron-builder --linux AppImage --publish never",
+    "icon": "electron scripts/render-icon.cjs",
+    "test:packaged": "playwright test -c playwright.packaged.config.ts"
   },
   "devDependencies": {
     "@fontsource-variable/outfit": "^5.3.0",
@@ -33,6 +37,7 @@
     "@types/yazl": "^3.3.1",
     "@vitejs/plugin-react": "^6.2.1",
     "electron": "^45.2.2",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -53,6 +58,7 @@
     "@xmcl/core": "^2.16.3",
     "@xmcl/file-transfer": "^2.1.4",
     "@xmcl/installer": "^6.3.7",
+    "electron-updater": "^6.8.11",
     "undici": "^7.30.1"
   }
 }

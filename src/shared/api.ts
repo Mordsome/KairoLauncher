@@ -33,7 +33,11 @@ export const IPC = {
   gameOpenCrashReport: 'game:open-crash-report',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
-  settingsPickJava: 'settings:pick-java'
+  settingsPickJava: 'settings:pick-java',
+  updateState: 'update:state',
+  updateCheck: 'update:check',
+  updateInstall: 'update:install',
+  updateChanged: 'update:changed'
 } as const
 
 export interface AccountSummary {
@@ -101,6 +105,17 @@ export interface LauncherSettings {
   voidWarningSeen: boolean
   /** What was selected on Home, restored at the next start. */
   lastSelection: { edition: 'kairo' | 'void' | 'lite' | 'vanilla' | 'other'; mc: string; installId: string | null } | null
+}
+
+/** The launcher's own updates, from GitHub releases. "off" in dev runs. */
+export interface UpdateState {
+  status: 'off' | 'idle' | 'checking' | 'latest' | 'downloading' | 'ready' | 'error'
+  /** The new version, while downloading or ready. */
+  version: string | null
+  /** 0 to 1, while downloading. */
+  progress: number
+  /** Why the last check failed, in plain words. */
+  message: string | null
 }
 
 export interface LoaderVersions {
@@ -215,6 +230,14 @@ export interface KairoApi {
     info(): Promise<AppInfo>
     /** Opens an allow-listed https link in the system browser. Resolves false if refused. */
     openExternal(url: string): Promise<boolean>
+    update: {
+      state(): Promise<UpdateState>
+      /** Checks GitHub now and downloads a newer version if there is one. */
+      check(): Promise<UpdateState>
+      /** Restarts into a downloaded update. False if none is ready or Minecraft is running. */
+      install(): Promise<boolean>
+      onState(listener: (state: UpdateState) => void): () => void
+    }
   }
   game: {
     versions(): Promise<VersionList>

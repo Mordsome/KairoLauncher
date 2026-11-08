@@ -7,7 +7,7 @@ const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).spli
 const problems = []
 
 const gameOutput = /(^|\/)(logs|crash-reports)\/|\.log(\.gz)?$|(^|\/)hs_err_pid\d+/
-// A home folder followed by a real name, e.g. C:\Users\name\ or /home/name/. "<you>"-style placeholders are fine.
+// A home folder followed by a real name, as in C:\Users\<name>\ or /home/<name>/. Placeholders in <> are fine.
 const homePath = /\b[A-Za-z]:[\\/]+Users[\\/]+(?!Public\b|Default\b|<|%|\$|\{)[^\\/\s"'`<>]+|(?:^|[\s"'`(=])\/(?:home|Users)\/(?!<|\$|\{)[^/\s"'`<>]+/m
 
 for (const file of files) {

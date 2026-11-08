@@ -2,9 +2,42 @@
 
 A desktop launcher for the [Kairo](https://github.com/Mordsome/Kairo) Minecraft clients, by Mordsome.
 
-Status: in development. See `design/` for the screens it follows.
+Play Kairo and Kairo Void, plain Minecraft, Fabric, NeoForge, Forge, OptiFine and Modrinth
+modpacks, each in its own install with its own mods, worlds and settings. Sign in with
+Microsoft (the launcher never sees your password), keep several accounts, and get Kairo
+updates automatically.
 
 Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
+
+![Choosing what to play](docs/screenshots/picker.png)
+
+| | |
+| --- | --- |
+| ![Library](docs/screenshots/library.png) | ![Library in the Kairo Void theme](docs/screenshots/library-void.png) |
+| ![Building a Fabric install](docs/screenshots/other-builder.png) | ![Settings](docs/screenshots/settings.png) |
+
+## Install
+
+Download the newest release from [Releases](https://github.com/Mordsome/KairoLauncher/releases).
+
+- **Windows:** run `KairoLauncher-Setup-<version>.exe`. The installer isn't code-signed yet, so
+  Windows SmartScreen may say it "protected your PC": choose **More info → Run anyway**.
+- **Linux:** download `KairoLauncher-<version>.AppImage`, make it executable
+  (`chmod +x KairoLauncher-*.AppImage`) and run it. Saving your sign-in needs a Secret Service
+  keyring (GNOME Keyring or KWallet), which most desktops have.
+
+You need a Minecraft: Java Edition account. The launcher downloads Minecraft from Mojang, Java
+from Mojang, and loaders and mods from their official sources; it doesn't bundle any of them.
+
+**Updates:** the launcher checks this repository's releases a few seconds after it starts and
+every few hours (Settings → Launcher → "Update the launcher automatically"; you can also check
+in Settings → About). An update downloads in the background, is checked against the SHA-512 in
+the release's `latest.yml`, and installs when you restart the launcher. It never restarts while
+Minecraft is running. Uninstalling keeps your installs, worlds and settings.
+
+**Privacy:** no analytics, no telemetry, no accounts of our own. The launcher only talks to
+Microsoft/Xbox/Mojang, Fabric, NeoForge, Forge, Modrinth and GitHub, as listed in
+Settings → Privacy.
 
 ## Develop
 
@@ -19,6 +52,10 @@ Needs Node.js 22.12 or newer.
 | `npm start` | Runs the production build |
 | `npm run test:e2e` | Builds, then clicks through every screen of the real app; screenshots land in `test-results/screens/` |
 | `npm run test:launch` | Downloads and really launches Minecraft 26.3, 1.20.1, 1.12.2 and 1.8.9 (several GB the first time) |
+| `npm run dist:win` | Builds the Windows installer into `release/` |
+| `npm run dist:linux` | Builds the Linux AppImage into `release/` (on Linux) |
+| `npm run test:packaged` | Starts the packaged app from `release/` and checks it |
+| `npm run icon` | Renders `build/icon.svg` to `build/icon.png` |
 
 The offline account exists only in `--mode offline` builds (it is compiled out of every other
 build) and refuses to work in a packaged app. It never ships in a release.
@@ -92,6 +129,11 @@ the defaults are used.
 When Minecraft closes with an error, Home says why in plain words where it can (out of
 memory, Java refusing the memory setting, mods that don't fit together, Java too old) and
 offers **Open crash report** (only a report inside that install's folder) and **View log**.
+
+### Releasing
+
+See [docs/RELEASING.md](docs/RELEASING.md). Releases are built by GitHub Actions from a version
+tag and wait as a draft until they're checked and published by hand.
 
 ## Licence
 
