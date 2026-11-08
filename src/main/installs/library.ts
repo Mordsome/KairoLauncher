@@ -1,5 +1,5 @@
 import { shell } from 'electron'
-import { cp, rm } from 'node:fs/promises'
+import { cp, rm, mkdir } from 'node:fs/promises'
 import { join, normalize, sep } from 'node:path'
 import type { LibraryResult } from '../../shared/api'
 import { describeError, KairoError } from '../errors'
@@ -140,5 +140,8 @@ export async function sharedGameDir(ref: InstallRef): Promise<string | null> {
 
 export async function openInstallFolder(ref: InstallRef): Promise<void> {
   const dir = await refDir(ref)
-  if (dir && insideInstalls(dir)) await shell.openPath(dir)
+  if (!dir || !insideInstalls(dir)) return
+  // An install that was never played has no folder yet: make it, so there is something to open.
+  await mkdir(dir, { recursive: true })
+  await shell.openPath(dir)
 }
