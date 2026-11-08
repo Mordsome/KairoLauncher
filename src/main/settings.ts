@@ -1,11 +1,24 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { LauncherSettings } from '../shared/api'
+import type { BackgroundSettings, LauncherSettings } from '../shared/api'
 import { dataPaths } from './paths'
 
 // The launcher's own settings, in settings.json next to the game data.
 // Every field is checked on the way in and out; anything odd falls back to
 // its default, and an unreadable file is set aside, never deleted.
+
+export const DEFAULT_BACKGROUND: BackgroundSettings = {
+  kind: 'pixels',
+  trailSize: 50,
+  trailStrength: 'normal',
+  hoverWaves: true,
+  clickRipple: true,
+  fit: 'fill',
+  dim: 35,
+  blur: 0,
+  pixelsOnTop: true,
+  separateVoid: false
+}
 
 export const DEFAULT_SETTINGS: LauncherSettings = {
   memoryGB: 4,
@@ -17,10 +30,38 @@ export const DEFAULT_SETTINGS: LauncherSettings = {
   matchTheme: true,
   autoUpdate: true,
   voidWarningSeen: false,
+  background: DEFAULT_BACKGROUND,
+  reduceMotion: false,
   lastSelection: null
 }
 
 const file = () => join(dataPaths().root, 'settings.json')
+
+function oneOf<T extends string>(value: unknown, options: readonly T[], fallback: T): T {
+  return typeof value === 'string' && (options as readonly string[]).includes(value) ? (value as T) : fallback
+}
+
+function wholeIn(value: unknown, min: number, max: number, fallback: number): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max ? value : fallback
+}
+
+export function cleanBackground(raw: unknown): BackgroundSettings {
+  const b = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const d = DEFAULT_BACKGROUND
+  const bool = (key: keyof BackgroundSettings) => (typeof b[key] === 'boolean' ? (b[key] as boolean) : (d[key] as boolean))
+  return {
+    kind: oneOf(b['kind'], ['pixels', 'aurora', 'custom'], d.kind),
+    trailSize: wholeIn(b['trailSize'], 0, 100, d.trailSize),
+    trailStrength: oneOf(b['trailStrength'], ['subtle', 'normal', 'bright'], d.trailStrength),
+    hoverWaves: bool('hoverWaves'),
+    clickRipple: bool('clickRipple'),
+    fit: oneOf(b['fit'], ['fill', 'fit', 'centre', 'tile'], d.fit),
+    dim: wholeIn(b['dim'], 0, 80, d.dim),
+    blur: wholeIn(b['blur'], 0, 20, d.blur),
+    pixelsOnTop: bool('pixelsOnTop'),
+    separateVoid: bool('separateVoid')
+  }
+}
 
 /** Keeps only valid fields, so a damaged or hand-edited file can't break anything. */
 export function cleanSettings(raw: unknown): LauncherSettings {
@@ -50,6 +91,8 @@ export function cleanSettings(raw: unknown): LauncherSettings {
     matchTheme: bool('matchTheme'),
     autoUpdate: bool('autoUpdate'),
     voidWarningSeen: bool('voidWarningSeen'),
+    background: cleanBackground(r['background']),
+    reduceMotion: bool('reduceMotion'),
     lastSelection
   }
 }

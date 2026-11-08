@@ -1,6 +1,7 @@
 import type { UpdateState } from '../../../shared/api'
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
 import { Switch, SwitchRow } from '../components/Switch'
+import { BackgroundSection } from './BackgroundSettings'
 import { maxMemoryGB, useStore, type SettingsTab } from '../state/store'
 
 const TABS: [SettingsTab, string][] = [
@@ -164,6 +165,7 @@ function LauncherTab() {
   const update = useStore((s) => s.updateSettings)
   return (
     <>
+      <BackgroundSection />
       <SwitchRow
         label="Match the selected install"
         description="The launcher turns violet when Kairo Void is selected"
@@ -172,7 +174,7 @@ function LauncherTab() {
       />
       <SwitchRow
         label="Update the launcher automatically"
-        description="Downloads from GitHub, checked against its checksum"
+        description="Downloads from GitHub, checked against its checksum and Mordsome's signature"
         checked={settings.autoUpdate}
         onChange={(autoUpdate) => update({ autoUpdate })}
       />

@@ -1,14 +1,5 @@
 .signin {
-  background: var(--bg);
-}
-
-.signin-bg {
-  position: absolute;
-  inset: -30px;
-  background-image: url(../assets/img/kairo-menu.jpg);
-  background-size: cover;
-  background-position: center;
-  filter: blur(18px) saturate(1.2) brightness(0.5);
+  background: color-mix(in srgb, var(--bg) 35%, transparent);
 }
 
 .signin-card {

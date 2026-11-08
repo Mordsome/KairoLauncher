@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AccountsState, AppInfo, LauncherSettings, UpdateState, CustomInstallInfo, GameState, KairoEdition, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
+import type { AccountsState, AppInfo, BackgroundFiles, LauncherSettings, UpdateState, CustomInstallInfo, GameState, KairoEdition, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
 import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
@@ -80,6 +80,12 @@ interface State {
   /** The launcher's own update, from GitHub. */
   update: UpdateState | null
   setUpdate(update: UpdateState): void
+  /** The player's stored background pictures (never paths). */
+  bgFiles: BackgroundFiles | null
+  /** Set when the custom picture couldn't be shown; the Pixel field shows instead. */
+  bgProblem: string | null
+  setBgFiles(files: BackgroundFiles): void
+  setBgProblem(problem: string | null): void
 
   go(screen: Screen): void
   openPicker(): void
@@ -202,10 +208,25 @@ export const useStore = create<State>()((set, get) => ({
     showSnapshots: false,
     matchTheme: true,
     autoUpdate: true,
-    voidWarningSeen: false
+    voidWarningSeen: false,
+    background: {
+      kind: 'pixels',
+      trailSize: 50,
+      trailStrength: 'normal',
+      hoverWaves: true,
+      clickRipple: true,
+      fit: 'fill',
+      dim: 35,
+      blur: 0,
+      pixelsOnTop: true,
+      separateVoid: false
+    },
+    reduceMotion: false
   },
   info: null,
   update: null,
+  bgFiles: null,
+  bgProblem: null,
   settingsLoaded: false,
 
   go: (screen) => set({ screen, homeView: 'home' }),
@@ -344,6 +365,9 @@ export const useStore = create<State>()((set, get) => ({
   updateInstall: (id, patch) => set((s) => ({ installs: s.installs.map((i) => (i.id === id ? { ...i, ...patch } : i)) })),
   setInfo: (info) => set({ info }),
   setUpdate: (update) => set({ update }),
+  // A new picture gets a fresh chance to load.
+  setBgFiles: (bgFiles) => set({ bgFiles, bgProblem: null }),
+  setBgProblem: (bgProblem) => set({ bgProblem }),
 
   setGame: (game) => {
     const before = get().game.phase

@@ -12,6 +12,7 @@ import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refD
 import { checkCustomJava } from './game/java'
 import { loadSettings, saveSettings } from './settings'
 import { checkForUpdate, installUpdate, updateState } from './updater'
+import { backgroundFiles, importBackground, pickBackground, removeBackground } from './background'
 import { dialog } from 'electron'
 import { createCustom, importModpack, openDownloadPage } from './loaders/create'
 import { availableExtras } from './loaders/extras'
@@ -93,6 +94,28 @@ export function registerIpc(session: GameSession): void {
       totalMemoryMB: totalMemoryMB(),
       devOfflineName: devOfflineAccount()?.name ?? null
     }
+  })
+
+  const isSlot = (v: unknown): v is 'main' | 'void' => v === 'main' || v === 'void'
+
+  ipcMain.handle(IPC.backgroundFiles, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return backgroundFiles()
+  })
+
+  ipcMain.handle(IPC.backgroundPick, (event, slot: unknown) => {
+    if (!fromApp(event) || !isSlot(slot)) throw new Error('Not allowed')
+    return pickBackground(slot, BrowserWindow.fromWebContents(event.sender))
+  })
+
+  ipcMain.handle(IPC.backgroundImport, (event, slot: unknown, bytes: unknown) => {
+    if (!fromApp(event) || !isSlot(slot) || !(bytes instanceof Uint8Array)) throw new Error('Not allowed')
+    return importBackground(slot, Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength))
+  })
+
+  ipcMain.handle(IPC.backgroundRemove, (event, slot: unknown) => {
+    if (!fromApp(event) || !isSlot(slot)) throw new Error('Not allowed')
+    return removeBackground(slot)
   })
 
   ipcMain.handle(IPC.updateState, (event) => {

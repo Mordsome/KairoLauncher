@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { deflateSync } from 'node:zlib'
 import { tmpdir } from 'node:os'
 import type { LauncherSettings } from '../../src/shared/api'
 import { join } from 'node:path'
@@ -49,6 +50,8 @@ test.beforeAll(async () => {
       matchTheme: true,
       autoUpdate: true,
       voidWarningSeen: false,
+      background: { kind: 'pixels', trailSize: 50, trailStrength: 'normal', hoverWaves: true, clickRipple: true, fit: 'fill', dim: 35, blur: 0, pixelsOnTop: true, separateVoid: false },
+      reduceMotion: false,
       lastSelection: null
     })
   )
@@ -72,7 +75,7 @@ test('renderer is locked down', async () => {
     process: typeof (globalThis as Record<string, unknown>)['process'],
     api: Object.keys(window.kairo).sort()
   }))
-  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'game', 'installs', 'kairo', 'loaders', 'settings', 'window'] })
+  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'background', 'game', 'installs', 'kairo', 'loaders', 'settings', 'window'] })
 
   // The main process rejects malformed play requests.
   const bad = await page.evaluate(() =>
@@ -432,6 +435,130 @@ test('settings: every tab', async () => {
   expect(cleaned.javaPath).toBe('')
 })
 
+/** A real, decodable PNG (stripes), for the custom background. */
+function stripesPng(w: number, h: number): Buffer {
+  const raw = Buffer.alloc((w * 3 + 1) * h)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const o = y * (w * 3 + 1) + 1 + x * 3
+      const on = ((x + y) >> 4) % 2 === 0
+      raw[o] = on ? 200 : 30
+      raw[o + 1] = 90
+      raw[o + 2] = on ? 120 : 220
+    }
+  }
+  const table = Array.from({ length: 256 }, (_, n) => {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    return c >>> 0
+  })
+  const crc = (buf: Buffer) => {
+    let c = 0xffffffff
+    for (const b of buf) c = table[(c ^ b) & 0xff]! ^ (c >>> 8)
+    return (c ^ 0xffffffff) >>> 0
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data])
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const sum = Buffer.alloc(4)
+    sum.writeUInt32BE(crc(body))
+    return Buffer.concat([len, body, sum])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8
+  ihdr[9] = 2
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])
+}
+
+// The classic 1x1 GIF.
+const ONE_PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64')
+
+test('backgrounds: Pixel field, Aurora and your own picture', async () => {
+  const pictures = () =>
+    app.evaluate(({ app }) => {
+      const fs = process.getBuiltinModule('node:fs')
+      const path = process.getBuiltinModule('node:path')
+      const dir = path.join(app.getPath('userData'), 'backgrounds')
+      return fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f !== 'backgrounds.json') : []
+    })
+  const nextPick = (f: string) =>
+    app.evaluate(({ dialog }, picked) => {
+      ;(dialog as unknown as { showOpenDialog: () => Promise<unknown> }).showOpenDialog = async () => ({ canceled: false, filePaths: [picked] })
+    }, f)
+  const kind = () => page.evaluate(() => window.kairo.settings.get().then((s) => s.background.kind))
+
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: 'Launcher' }).click()
+  await expect(page.getByRole('radio', { name: /Pixel field/ })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.locator('.bd-pixels')).toHaveAttribute('data-on', 'true')
+
+  await page.getByRole('radio', { name: /Aurora/ }).click()
+  await expect(page.locator('.bd-aurora')).toHaveAttribute('data-on', 'true')
+  await expect.poll(kind).toBe('aurora')
+  await shot('26-settings-background-aurora')
+
+  // A program renamed to .png is refused by its content.
+  const dir = mkdtempSync(join(tmpdir(), 'kairo-pictures-'))
+  const fake = join(dir, 'photo.png')
+  writeFileSync(fake, 'MZ this is a program, not a picture')
+  await nextPick(fake)
+  await page.getByRole('radio', { name: /Custom/ }).click()
+  await expect(page.getByRole('alert')).toContainText("isn't a picture the launcher can use")
+  expect(await kind()).toBe('aurora')
+  expect(await pictures()).toEqual([])
+
+  // A real picture from the file dialog.
+  const real = join(dir, 'my background.png')
+  writeFileSync(real, stripesPng(640, 360))
+  await nextPick(real)
+  await page.getByRole('radio', { name: /Custom/ }).click()
+  await expect(page.locator('.bd-custom')).toHaveAttribute('data-on', 'true')
+  await expect.poll(kind).toBe('custom')
+  expect(await page.locator('.bd-custom .bd-picture').first().evaluate((e) => getComputedStyle(e).backgroundImage)).toContain('kairo-bg://current')
+  const first = await pictures()
+  expect(first).toHaveLength(1)
+  await shot('27-settings-background-custom')
+
+  // Dropping a picture on the card replaces it; the old file is deleted.
+  const transfer = await page.evaluateHandle((bytes) => {
+    const dt = new DataTransfer()
+    dt.items.add(new File([new Uint8Array(bytes)], 'dropped.gif', { type: 'image/gif' }))
+    return dt
+  }, Array.from(ONE_PIXEL_GIF))
+  await page.locator('.bg-card').dispatchEvent('drop', { dataTransfer: transfer })
+  await expect.poll(async () => (await pictures())[0]).toMatch(/\.gif$/)
+  expect(await pictures()).toHaveLength(1)
+
+  // The page can only reach the two stored pictures through kairo-bg://.
+  const other = await page.evaluate(() =>
+    new Promise<string>((resolve) => {
+      const img = new Image()
+      img.onload = () => resolve('loaded')
+      img.onerror = () => resolve('refused')
+      img.src = 'kairo-bg://elsewhere/?x=1'
+    })
+  )
+  expect(other).toBe('refused')
+  problems.length = 0 // the refused picture logs a 404 on purpose
+
+  // Reduce motion: the picture is drawn once, still.
+  await page.getByRole('switch', { name: 'Reduce motion' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-reduce-motion', 'true')
+  await expect(page.locator('.bd-custom canvas.bd-still')).toHaveCount(1)
+  await page.getByRole('switch', { name: 'Reduce motion' }).click()
+
+  // Remove: back to the Pixel field, nothing left on disk.
+  await page.getByRole('button', { name: 'Remove image' }).click()
+  await expect.poll(kind).toBe('pixels')
+  await expect(page.locator('.bd-pixels')).toHaveAttribute('data-on', 'true')
+  expect(await pictures()).toEqual([])
+  rmSync(dir, { recursive: true, force: true })
+})
+
 test('Void theme follows the selected install', async () => {
   await page.getByRole('button', { name: 'Home' }).click()
   await page.getByRole('button', { name: /Choose what to play/ }).click()
@@ -469,9 +596,10 @@ test('reduced motion turns off slides and zooms', async () => {
   await page.waitForTimeout(1600) // the switch itself still animates once
   const transforms = await page.evaluate(() => ({
     picker: getComputedStyle(document.querySelector('.screen-pick')!).transform,
-    background: getComputedStyle(document.querySelector('.bg[data-on="false"]')!).transform
+    background: getComputedStyle(document.querySelector('.bd-blob')!).animationName,
+    still: document.querySelector('.backdrop')!.getAttribute('data-still')
   }))
-  expect(transforms).toEqual({ picker: 'none', background: 'none' })
+  expect(transforms).toEqual({ picker: 'none', background: 'none', still: 'true' })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
 })
 

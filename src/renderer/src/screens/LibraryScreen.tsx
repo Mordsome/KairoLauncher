@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PlayIcon } from '../components/Icons'
+import { Logo } from '../components/Logo'
 import { LOADERS, type EditionId } from '../data/catalog'
 import { useStore, type Install } from '../state/store'
 import { ChangeVersionDialog, DeleteDialog, LogsDialog, RenameDialog } from './LibraryDialogs'
@@ -112,7 +113,9 @@ export function LibraryScreen({ active }: { active: boolean }) {
               const sel = detail?.id === i.id
               return (
                 <button key={i.id} type="button" className="librow" aria-pressed={sel} onClick={() => setLibrarySel(i.id)}>
-                  <span className={`thumb ${THUMB[i.edition]}`} aria-hidden="true" />
+                  <span className={`thumb ${THUMB[i.edition]}`} aria-hidden="true">
+                    {i.edition === 'kairo' && <Logo size={40} />}
+                  </span>
                   <span className="librow-text">
                     <span className="librow-head">
                       <b className="librow-name">{i.name}</b>

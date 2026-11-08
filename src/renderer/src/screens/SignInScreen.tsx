@@ -57,7 +57,6 @@ export function SignInScreen({ active }: { active: boolean }) {
 
   return (
     <div className="page signin" data-active={active} inert={!active}>
-      <div className="signin-bg" aria-hidden="true" />
       {mode === 'add' && step.kind !== 'wait' && (
         <button type="button" className="btn-ghost signin-back" onClick={() => go('settings')}>
           Back to Settings

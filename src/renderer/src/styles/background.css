@@ -1,0 +1,376 @@
+/* ---------- The background behind every screen ---------- */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+  transition: background-color var(--theme-fade);
+}
+
+.bd-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.bd-layer[data-on='true'] {
+  opacity: 1;
+}
+
+/* Pixel field */
+
+.bd-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(900px 600px at 78% 45%, var(--glow-soft) 0%, transparent 70%);
+  transition: background var(--theme-fade);
+}
+
+.bd-canvas {
+  position: absolute;
+  inset: 0;
+  width: 1280px;
+  height: 760px;
+}
+
+/* Aurora: three big blurred blobs drifting slowly, with a little film grain. */
+
+.bd-blob {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+  transition: background-color var(--theme-fade);
+}
+
+.bd-blob-a {
+  left: 640px;
+  top: 40px;
+  width: 620px;
+  height: 620px;
+  background: var(--accent);
+  filter: blur(120px);
+  opacity: 0.55;
+  animation: bd-blob-a 22s ease-in-out infinite;
+}
+
+.bd-blob-b {
+  left: 860px;
+  top: 300px;
+  width: 520px;
+  height: 520px;
+  background: var(--hot);
+  filter: blur(130px);
+  opacity: 0.4;
+  animation: bd-blob-b 26s ease-in-out infinite;
+}
+
+.bd-blob-c {
+  left: 380px;
+  top: 380px;
+  width: 480px;
+  height: 480px;
+  background: var(--deep);
+  filter: blur(120px);
+  opacity: 0.7;
+  animation: bd-blob-c 30s ease-in-out infinite;
+}
+
+@keyframes bd-blob-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-160px, 90px) scale(1.25);
+  }
+}
+
+@keyframes bd-blob-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1.1);
+  }
+  50% {
+    transform: translate(140px, -110px) scale(0.85);
+  }
+}
+
+@keyframes bd-blob-c {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(0.9);
+  }
+  50% {
+    transform: translate(-90px, -140px) scale(1.2);
+  }
+}
+
+/* Nothing moves when it isn't showing, or with reduced motion. */
+.bd-aurora[data-on='false'] .bd-blob,
+.backdrop[data-still='true'] .bd-blob {
+  animation-play-state: paused;
+}
+
+.backdrop[data-still='true'] .bd-blob {
+  animation: none;
+}
+
+.bd-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+}
+
+/* The player's picture */
+
+.bd-picture {
+  position: absolute;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: opacity 0.6s ease;
+}
+
+.bd-picture[data-fit='fill'] {
+  background-size: cover;
+}
+
+.bd-picture[data-fit='fit'] {
+  background-size: contain;
+}
+
+.bd-picture[data-fit='centre'] {
+  background-size: auto;
+}
+
+.bd-picture[data-fit='tile'] {
+  background-size: auto;
+  background-repeat: repeat;
+  background-position: 0 0;
+}
+
+.bd-dim {
+  position: absolute;
+  inset: 0;
+}
+
+/* Play lifts a little and glows more on hover. */
+.split {
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.4s;
+}
+
+.split:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 70px -14px var(--accent);
+}
+
+html[data-reduce-motion='true'] .split,
+html[data-reduce-motion='true'] .split:hover {
+  transition: none;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split,
+  .split:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ---------- Settings → Launcher → Background ---------- */
+
+.bg-card[data-dragging='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.bg-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bg-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--r-row);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  text-align: left;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.bg-choice:hover {
+  background: var(--sel-bg);
+}
+
+.bg-choice[aria-checked='true'] {
+  border-color: var(--sel-line);
+  background: var(--sel-bg);
+}
+
+.bg-choice-name {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 0 4px 2px;
+}
+
+.bg-preview {
+  position: relative;
+  display: block;
+  height: 96px;
+  border-radius: var(--r-small);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.bg-preview-pixels {
+  background:
+    radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1.5px) 0 0 / 14px 14px,
+    radial-gradient(160px 90px at 70% 45%, var(--glow-soft), transparent 70%),
+    var(--bg);
+}
+
+.pv-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(18px);
+  animation: bd-blob-a 22s ease-in-out infinite;
+}
+
+.pv-blob-a {
+  left: 45%;
+  top: -10%;
+  width: 90px;
+  height: 90px;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+.pv-blob-b {
+  left: 62%;
+  top: 40%;
+  width: 70px;
+  height: 70px;
+  background: var(--hot);
+  opacity: 0.45;
+  animation-name: bd-blob-b;
+  animation-duration: 26s;
+}
+
+.pv-blob-c {
+  left: 18%;
+  top: 45%;
+  width: 70px;
+  height: 70px;
+  background: var(--deep);
+  opacity: 0.8;
+  animation-name: bd-blob-c;
+  animation-duration: 30s;
+}
+
+html[data-reduce-motion='true'] .pv-blob {
+  animation: none;
+}
+
+.pv-picture,
+.pv-thumb {
+  display: block;
+  background-size: cover;
+  background-position: center;
+}
+
+.pv-picture {
+  position: absolute;
+  inset: 0;
+}
+
+.pv-thumb {
+  width: 64px;
+  height: 38px;
+  border-radius: var(--r-small);
+  border: 1px solid var(--line);
+}
+
+.pv-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  color: var(--ink2);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-small);
+}
+
+.bg-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.bg-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bg-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bg-slider-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.seg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.seg {
+  display: flex;
+  gap: 6px;
+}
+
+.seg-item {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+
+.seg-item:hover {
+  background: var(--sel-bg);
+}
+
+.seg-item[aria-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}

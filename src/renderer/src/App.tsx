@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Background } from './background/Background'
 import { Rail } from './components/Rail'
 import { TitleBar } from './components/TitleBar'
 import { HomeScreen } from './screens/HomeScreen'
@@ -19,6 +20,7 @@ export function App() {
   const setAccounts = useStore((s) => s.setAccounts)
   const loadSettings = useStore((s) => s.loadSettings)
   const setUpdate = useStore((s) => s.setUpdate)
+  const setBgFiles = useStore((s) => s.setBgFiles)
   const go = useStore((s) => s.go)
   const loaded = useStore((s) => s.accounts !== null)
 
@@ -39,17 +41,19 @@ export function App() {
     void refreshCustom().finally(() => void loadSettings())
     void window.kairo.game.state().then(setGame)
     void window.kairo.app.update.state().then(setUpdate)
+    void window.kairo.background.files().then(setBgFiles)
     const offUpdate = window.kairo.app.update.onState(setUpdate)
     const offGame = window.kairo.game.onState(setGame)
     return () => {
       offUpdate()
       offGame()
     }
-  }, [setUpdate, setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, loadSettings, setAccounts, go])
+  }, [setBgFiles, setUpdate, setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, loadSettings, setAccounts, go])
 
 
   return (
     <div className="app" data-loaded={loaded}>
+      <Background />
       <HomeScreen active={screen === 'home'} />
       <LibraryScreen active={screen === 'library'} />
       <SettingsScreen active={screen === 'settings'} />

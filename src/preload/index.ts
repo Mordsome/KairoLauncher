@@ -2,6 +2,9 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IPC,
   type AccountsState,
+  type BackgroundFiles,
+  type BackgroundResult,
+  type BackgroundSlot,
   type LauncherSettings,
   type LibraryResult,
   type LogView,
@@ -75,6 +78,13 @@ const api: KairoApi = {
       ipcRenderer.invoke(IPC.installsDelete, String(id)) as Promise<{ ok: true } | { ok: false; error: { title: string; message: string } }>,
     changeVersion: (id: string, mc: string) => ipcRenderer.invoke(IPC.installsChangeVersion, String(id), String(mc)) as Promise<LibraryResult>,
     openFolder: (ref: string) => ipcRenderer.invoke(IPC.installsOpenFolder, String(ref)) as Promise<void>
+  },
+  background: {
+    files: () => ipcRenderer.invoke(IPC.backgroundFiles) as Promise<BackgroundFiles>,
+    pick: (slot: BackgroundSlot) => ipcRenderer.invoke(IPC.backgroundPick, slot) as Promise<BackgroundResult>,
+    importBytes: (slot: BackgroundSlot, bytes: Uint8Array) =>
+      ipcRenderer.invoke(IPC.backgroundImport, slot, bytes instanceof Uint8Array ? bytes : new Uint8Array(0)) as Promise<BackgroundResult>,
+    remove: (slot: BackgroundSlot) => ipcRenderer.invoke(IPC.backgroundRemove, slot) as Promise<BackgroundFiles>
   },
   settings: {
     get: () => ipcRenderer.invoke(IPC.settingsGet) as Promise<LauncherSettings>,

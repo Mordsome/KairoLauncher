@@ -2,6 +2,7 @@ import { protocol } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 import { CSP_HEADER } from '../shared/csp'
+import { BG_SCHEME } from './background'
 import { APP_HOST, APP_SCHEME } from './origin'
 
 // The UI is served from kairo://app/ instead of file://, so the page gets a
@@ -28,7 +29,9 @@ export function registerAppScheme(): void {
     {
       scheme: APP_SCHEME,
       privileges: { standard: true, secure: true, supportFetchAPI: true, codeCache: true }
-    }
+    },
+    // The player's background pictures, as images only (see background.ts).
+    { scheme: BG_SCHEME, privileges: { standard: true, secure: true } }
   ])
 }
 

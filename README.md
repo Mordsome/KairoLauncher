@@ -135,6 +135,15 @@ When Minecraft closes with an error, Home says why in plain words where it can (
 memory, Java refusing the memory setting, mods that don't fit together, Java too old) and
 offers **Open crash report** (only a report inside that install's folder) and **View log**.
 
+### Backgrounds
+
+Settings → Launcher → Background: the **Pixel field** (a calm dot grid with a soft cursor trail,
+waves from the buttons you point at and click ripples; stars in Kairo Void), **Aurora** (slow, blurred
+colour), or **Custom**, your own PNG, JPG, WebP or GIF. A custom picture is checked by its real
+type and size (up to 50 MB and 8192 px), copied into the launcher's data folder under a made-up
+name, and shown through `kairo-bg://`, which serves only that picture. **Reduce motion** (also on
+when the system asks for it) keeps everything still. When nothing moves, the background uses no CPU.
+
 ### Releasing
 
 See [docs/RELEASING.md](docs/RELEASING.md). Releases are built by GitHub Actions from a version

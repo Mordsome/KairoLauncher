@@ -34,6 +34,8 @@
      no pill in the launcher is taller than 80px. */
   --bg: #0a1322;
   --bg-glow: #12233c;
+  --deep: #1f4b8f;
+  --glow-soft: rgba(127, 216, 255, 0.1);
   --ink: #eaf4fb;
   --ink2: #b3c4d4;
   --accent: #7fd8ff;
@@ -77,6 +79,8 @@
 :root[data-theme='void'] {
   --bg: #130a2a;
   --bg-glow: #2a1658;
+  --deep: #4b1fa8;
+  --glow-soft: rgba(160, 110, 255, 0.18);
   --ink: #f4eeff;
   --ink2: #c9b9ec;
   --accent: #b48cff;

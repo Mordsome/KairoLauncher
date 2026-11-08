@@ -101,8 +101,9 @@ input[type='text']:focus-visible {
     visibility 0s 0.35s;
 }
 
+/* Library and Settings: a light tint, so the background still shows (and can be previewed). */
 .page-plain {
-  background: radial-gradient(900px 500px at 75% 10%, var(--bg-glow) 0%, var(--bg) 60%);
+  background: color-mix(in srgb, var(--bg) 58%, transparent);
 }
 
 /* ---------- Title bar ---------- */
@@ -373,4 +374,11 @@ input,
 .app[data-loaded='false'] > .page,
 .app[data-loaded='false'] > .rail {
   visibility: hidden;
+}
+
+/* Screens that aren't showing don't animate (it would cost CPU for nothing). */
+.page[data-active='false'] *,
+.page[data-active='false'] *::before,
+.page[data-active='false'] *::after {
+  animation-play-state: paused !important;
 }

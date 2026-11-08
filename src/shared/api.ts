@@ -37,7 +37,11 @@ export const IPC = {
   updateState: 'update:state',
   updateCheck: 'update:check',
   updateInstall: 'update:install',
-  updateChanged: 'update:changed'
+  updateChanged: 'update:changed',
+  backgroundFiles: 'background:files',
+  backgroundPick: 'background:pick',
+  backgroundImport: 'background:import',
+  backgroundRemove: 'background:remove'
 } as const
 
 export interface AccountSummary {
@@ -92,6 +96,43 @@ export type CustomLoader = 'fabric' | 'neoforge' | 'forge' | 'optifine'
 /** Plain Minecraft installs use the same records as custom ones. */
 export type InstallLoader = CustomLoader | 'vanilla'
 
+export type BackgroundKind = 'pixels' | 'aurora' | 'custom'
+
+export interface BackgroundSettings {
+  kind: BackgroundKind
+  /** Pixel field: 0 small, 50 medium, 100 large. */
+  trailSize: number
+  trailStrength: 'subtle' | 'normal' | 'bright'
+  hoverWaves: boolean
+  clickRipple: boolean
+  /** Custom image. */
+  fit: 'fill' | 'fit' | 'centre' | 'tile'
+  /** 0 to 80 (%). */
+  dim: number
+  /** 0 to 20 (px). */
+  blur: number
+  pixelsOnTop: boolean
+  /** Show the second picture (slot "void") with the Kairo Void theme. */
+  separateVoid: boolean
+}
+
+/** Which custom pictures are stored. The renderer only ever sees these, never paths. */
+export interface BackgroundFile {
+  /** Changes with every new picture, for the kairo-bg:// address. */
+  version: number
+  width: number
+  height: number
+}
+export interface BackgroundFiles {
+  main: BackgroundFile | null
+  void: BackgroundFile | null
+}
+export type BackgroundSlot = 'main' | 'void'
+export type BackgroundResult =
+  | { ok: true; files: BackgroundFiles }
+  | { ok: false; cancelled: true }
+  | { ok: false; cancelled: false; error: { title: string; message: string } }
+
 export interface LauncherSettings {
   memoryGB: number
   customJava: boolean
@@ -103,6 +144,9 @@ export interface LauncherSettings {
   autoUpdate: boolean
   /** The photosensitivity warning before the first Kairo Void install was accepted. */
   voidWarningSeen: boolean
+  background: BackgroundSettings
+  /** Still backgrounds (also on when the system asks for less motion). */
+  reduceMotion: boolean
   /** What was selected on Home, restored at the next start. */
   lastSelection: { edition: 'kairo' | 'void' | 'lite' | 'vanilla' | 'other'; mc: string; installId: string | null } | null
 }
@@ -273,6 +317,14 @@ export interface KairoApi {
     changeVersion(id: string, mc: string): Promise<LibraryResult>
     /** A custom install id, or "kairo" / "void". */
     openFolder(ref: string): Promise<void>
+  }
+  background: {
+    files(): Promise<BackgroundFiles>
+    /** Opens the system file dialog for a PNG, JPG, WebP or GIF. */
+    pick(slot: BackgroundSlot): Promise<BackgroundResult>
+    /** A dropped file's bytes (the renderer never sends paths). */
+    importBytes(slot: BackgroundSlot, bytes: Uint8Array): Promise<BackgroundResult>
+    remove(slot: BackgroundSlot): Promise<BackgroundFiles>
   }
   settings: {
     get(): Promise<LauncherSettings>

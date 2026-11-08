@@ -1,44 +1,4 @@
-/* ---------- Backgrounds (one per edition, crossfaded) ---------- */
-
-.bg {
-  position: absolute;
-  inset: -24px;
-  background-size: cover;
-  background-position: center;
-  opacity: 0;
-  transform: scale(1.05);
-  transition:
-    opacity 0.7s ease,
-    transform 1.4s cubic-bezier(0.2, 0.9, 0.25, 1);
-}
-
-.bg[data-on='true'] {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.bg-kairo {
-  background-image: url(../assets/img/kairo-menu.jpg);
-  filter: blur(6px) saturate(1.15);
-}
-
-.bg-void {
-  background-image: url(../assets/img/void-aurora.jpg);
-}
-
-.bg-lite {
-  background-image: url(../assets/img/lite-village.jpg);
-  filter: grayscale(0.7) brightness(0.7);
-}
-
-.bg-vanilla {
-  background-image: url(../assets/img/vanilla-village.jpg);
-}
-
-.bg-other {
-  background-image: url(../assets/img/void-galaxy.jpg);
-  filter: grayscale(0.85) brightness(0.6);
-}
+/* ---------- Shades: keep the text readable over any background ---------- */
 
 .shade {
   position: absolute;
@@ -54,9 +14,9 @@
 .shade-home {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--bg) 94%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 50%, transparent) 55%,
-    color-mix(in srgb, var(--bg) 20%, transparent) 100%
+    color-mix(in srgb, var(--bg) 92%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 45%, transparent) 34%,
+    transparent 62%
   );
 }
 

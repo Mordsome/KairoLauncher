@@ -7,6 +7,7 @@ import { installGlobalGuard } from './net/http'
 import { registerAppScheme, serveRenderer } from './protocol'
 import { hardenApp } from './security'
 import { initUpdater } from './updater'
+import { serveBackgrounds } from './background'
 import { createMainWindow } from './window'
 
 registerAppScheme()
@@ -48,6 +49,7 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     hardenApp()
     serveRenderer(join(__dirname, '../renderer'))
+    serveBackgrounds()
     registerIpc(session)
     Menu.setApplicationMenu(null)
     mainWindow = createMainWindow()

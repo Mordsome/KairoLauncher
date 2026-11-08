@@ -1,21 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { EDITION_ORDER, type EditionId } from '../data/catalog'
 import { GridIcon, PlayIcon } from '../components/Icons'
-import { describeSelection, lookEdition, useStore } from '../state/store'
+import { describeSelection, useStore } from '../state/store'
 import { LogsDialog } from './LibraryDialogs'
 import { Picker } from './Picker'
 
-const BG_CLASS: Record<EditionId, string> = {
-  kairo: 'bg-kairo',
-  void: 'bg-void',
-  lite: 'bg-lite',
-  vanilla: 'bg-vanilla',
-  other: 'bg-other'
-}
-
 export function HomeScreen({ active }: { active: boolean }) {
   const homeView = useStore((s) => s.homeView)
-  const look = useStore(lookEdition)
   const pick = homeView === 'pick'
 
   const pickerButton = useRef<HTMLButtonElement>(null)
@@ -36,9 +26,6 @@ export function HomeScreen({ active }: { active: boolean }) {
 
   return (
     <div className="page" data-active={active} inert={!active}>
-      {EDITION_ORDER.map((id) => (
-        <div key={id} className={`bg ${BG_CLASS[id]}`} data-on={id === look} aria-hidden="true" />
-      ))}
       <div className="shade shade-home" data-on={!pick} aria-hidden="true" />
       <div className="shade shade-pick" data-on={pick} aria-hidden="true" />
       <HomeMain visible={!pick} pickerButton={pickerButton} />

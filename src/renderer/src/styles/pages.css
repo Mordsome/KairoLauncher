@@ -90,8 +90,16 @@
   background-position: center;
 }
 
+/* Kairo: the ring on a dot grid, always in Kairo's own colours. */
 .thumb-kairo {
-  background-image: url(../assets/img/kairo-menu.jpg);
+  --accent: #7fd8ff;
+  --hot: #ff9a52;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 70% 35%, rgba(127, 216, 255, 0.32) 0%, transparent 60%),
+    radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1.6px) 0 0 / 9px 9px,
+    linear-gradient(135deg, #12233c, #0a1322);
 }
 
 .thumb-void {
