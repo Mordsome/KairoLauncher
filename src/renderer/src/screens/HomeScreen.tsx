@@ -34,6 +34,36 @@ export function HomeScreen({ active }: { active: boolean }) {
   )
 }
 
+/** "What's new in Kairo": the latest release's notes, as plain text, with a link to the full page. */
+function PatchNotesCard() {
+  const show = useStore((s) => s.settings.showPatchNotes)
+  const latest = useStore((s) => s.kairo?.latest ?? null)
+  if (!show || !latest?.notes) return null
+  const { points, url } = latest.notes
+  return (
+    <aside className="notes" aria-labelledby="notes-title">
+      <span className="notes-kicker">Patch notes</span>
+      <h2 id="notes-title" className="notes-title">
+        What's new in Kairo {latest.version}
+      </h2>
+      {points.length ? (
+        <ul className="notes-list">
+          {points.map((point, i) => (
+            <li key={i}>{point}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="notes-empty">This release has no notes yet.</p>
+      )}
+      {url && (
+        <button type="button" className="btn-ghost btn-small notes-more" onClick={() => void window.kairo.app.openExternal(url)}>
+          Read the full notes
+        </button>
+      )}
+    </aside>
+  )
+}
+
 function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: RefObject<HTMLButtonElement | null> }) {
   const selection = useStore((s) => s.selection)
   const installs = useStore((s) => s.installs)
@@ -127,6 +157,7 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
         )}
       </div>
       {showLog && crashed && <LogsDialog install={crashed} onClose={() => setShowLog(false)} />}
+      <PatchNotesCard />
     </section>
   )
 }

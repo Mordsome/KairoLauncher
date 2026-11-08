@@ -31,6 +31,7 @@ export const DEFAULT_SETTINGS: LauncherSettings = {
   autoUpdate: true,
   voidWarningSeen: false,
   background: DEFAULT_BACKGROUND,
+  showPatchNotes: true,
   reduceMotion: false,
   lastSelection: null
 }
@@ -92,6 +93,7 @@ export function cleanSettings(raw: unknown): LauncherSettings {
     autoUpdate: bool('autoUpdate'),
     voidWarningSeen: bool('voidWarningSeen'),
     background: cleanBackground(r['background']),
+    showPatchNotes: bool('showPatchNotes'),
     reduceMotion: bool('reduceMotion'),
     lastSelection
   }

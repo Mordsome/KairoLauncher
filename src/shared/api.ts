@@ -145,6 +145,8 @@ export interface LauncherSettings {
   /** The photosensitivity warning before the first Kairo Void install was accepted. */
   voidWarningSeen: boolean
   background: BackgroundSettings
+  /** The "What's new in Kairo" card on Home. */
+  showPatchNotes: boolean
   /** Still backgrounds (also on when the system asks for less motion). */
   reduceMotion: boolean
   /** What was selected on Home, restored at the next start. */
@@ -231,9 +233,16 @@ export interface KairoInstallInfo {
   playMinutes: number
 }
 
+/** A Kairo release's patch notes, as plain text. */
+export interface PatchNotes {
+  points: string[]
+  /** The release page on GitHub (Mordsome/Kairo), or null if it isn't one. */
+  url: string | null
+}
+
 export interface KairoStatus {
   /** Newest verifiable release on GitHub, or null if it can't be reached and none was seen yet. */
-  latest: { version: string } | null
+  latest: { version: string; notes: PatchNotes | null } | null
   installs: Record<KairoEdition, KairoInstallInfo>
 }
 

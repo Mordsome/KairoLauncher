@@ -571,3 +571,54 @@
   color: #ffb4a8;
   max-width: 46ch;
 }
+
+/* ---------- Patch notes ---------- */
+
+.notes {
+  position: absolute;
+  right: 48px;
+  top: 92px;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--card-line);
+  /* No backdrop blur: the Pixel field moves behind it, and a blur would redraw every frame. */
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+}
+
+.notes-kicker {
+  font-family: var(--pixel);
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.notes-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.notes-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink2);
+}
+
+.notes-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink2);
+}
+
+.notes-more {
+  align-self: flex-start;
+  margin-top: 4px;
+}

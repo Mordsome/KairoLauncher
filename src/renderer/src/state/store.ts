@@ -221,6 +221,7 @@ export const useStore = create<State>()((set, get) => ({
       pixelsOnTop: true,
       separateVoid: false
     },
+    showPatchNotes: true,
     reduceMotion: false
   },
   info: null,

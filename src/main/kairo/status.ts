@@ -22,7 +22,7 @@ function info(record: InstallRecord | null): KairoInstallInfo {
 export async function kairoStatus(): Promise<KairoStatus> {
   const [latest, kairo, voidRecord] = await Promise.all([
     latestKairoRelease().then(
-      (r) => ({ version: r.version }),
+      (r) => ({ version: r.version, notes: r.notes ?? null }),
       () => null
     ),
     readRecord(installDir('kairo')),

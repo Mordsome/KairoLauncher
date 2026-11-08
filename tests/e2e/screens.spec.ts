@@ -51,6 +51,7 @@ test.beforeAll(async () => {
       autoUpdate: true,
       voidWarningSeen: false,
       background: { kind: 'pixels', trailSize: 50, trailStrength: 'normal', hoverWaves: true, clickRipple: true, fit: 'fill', dim: 35, blur: 0, pixelsOnTop: true, separateVoid: false },
+      showPatchNotes: true,
       reduceMotion: false,
       lastSelection: null
     })
@@ -297,6 +298,32 @@ test('Kairo shows the real release', async () => {
   expect(latest).toMatch(/^\d+\.\d+/)
   await expect(page.getByText(`Kairo ${latest} · latest`)).toBeVisible()
   await page.getByRole('button', { name: /^Kairo for Minecraft/ }).first().click()
+
+  // Patch notes on Home: plain text from that release, and a link to its page.
+  const notes = page.getByRole('complementary', { name: `What's new in Kairo ${latest}` })
+  await expect(notes).toBeVisible()
+  expect(await notes.locator('li, .notes-empty').count()).toBeGreaterThan(0)
+  await app.evaluate(({ shell }) => {
+    const g = globalThis as unknown as { opened: string[] }
+    g.opened = []
+    ;(shell as { openExternal: (url: string) => Promise<void> }).openExternal = async (url: string) => void g.opened.push(url)
+  })
+  await notes.getByRole('button', { name: 'Read the full notes' }).click()
+  await expect
+    .poll(() => app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened))
+    .toEqual([expect.stringMatching(/^https:\/\/github\.com\/Mordsome\/Kairo\/releases\//)])
+  await shot('04b-home-patch-notes')
+
+  // The switch in Settings hides it.
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: 'Launcher' }).click()
+  await page.getByRole('switch', { name: 'Show Kairo patch notes on Home' }).click()
+  await page.getByRole('button', { name: 'Home' }).click()
+  await expect(notes).toHaveCount(0)
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('switch', { name: 'Show Kairo patch notes on Home' }).click()
+  await page.getByRole('button', { name: 'Home' }).click()
+  await expect(notes).toBeVisible()
 })
 
 test('library', async () => {

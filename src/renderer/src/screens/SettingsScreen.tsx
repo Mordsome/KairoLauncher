@@ -167,6 +167,12 @@ function LauncherTab() {
     <>
       <BackgroundSection />
       <SwitchRow
+        label="Show Kairo patch notes on Home"
+        description="What's new in the latest Kairo release, from its GitHub page"
+        checked={settings.showPatchNotes}
+        onChange={(showPatchNotes) => update({ showPatchNotes })}
+      />
+      <SwitchRow
         label="Match the selected install"
         description="The launcher turns violet when Kairo Void is selected"
         checked={settings.matchTheme}

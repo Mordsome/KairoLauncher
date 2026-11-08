@@ -6,6 +6,8 @@ import { fetchJson, fetchOk } from '../net/http'
 import { dataPaths } from '../paths'
 import { RELEASE_KEY, REQUIRE_KAIRO_SIGNATURE } from '../releaseKey'
 import { kairoStatement, verifyStatement } from '../signature'
+import type { PatchNotes } from '../../shared/api'
+import { notePoints } from './notes'
 
 // Kairo releases on GitHub. A release counts only if it has both jars and a
 // SHA256SUMS.txt that lists them: anything we can't verify is never installed.
@@ -31,6 +33,8 @@ export interface KairoRelease {
   version: string
   publishedAt: string
   jars: Record<KairoEdition, KairoJar>
+  /** Missing in releases cached by older launchers. */
+  notes?: PatchNotes
 }
 
 interface GitHubRelease {
@@ -38,6 +42,8 @@ interface GitHubRelease {
   draft: boolean
   prerelease: boolean
   published_at: string
+  body?: string | null
+  html_url?: string
   assets: { name: string; size: number; browser_download_url: string }[]
 }
 
@@ -87,6 +93,11 @@ async function resolveLatest(signal?: AbortSignal): Promise<KairoRelease> {
       tag: r.tag_name,
       version,
       publishedAt: r.published_at,
+      notes: {
+        points: notePoints(r.body),
+        // Only ever a link into Mordsome's own release pages.
+        url: typeof r.html_url === 'string' && r.html_url.startsWith('https://github.com/Mordsome/Kairo/releases/') ? r.html_url : null
+      },
       jars: {
         kairo: { filename: kairo.name, url: kairo.browser_download_url, sha256: k, size: kairo.size },
         void: { filename: voidJar.name, url: voidJar.browser_download_url, sha256: v, size: voidJar.size }
