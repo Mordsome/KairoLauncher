@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import type { CustomInstallInfo } from '../../../shared/api'
 import { bannerKind, InstallBanner } from '../components/InstallBanner'
 import { PlayIcon } from '../components/Icons'
+import { Menu, type MenuItem } from '../components/Menu'
+import { AppearanceDialog } from './AppearanceDialog'
 import { LOADERS } from '../data/catalog'
 import { selectionFor, useStore, type Install } from '../state/store'
 import { ChangeVersionDialog, DeleteDialog, LogsDialog, RenameDialog } from './LibraryDialogs'
@@ -68,7 +70,9 @@ export function LibraryScreen({ active }: { active: boolean }) {
   const refreshCustom = useStore((s) => s.refreshCustom)
   const sharedSetting = useStore((s) => s.settings.sharedMinecraft && s.info?.minecraftFolder != null)
   const sharedNow = !!detail && sharedSetting && sharesMinecraft(detail)
-  const [dialog, setDialog] = useState<'logs' | 'rename' | 'version' | 'delete' | 'mods' | 'new' | null>(null)
+  const [dialog, setDialog] = useState<'logs' | 'rename' | 'version' | 'delete' | 'mods' | 'new' | 'look' | null>(null)
+  const [menu, setMenu] = useState<{ id: string; at: { x: number; y: number } } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
   const modsFor = useStore((s) => s.modsFor)
 
   // Right after making an install with "Add mods": open its Mods dialog.
@@ -96,14 +100,44 @@ export function LibraryScreen({ active }: { active: boolean }) {
   // A problem belongs to the install it happened on.
   useEffect(() => setProblem(null), [detail?.id])
 
-  const duplicate = async () => {
-    if (!detail) return
-    const r = await window.kairo.installs.duplicate(detail.id)
+  const duplicate = async (install: Install) => {
+    const r = await window.kairo.installs.duplicate(install.id)
     if (!r.ok) return setProblem(r.error)
     setProblem(null)
     await refreshCustom()
     setLibrarySel(r.install.id)
   }
+
+  /** Everything else you can do with an install, in the ⋯ menu and on right-click. */
+  const menuItems = (i: Install): MenuItem[] => {
+    const running = phase !== 'idle'
+    const open = (d: NonNullable<typeof dialog>) => () => {
+      setLibrarySel(i.id)
+      setDialog(d)
+    }
+    return [
+      ...(hasMods(i) ? [{ label: 'Mods', onSelect: open('mods') }] : []),
+      { label: 'Logs', onSelect: open('logs') },
+      { label: 'Appearance', onSelect: open('look') },
+      { label: 'Open folder', onSelect: () => void window.kairo.installs.openFolder(i.id) },
+      { label: 'Rename', onSelect: open('rename'), separated: true },
+      { label: 'Duplicate', onSelect: () => void duplicate(i), disabled: running },
+      ...(canChangeVersion(i) ? [{ label: 'Change version', onSelect: open('version'), disabled: running }] : []),
+      { label: 'Delete', onSelect: open('delete'), disabled: running, danger: true, separated: true }
+    ]
+  }
+
+  const openMenu = (i: Install, e: MouseEvent<HTMLElement>, under = false) => {
+    e.preventDefault()
+    setLibrarySel(i.id)
+    if (under) {
+      const r = e.currentTarget.getBoundingClientRect()
+      setMenu({ id: i.id, at: { x: r.right - 200, y: r.bottom + 6 } })
+    } else {
+      setMenu({ id: i.id, at: { x: e.clientX, y: e.clientY } })
+    }
+  }
+  const menuInstall = menu ? installs.find((i) => i.id === menu.id) : undefined
 
   const playDetail = () => {
     if (!detail) return
@@ -129,7 +163,14 @@ export function LibraryScreen({ active }: { active: boolean }) {
             {orderInstalls(installs).map((i) => {
               const sel = detail?.id === i.id
               return (
-                <button key={i.id} type="button" className="librow" aria-pressed={sel} onClick={() => setLibrarySel(i.id)}>
+                <button
+                  key={i.id}
+                  type="button"
+                  className="librow"
+                  aria-pressed={sel}
+                  onClick={() => setLibrarySel(i.id)}
+                  onContextMenu={(e) => openMenu(i, e)}
+                >
                   <InstallBanner kind={bannerKind(i)} />
                   <span className="librow-text">
                     <span className="librow-head">
@@ -162,7 +203,24 @@ export function LibraryScreen({ active }: { active: boolean }) {
         {detail && (
           <aside className="lib-detail" aria-label="Install details">
             <div className="detail-head">
-              <span className="detail-mc">Minecraft {detail.mc}</span>
+              <div className="detail-top">
+                <span className="detail-mc">Minecraft {detail.mc}</span>
+                <button
+                  type="button"
+                  className="detail-dots"
+                  aria-label={`More for ${detail.name}`}
+                  aria-haspopup="menu"
+                  aria-expanded={menu?.id === detail.id}
+                  title="More"
+                  onClick={(e) => (menu ? setMenu(null) : openMenu(detail, e, true))}
+                >
+                  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                    <circle cx="3.5" cy="9" r="1.7" />
+                    <circle cx="9" cy="9" r="1.7" />
+                    <circle cx="14.5" cy="9" r="1.7" />
+                  </svg>
+                </button>
+              </div>
               <h2 className="detail-name">{detail.name}</h2>
               <span className="detail-last">Last played {lastPlayed(detail.lastPlayed)}</span>
             </div>
@@ -212,34 +270,6 @@ export function LibraryScreen({ active }: { active: boolean }) {
               </button>
             </div>
 
-            <div className="detail-more" role="group" aria-label="More for this install">
-              <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('logs')}>
-                Logs
-              </button>
-              {(
-                <>
-                  {hasMods(detail) && (
-                    <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('mods')}>
-                      Mods
-                    </button>
-                  )}
-                  <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('rename')}>
-                    Rename
-                  </button>
-                  <button type="button" className="btn-ghost btn-small" onClick={() => void duplicate()} disabled={phase !== 'idle'}>
-                    Duplicate
-                  </button>
-                  {canChangeVersion(detail) && (
-                    <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('version')} disabled={phase !== 'idle'}>
-                      Change version
-                    </button>
-                  )}
-                  <button type="button" className="btn-ghost btn-small btn-danger-text" onClick={() => setDialog('delete')} disabled={phase !== 'idle'}>
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
             {problem && (
               <p className="detail-error" role="alert">
                 <b>{problem.title}</b> {problem.message}
@@ -253,6 +283,8 @@ export function LibraryScreen({ active }: { active: boolean }) {
       {detail && dialog === 'mods' && <ModsDialog install={detail} onClose={done} />}
       {detail && dialog === 'rename' && <RenameDialog install={detail} onDone={done} onClose={close} />}
       {detail && dialog === 'version' && <ChangeVersionDialog install={detail} onDone={done} onClose={close} />}
+      {detail && dialog === 'look' && <AppearanceDialog install={detail} onClose={close} />}
+      {menu && menuInstall && <Menu label={`More for ${menuInstall.name}`} items={menuItems(menuInstall)} at={menu.at} onClose={closeMenu} />}
       {detail && dialog === 'delete' && <DeleteDialog install={detail} onDone={done} onClose={close} />}
     </div>
   )

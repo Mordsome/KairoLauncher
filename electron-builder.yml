@@ -25,6 +25,8 @@ electronLanguages:
 icon: build/icon.png
 # Refuses to package a build that has the dev-only offline account in it.
 beforePack: scripts/before-pack.cjs
+# Lists the packaged files for the uninstaller (see build/installer.nsh).
+afterPack: scripts/after-pack.cjs
 
 # Electron "fuses": switches baked into the app that close ways to misuse it.
 electronFuses:
@@ -52,7 +54,8 @@ nsis:
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: Kairo Launcher
-  # Game files, installs and settings stay when the launcher is removed.
+  # Game files, installs and settings stay when the launcher is removed, unless
+  # the player says yes when the uninstaller asks (build/installer.nsh).
   deleteAppDataOnUninstall: false
 
 linux:

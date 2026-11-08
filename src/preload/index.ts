@@ -6,6 +6,7 @@ import {
   type BackgroundResult,
   type BackgroundSlot,
   type LauncherSettings,
+  type InstallLook,
   type LibraryResult,
   type LogView,
   type ModSearchResult,
@@ -76,6 +77,8 @@ const api: KairoApi = {
     importModpack: () => ipcRenderer.invoke(IPC.installsImportModpack) as Promise<CreateResult>,
     rename: (id: string, name: string) => ipcRenderer.invoke(IPC.installsRename, String(id), String(name)) as Promise<LibraryResult>,
     duplicate: (id: string) => ipcRenderer.invoke(IPC.installsDuplicate, String(id)) as Promise<LibraryResult>,
+    setLook: (id: string, look: InstallLook | null) =>
+      ipcRenderer.invoke(IPC.installsSetLook, String(id), look ? { accent: String(look.accent), rounding: String(look.rounding) } : null) as Promise<LibraryResult>,
     remove: (id: string) =>
       ipcRenderer.invoke(IPC.installsDelete, String(id)) as Promise<{ ok: true } | { ok: false; error: { title: string; message: string } }>,
     changeVersion: (id: string, mc: string) => ipcRenderer.invoke(IPC.installsChangeVersion, String(id), String(mc)) as Promise<LibraryResult>,

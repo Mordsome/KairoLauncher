@@ -7,7 +7,11 @@
 // on its own canvas, and the loop stops entirely when nothing moves.
 
 export interface PixelOptions {
-  theme: 'kairo' | 'void'
+  /** The trail's colour, and the colour at its very peak (the install's accent and hot colour). */
+  accent: readonly [number, number, number]
+  hot: readonly [number, number, number]
+  /** Kairo Void's twinkling stars. */
+  stars: boolean
   /** Trail radius in cells: 0.8 small, 1.3 medium, 2.5 large. */
   radius: number
   /** Peak opacity of a lit cell: 0.35, 0.55 or 0.75. */
@@ -32,10 +36,6 @@ const ALPHA_STEPS = 100
 const STARS = Math.round((W * H) / 9000)
 const BUTTONS = 'button, [role="button"], [role="radio"], [role="tab"], [role="switch"], a[href]'
 
-const COLOURS = {
-  kairo: { a: [127, 216, 255], h: [255, 154, 82] },
-  void: { a: [180, 140, 255], h: [255, 110, 199] }
-} as const
 
 interface Wave {
   on: boolean
@@ -93,7 +93,7 @@ export class PixelField {
   /** How much the heat fades this frame (0.95 per 60 Hz frame). */
   private decay = 0.95
   private dpr = 1
-  private opts: PixelOptions = { theme: 'kairo', radius: 1.3, peak: 0.55, waves: true, ripples: true, reduced: false, active: false }
+  private opts: PixelOptions = { accent: [127, 216, 255], hot: [255, 154, 82], stars: false, radius: 1.3, peak: 0.55, waves: true, ripples: true, reduced: false, active: false }
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -143,7 +143,8 @@ export class PixelField {
   }
 
   setOptions(next: PixelOptions): void {
-    const themeChanged = next.theme !== this.opts.theme || next.peak !== this.opts.peak || this.palette.length === 0
+    const themeChanged =
+      String(next.accent) !== String(this.opts.accent) || String(next.hot) !== String(this.opts.hot) || next.peak !== this.opts.peak || this.palette.length === 0
     this.opts = next
     if (themeChanged) this.buildPalette()
     if (!next.active || next.reduced) {
@@ -261,7 +262,8 @@ export class PixelField {
   }
 
   private buildPalette(): void {
-    const { a, h } = COLOURS[this.opts.theme]
+    const a = this.opts.accent
+    const h = this.opts.hot
     this.palette = []
     for (let m = 0; m <= MIX_STEPS; m++) {
       const mix = m / MIX_STEPS
@@ -294,7 +296,7 @@ export class PixelField {
     this.frameNo++
     const busy = this.step(t, k)
     // Idle in Void: only the stars twinkle, and they're slow, so every third frame is plenty.
-    const starsOnly = !busy && this.opts.theme === 'void'
+    const starsOnly = !busy && this.opts.stars
     if (busy || (starsOnly && this.frameNo % 3 === 0)) this.draw(t)
     // A wave started during this frame may already have scheduled the next one: never run two loops.
     if ((busy || starsOnly) && !this.raf) this.raf = requestAnimationFrame(this.frame)
@@ -428,7 +430,7 @@ export class PixelField {
   private draw(t: number): void {
     const ctx = this.ctx
     ctx.clearRect(0, 0, W, H)
-    if (this.opts.theme === 'void') {
+    if (this.opts.stars) {
       const still = this.opts.reduced || !this.opts.active
       for (let k = 0; k < STARS; k++) {
         const o = k * 5

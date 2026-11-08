@@ -6,12 +6,14 @@ import { HomeScreen } from './screens/HomeScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { SignInScreen } from './screens/SignInScreen'
-import { selectTheme, useStore } from './state/store'
+import { applyLook } from './state/look'
+import { selectLook, selectTheme, useStore } from './state/store'
 import { VoidWarning } from './screens/VoidWarning'
 
 export function App() {
   const screen = useStore((s) => s.screen)
   const theme = useStore(selectTheme)
+  const look = useStore(selectLook)
   const setInfo = useStore((s) => s.setInfo)
   const setGame = useStore((s) => s.setGame)
   const refreshVersions = useStore((s) => s.refreshVersions)
@@ -27,6 +29,9 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset['theme'] = theme
   }, [theme])
+
+  // The install's accent and rounding, as the theme's CSS variables (they crossfade).
+  useEffect(() => applyLook(look), [look])
 
   useEffect(() => {
     void window.kairo.app.info().then(setInfo)

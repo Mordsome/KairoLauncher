@@ -26,6 +26,7 @@ export const IPC = {
   installsImportModpack: 'installs:import-modpack',
   installsRename: 'installs:rename',
   installsDuplicate: 'installs:duplicate',
+  installsSetLook: 'installs:setLook',
   installsDelete: 'installs:delete',
   installsChangeVersion: 'installs:change-version',
   installsOpenFolder: 'installs:open-folder',
@@ -73,6 +74,15 @@ export interface AuthErrorInfo {
 export type SignInResult = { ok: true; account: AccountSummary; state: AccountsState } | { ok: false; error: AuthErrorInfo }
 
 export type KairoEdition = 'kairo' | 'void'
+
+/** How round the launcher's corners are: Kairo's pills, in between, or Void's sharp corners. */
+export type Rounding = 'round' | 'soft' | 'sharp'
+
+/** An install's own look for the launcher: an accent colour (#rrggbb) and rounding. */
+export interface InstallLook {
+  accent: string
+  rounding: Rounding
+}
 
 export type Platform = 'win32' | 'darwin' | 'linux' | 'other'
 
@@ -204,6 +214,8 @@ export interface CustomInstallInfo {
   modpack: { name: string; version: string } | null
   /** Set for Kairo installs: which edition, and its Kairo version once played. */
   kairo: { edition: KairoEdition; keepUpdated: boolean; version: string | null } | null
+  /** The player's own look for this install; null means the default (Kairo, or Void for Kairo Void). */
+  look: InstallLook | null
 }
 
 /** What a new install is built on: Kairo or Kairo Void, a loader, or plain Minecraft. */
@@ -372,6 +384,8 @@ export interface KairoApi {
     importModpack(): Promise<CreateResult>
     rename(id: string, name: string): Promise<LibraryResult>
     duplicate(id: string): Promise<LibraryResult>
+    /** null puts the default look back. */
+    setLook(id: string, look: InstallLook | null): Promise<LibraryResult>
     /** Moves the install's folder to the Recycle Bin / Trash. */
     remove(id: string): Promise<{ ok: true } | { ok: false; error: { title: string; message: string } }>
     changeVersion(id: string, mc: string): Promise<LibraryResult>

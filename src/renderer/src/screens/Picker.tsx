@@ -55,7 +55,7 @@ export function Picker({ visible, rootRef }: Props) {
       <div role="radiogroup" aria-label="Your installs" className="pick-grid scroll" data-roving onKeyDown={(e) => rovingKeyDown(e, { columns: 3 })}>
         {orderInstalls(installs).map((i) => {
           const on = i.id === selection.installId
-          const focus = () => setPickFocus(i.edition)
+          const focus = () => setPickFocus(i.id)
           return (
             <button
               key={i.id}

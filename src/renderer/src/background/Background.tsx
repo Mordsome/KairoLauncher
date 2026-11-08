@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { BackgroundSettings } from '../../../shared/api'
-import { selectTheme, useStore } from '../state/store'
+import { fieldColours } from '../state/look'
+import { selectLook, selectTheme, useStore } from '../state/store'
 import { PixelField, trailPeak, trailRadius } from './pixelField'
 
 // The one background behind every screen: the Pixel field, Aurora, or the
@@ -42,6 +43,7 @@ export function useReducedMotion(): boolean {
 export function Background() {
   const bg = useStore((s) => s.settings.background)
   const theme = useStore(selectTheme)
+  const look = useStore(selectLook)
   const files = useStore((s) => s.bgFiles)
   const problem = useStore((s) => s.bgProblem)
   const setProblem = useStore((s) => s.setBgProblem)
@@ -72,7 +74,8 @@ export function Background() {
 
   useEffect(() => {
     field?.setOptions({
-      theme: isVoid ? 'void' : 'kairo',
+      ...fieldColours(look),
+      stars: isVoid,
       radius: trailRadius(bg.trailSize),
       peak: trailPeak(bg.trailStrength),
       waves: bg.hoverWaves,
@@ -80,7 +83,7 @@ export function Background() {
       reduced,
       active: showPixels
     })
-  }, [isVoid, bg.trailSize, bg.trailStrength, bg.hoverWaves, bg.clickRipple, reduced, showPixels])
+  }, [isVoid, look, bg.trailSize, bg.trailStrength, bg.hoverWaves, bg.clickRipple, reduced, showPixels])
 
   // A picture that's gone or can't be decoded: quietly back to the Pixel field (Settings says why).
   useEffect(() => {

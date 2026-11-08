@@ -34,7 +34,15 @@ every few hours (Settings → Launcher → "Update the launcher automatically"; 
 in Settings → About). An update downloads in the background, is checked against the SHA-512 in
 the release's `latest.yml` and against Mordsome's release signature, and installs when you
 restart the launcher; an unsigned update is never installed. It never restarts while
-Minecraft is running. Uninstalling keeps your installs, worlds and settings.
+Minecraft is running.
+
+**Uninstall:** Windows Settings → Apps → Installed apps → Kairo Launcher → Uninstall (or
+Control Panel → Programs). The uninstaller removes only the files the installer put there, one
+by one, never the whole folder with whatever else is in it. It then asks whether to delete the
+launcher's data too, and the answer starts on **No**, which keeps your installs, worlds,
+settings and sign-ins for next time. **Yes** empties the launcher's own data folder and removes
+its sign-ins from Windows Credential Manager. It never follows links out of that folder, and it
+never deletes your `.minecraft` folder or the launcher's backup of it.
 
 **Privacy:** no analytics, no telemetry, no accounts of our own. Logs and errors shown in the
 launcher hide your user folder's name. The launcher only talks to
@@ -128,12 +136,19 @@ Quilt isn't supported.
 ### Library, settings and crashes
 
 Plain Minecraft installs are real installs too (`installs/vanilla-<version>`), made the first
-time a version is played. In the **Library**, every install except Kairo and Kairo Void can be
+time a version is played. In the **Library**, an install's **⋯** button (or right-clicking it) has Mods, Logs,
+Appearance, Open folder, Rename, Duplicate, Change version and Delete. Every install can be
 renamed (only the name changes, not the folder), duplicated (worlds, settings and mods are
 copied; logs and crash reports aren't), moved to another Minecraft version (the mods the
 launcher added are swapped on the next Play; modpacks, Forge and OptiFine can't, since they're
-tied to their version), or deleted, which moves the folder to the Recycle Bin / Trash. **Logs**
+tied to their version, and so is Kairo, which follows its release), or deleted, which moves the folder to the Recycle Bin / Trash. **Logs**
 shows the game's output, live while it runs.
+
+**Appearance** gives an install its own look: an accent colour (ready-made ones or any colour)
+and corners (Round, Soft or Sharp). The launcher, the Pixel field and Aurora take that look
+whenever the install is selected. Kairo Void is violet with sharp corners unless you change it.
+Too dark or too light colours are adjusted so text stays readable. Settings → Launcher →
+"Match the selected install" turns this off.
 
 Settings and the last selection are saved in `settings.json`. Every field is checked when it's
 read and written; a file that can't be read is set aside as `settings.json.broken-<time>` and

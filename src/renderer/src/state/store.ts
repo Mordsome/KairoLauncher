@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { AccountsState, AppInfo, BackgroundFiles, LauncherSettings, UpdateState, CustomInstallInfo, GameState, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
+import type { AccountsState, AppInfo, BackgroundFiles, LauncherSettings, UpdateState, CustomInstallInfo, GameState, InstallLook, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
+import { KAIRO_LOOK, VOID_LOOK } from './look'
 import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
@@ -30,6 +31,8 @@ export interface Install {
   modpack?: string
   /** Kairo installs: the Kairo version once played. */
   kairoVersion?: string | null
+  /** The player's own look; null for the default. */
+  look: InstallLook | null
 }
 
 export interface Selection {
@@ -47,8 +50,13 @@ export const IDLE_GAME: GameState = { phase: 'idle', progress: 0, detail: '', er
 interface State {
   screen: Screen
   homeView: HomeView
-  /** Edition shown on the picker (hovered or focused). */
-  pickFocus: EditionId
+  /** Install shown on the picker (hovered or focused). */
+  pickFocus: string | null
+  /** A look being tried in the Appearance dialog, shown until it closes. */
+  lookPreview: InstallLook | null
+  setLookPreview(look: InstallLook | null): void
+  /** Saves an install's look (null: back to the default). */
+  setInstallLook(id: string, look: InstallLook | null): Promise<boolean>
   settingsTab: SettingsTab
   librarySel: string
   /** The account that plays: the active Microsoft account, or the dev offline one. */
@@ -86,7 +94,7 @@ interface State {
   go(screen: Screen): void
   openPicker(): void
   closePicker(): void
-  setPickFocus(edition: EditionId): void
+  setPickFocus(id: string | null): void
   select(selection: Selection): void
   /** A new install from Other or a modpack: list it, select it, go Home. */
   customCreated(install: CustomInstallInfo): void
@@ -132,6 +140,7 @@ function fromCustom(c: CustomInstallInfo): Install {
     lastPlayed: c.lastPlayed,
     keepUpdated: c.kairo?.keepUpdated ?? false,
     installed: c.installed,
+    look: c.look,
     ...(c.modpack ? { modpack: c.modpack.name } : {})
   }
 }
@@ -172,7 +181,8 @@ function saveSoon(get: () => State): void {
 export const useStore = create<State>()((set, get) => ({
   screen: 'signin',
   homeView: 'home',
-  pickFocus: 'kairo',
+  pickFocus: null,
+  lookPreview: null,
   settingsTab: 'game',
   librarySel: '',
   modsFor: null,
@@ -219,10 +229,18 @@ export const useStore = create<State>()((set, get) => ({
   settingsLoaded: false,
 
   go: (screen) => set({ screen, homeView: 'home' }),
-  openPicker: () => set((s) => ({ screen: 'home', homeView: 'pick', pickFocus: s.selection.edition })),
+  openPicker: () => set((s) => ({ screen: 'home', homeView: 'pick', pickFocus: s.selection.installId })),
   closePicker: () => set({ homeView: 'home' }),
   setPickFocus: (pickFocus) => {
     if (get().pickFocus !== pickFocus) set({ pickFocus })
+  },
+
+  setLookPreview: (lookPreview) => set({ lookPreview }),
+  setInstallLook: async (id, look) => {
+    const r = await window.kairo.installs.setLook(id, look).catch(() => null)
+    if (!r?.ok) return false
+    get().updateInstall(id, { look: r.install.look })
+    return true
   },
 
   select: (selection) => {
@@ -403,14 +421,30 @@ export const useStore = create<State>()((set, get) => ({
   }
 }))
 
-/** The edition whose look the launcher shows right now. */
-export function lookEdition(s: Pick<State, 'screen' | 'homeView' | 'pickFocus' | 'selection'>): EditionId {
-  return s.screen === 'home' && s.homeView === 'pick' ? s.pickFocus : s.selection.edition
+/** The install whose look the launcher shows right now: the one hovered on the picker, else the one selected. */
+function lookInstall(s: State): Install | undefined {
+  if (s.screen === 'signin' || !s.settings.matchTheme) return undefined
+  const id = s.screen === 'home' && s.homeView === 'pick' && s.pickFocus ? s.pickFocus : s.selection.installId
+  return s.installs.find((i) => i.id === id)
 }
 
+/** An install's look: its own, or the default (Void for Kairo Void, Kairo otherwise). */
+export function installLook(i: Pick<Install, 'look' | 'edition'>): InstallLook {
+  return i.look ?? (i.edition === 'void' ? VOID_LOOK : KAIRO_LOOK)
+}
+
+/** The look on screen now. Always the same object for the same look, so it's safe as a selector. */
+export function selectLook(s: State): InstallLook {
+  if (s.lookPreview) return s.lookPreview
+  const install = lookInstall(s)
+  return install ? installLook(install) : KAIRO_LOOK
+}
+
+/** Void's extras (stars in the Pixel field, the separate Void picture) follow Kairo Void installs. */
 export function selectTheme(s: State): Theme {
   if (s.screen === 'signin' || !s.settings.matchTheme) return 'kairo'
-  return lookEdition(s) === 'void' ? 'void' : 'kairo'
+  const install = lookInstall(s)
+  return (install ? install.edition : s.selection.edition) === 'void' ? 'void' : 'kairo'
 }
 
 export interface SelectionView {

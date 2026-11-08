@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
-import type { CustomInstallInfo, InstallLoader, KairoEdition, ModInfo } from '../../shared/api'
+import type { CustomInstallInfo, InstallLoader, InstallLook, KairoEdition, ModInfo } from '../../shared/api'
 import { dataPaths } from '../paths'
 import { readRecord, RECORD_FILE, type ManagedMod } from './record'
 
@@ -45,6 +45,8 @@ export interface CustomRecord {
   modpack: { name: string; version: string } | null
   /** Kairo installs only. */
   kairo?: KairoPart | null
+  /** The player's own look for this install (accent colour, rounding). */
+  look?: InstallLook | null
   lastPlayed: number | null
   playMinutes: number
 }
@@ -75,6 +77,12 @@ function validKairo(x: unknown): boolean {
   )
 }
 
+/** An accent colour and a rounding, nothing else. */
+export function isLook(x: unknown): x is InstallLook {
+  const l = x as InstallLook
+  return !!l && typeof l === 'object' && typeof l.accent === 'string' && /^#[0-9a-f]{6}$/i.test(l.accent) && ['round', 'soft', 'sharp'].includes(l.rounding)
+}
+
 function validInstaller(x: unknown): boolean {
   if (x === null) return true
   const i = x as CustomRecord['installer']
@@ -97,7 +105,8 @@ export function isCustom(x: unknown): x is CustomRecord {
     r.mods.every((m) => !!m && insideFile(m.filename)) &&
     Array.isArray(r.wanted) &&
     validInstaller(r.installer ?? null) &&
-    validKairo(r.kairo)
+    validKairo(r.kairo) &&
+    (r.look === undefined || r.look === null || isLook(r.look))
   )
 }
 
@@ -216,7 +225,8 @@ export function toInfo(r: CustomRecord): CustomInstallInfo {
     lastPlayed: r.lastPlayed,
     playMinutes: r.playMinutes,
     modpack: r.modpack,
-    kairo: r.kairo ? { edition: r.kairo.edition, keepUpdated: r.kairo.keepUpdated, version: r.kairo.jar ? shortVersion(r.kairo.jar.version) : null } : null
+    kairo: r.kairo ? { edition: r.kairo.edition, keepUpdated: r.kairo.keepUpdated, version: r.kairo.jar ? shortVersion(r.kairo.jar.version) : null } : null,
+    look: r.look ? { accent: r.look.accent.toLowerCase(), rounding: r.look.rounding } : null
   }
 }
 

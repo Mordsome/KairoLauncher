@@ -10,7 +10,7 @@ const PIXEL_DEFAULTS: Partial<BackgroundSettings> = { trailSize: 50, trailStreng
 
 type Problem = { title: string; message: string } | null
 
-function Segmented<T extends string>({
+export function Segmented<T extends string>({
   label,
   value,
   options,
@@ -284,7 +284,7 @@ export function BackgroundSection() {
           />
           <SwitchRow
             label="Use a different image for Kairo Void"
-            description="It fades in when the launcher turns violet"
+            description="It fades in when a Kairo Void install is selected"
             checked={bg.separateVoid}
             onChange={(on) => (on && !files?.void ? choose('void') : setBg({ separateVoid: on }))}
           />

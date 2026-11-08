@@ -9,8 +9,8 @@ import { describeAuthError } from './auth/errors'
 import { listVersions } from './game/manifest'
 import type { GameSession } from './game/session'
 import { kairoStatus } from './kairo/status'
-import { adoptKairoInstalls, adoptVanillaFolders, listCustom, toInfo } from './installs/custom'
-import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refDir, renameInstall, setKairoKeepUpdated, sharedGameDir } from './installs/library'
+import { adoptKairoInstalls, adoptVanillaFolders, isLook, listCustom, toInfo } from './installs/custom'
+import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refDir, renameInstall, setInstallLook, setKairoKeepUpdated, sharedGameDir } from './installs/library'
 import { checkCustomJava } from './game/java'
 import { loadSettings, saveSettings } from './settings'
 import { checkForUpdate, installUpdate, updateState } from './updater'
@@ -300,6 +300,11 @@ export function registerIpc(session: GameSession): void {
   ipcMain.handle(IPC.installsDuplicate, (event, id: unknown) => {
     if (!fromApp(event) || !isId(id)) throw new Error('Not allowed')
     return idle() ? duplicateInstall(id) : busy
+  })
+
+  ipcMain.handle(IPC.installsSetLook, (event, id: unknown, look: unknown) => {
+    if (!fromApp(event) || !isId(id) || (look !== null && !isLook(look))) throw new Error('Not allowed')
+    return setInstallLook(id, look)
   })
 
   ipcMain.handle(IPC.installsDelete, (event, id: unknown) => {

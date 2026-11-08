@@ -296,9 +296,11 @@ test('Kairo: any number of installs, and the real release', async () => {
   expect(pvp.kairo).toEqual({ edition: 'kairo', keepUpdated: true, version: null })
   await expect(page.getByRole('heading', { name: 'Kairo PvP', level: 2 })).toBeVisible()
   // Kairo's files are its own; a Kairo install can still take mods.
-  await expect(page.getByRole('button', { name: 'Mods', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Change version' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: 'More for Kairo PvP' }).click()
+  const pvpMenu = page.getByRole('menu', { name: 'More for Kairo PvP' })
+  await expect(pvpMenu.getByRole('menuitem', { name: 'Mods' })).toBeVisible()
+  await expect(pvpMenu.getByRole('menuitem', { name: 'Change version' })).toHaveCount(0)
+  await pvpMenu.getByRole('menuitem', { name: 'Delete' }).click()
   await page.getByRole('button', { name: /^Move to/ }).click()
   await expect.poll(() => page.evaluate(() => window.kairo.installs.list().then((l) => l.length))).toBe(before)
 
@@ -340,6 +342,12 @@ test('library', async () => {
   await shot('16-library')
 })
 
+/** Picks an item from an install's ⋯ menu in the Library. */
+async function more(name: string, item: string): Promise<void> {
+  await page.getByRole('button', { name: `More for ${name}` }).click()
+  await page.getByRole('menu', { name: `More for ${name}` }).getByRole('menuitem', { name: item, exact: true }).click()
+}
+
 /** A Library row by install name and version. */
 const row = (name: string) => page.locator('.librow').filter({ has: page.locator('.librow-name').getByText(name, { exact: true }) })
 
@@ -365,46 +373,98 @@ test('library: rename, duplicate, change version, logs, delete', async () => {
   await row(made.name).click()
   await expect(page.getByRole('heading', { name: made.name, level: 2 })).toBeVisible()
 
+  // The ⋯ menu: keyboard works, Escape closes it and focus goes back.
+  await page.getByRole('button', { name: `More for ${made.name}` }).click()
+  const menu = page.getByRole('menu', { name: `More for ${made.name}` })
+  await expect(menu.getByRole('menuitem', { name: 'Mods' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(menu.getByRole('menuitem', { name: 'Logs' })).toBeFocused()
+  await shot('16a-library-menu')
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
+  await expect(page.getByRole('button', { name: `More for ${made.name}` })).toBeFocused()
+
+  // Right-click on a row opens the same menu, at the cursor.
+  await row(made.name).click({ button: 'right' })
+  await expect(menu.getByRole('menuitem', { name: 'Change version' })).toBeVisible()
+  await page.mouse.click(5, 300) // a click outside closes it
+  await expect(menu).toHaveCount(0)
+
   // Rename.
-  await page.getByRole('button', { name: 'Rename' }).click()
+  await more(made.name, 'Rename')
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByRole('textbox', { name: 'Name' })).toBeFocused()
   await dialog.getByRole('textbox', { name: 'Name' }).fill('E2E Test Install')
   await shot('16b-library-rename')
   await dialog.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('heading', { name: 'E2E Test Install', level: 2 })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Rename' })).toBeFocused() // focus comes back
+  await expect(page.getByRole('button', { name: 'More for E2E Test Install' })).toBeFocused() // focus comes back
 
   // Escape closes a dialog without changing anything.
-  await page.getByRole('button', { name: 'Rename' }).click()
+  await more('E2E Test Install', 'Rename')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
   // Change version.
-  await page.getByRole('button', { name: 'Change version' }).click()
+  await more('E2E Test Install', 'Change version')
   await page.getByRole('dialog').getByRole('radio', { name: '1.20.4', exact: true }).click()
   await shot('16c-library-change-version')
   await page.getByRole('dialog').getByRole('button', { name: 'Change to 1.20.4' }).click()
   await expect(page.getByText('Minecraft 1.20.4', { exact: true })).toBeVisible()
 
   // Logs: none yet.
-  await page.getByRole('button', { name: 'Logs' }).click()
+  await more('E2E Test Install', 'Logs')
   await expect(page.getByRole('dialog', { name: 'Log: E2E Test Install' })).toContainText('no log yet')
   await shot('16d-library-logs')
   await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
 
   // Duplicate: a new install, selected.
-  await page.getByRole('button', { name: 'Duplicate' }).click()
+  await more('E2E Test Install', 'Duplicate')
   await expect(page.getByRole('heading', { name: 'E2E Test Install copy', level: 2 })).toBeVisible()
   const copy = await page.evaluate(() => window.kairo.installs.list().then((l) => l.find((i) => i.name === 'E2E Test Install copy')!))
   expect(copy.mc).toBe('1.20.4')
   expect(copy.id).not.toBe(made.id)
 
+  // Appearance: an accent and corners of its own, shown while choosing, saved with the install.
+  const cssVar = (name: string) => page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name)
+  await page.getByRole('button', { name: 'Home' }).click()
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: /^E2E Test Install copy, Minecraft/ }).click()
+  await page.getByRole('button', { name: 'Library' }).click()
+  await more('E2E Test Install copy', 'Appearance')
+  const look = page.getByRole('dialog', { name: 'Look for E2E Test Install copy' })
+  await look.getByRole('radio', { name: 'Mint' }).click()
+  await look.getByRole('radio', { name: 'Sharp' }).click()
+  await expect.poll(() => cssVar('--r-card'), { timeout: 3000 }).toBe('6px')
+  await expect.poll(() => cssVar('--accent'), { timeout: 3000 }).toBe('rgb(110, 231, 183)')
+  await shot('16f-library-appearance')
+  // Cancel puts the saved look back.
+  await look.getByRole('button', { name: 'Cancel' }).click()
+  await expect.poll(() => cssVar('--r-card'), { timeout: 3000 }).toBe('18px')
+  await more('E2E Test Install copy', 'Appearance')
+  await look.getByRole('radio', { name: 'Gold' }).click()
+  await look.getByRole('radio', { name: 'Soft' }).click()
+  await look.getByRole('button', { name: 'Save' }).click()
+  await expect(look).toHaveCount(0)
+  expect(await page.evaluate(() => window.kairo.installs.list().then((l) => l.find((i) => i.name === 'E2E Test Install copy')!.look))).toEqual({
+    accent: '#ffd166',
+    rounding: 'soft'
+  })
+  await expect.poll(() => cssVar('--r-card'), { timeout: 3000 }).toBe('12px')
+  await shot('16g-library-own-look')
+  // Both backgrounds follow it: Aurora's glow is the accent, and so is the Pixel field's trail.
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.bd-blob-a')!).backgroundColor)).toBe('rgb(255, 209, 102)')
+  // A look that isn't one is refused.
+  expect(
+    await page.evaluate((id) => window.kairo.installs.setLook(id, { accent: 'red; x', rounding: 'soft' }).then(() => 'ok', () => 'rejected'), copy.id)
+  ).toBe('rejected')
+  problems.length = 0
+
   // Delete both.
   for (const name of ['E2E Test Install copy', 'E2E Test Install']) {
     await row(name).click()
     await expect(page.getByRole('heading', { name, level: 2 })).toBeVisible()
-    await page.getByRole('button', { name: 'Delete' }).click()
+    await more(name, 'Delete')
     await expect(page.getByRole('dialog', { name: `Delete ${name}?` })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Keep it' })).toBeFocused()
     if (name === 'E2E Test Install') await shot('16e-library-delete')
@@ -434,7 +494,7 @@ test('mods: find on Modrinth, install, turn off, remove', async () => {
 
   await page.getByRole('button', { name: 'Library' }).click()
   await page.locator('.librow').filter({ has: page.locator('.librow-name').getByText(made.name, { exact: true }) }).click()
-  await page.getByRole('button', { name: 'Mods', exact: true }).click()
+  await more(made.name, 'Mods')
   const dialog = page.getByRole('dialog', { name: `Mods: ${made.name}` })
   await expect(dialog.getByText(/No mods yet/)).toBeVisible()
 

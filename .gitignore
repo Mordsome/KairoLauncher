@@ -26,3 +26,6 @@ LAUNCHER_PROMPT.md
 # Release signing keys never belong in the project
 *.pem
 *.key
+
+# Made at build time by scripts/after-pack.cjs
+build/uninstall-files.nsh

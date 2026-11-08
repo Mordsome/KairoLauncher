@@ -1,7 +1,7 @@
 /*
-  Two themes: Kairo (glass, pills) and Void (violet, flat 6px corners).
-  Every token is a registered custom property, so switching the
-  data-theme attribute on <html> crossfades the whole launcher.
+  The defaults are Kairo's (glass, pills). Each install's look (accent,
+  rounding) is set on <html> by state/look.ts; every token is a registered
+  custom property, so changing it crossfades the whole launcher.
 */
 
 @property --bg { syntax: '<color>'; inherits: true; initial-value: #0a1322; }
@@ -74,36 +74,6 @@
     --sel-line var(--theme-fade), --rail-active var(--theme-fade), --r-full var(--theme-fade),
     --r-row var(--theme-fade), --r-card var(--theme-fade), --r-panel var(--theme-fade), --r-sheet var(--theme-fade),
     --r-btn var(--theme-fade), --r-small var(--theme-fade);
-}
-
-:root[data-theme='void'] {
-  --bg: #130a2a;
-  --bg-glow: #2a1658;
-  --deep: #4b1fa8;
-  --glow-soft: rgba(160, 110, 255, 0.18);
-  --ink: #f4eeff;
-  --ink2: #c9b9ec;
-  --accent: #b48cff;
-  --accent-ink: #1a0838;
-  --hot: #ff6ec7;
-  --line: rgba(190, 150, 255, 0.28);
-  --line-soft: rgba(190, 150, 255, 0.18);
-  --rail: rgba(28, 14, 58, 0.88);
-  --panel: rgba(160, 110, 255, 0.1);
-  --card: rgba(160, 110, 255, 0.1);
-  --card-line: rgba(190, 150, 255, 0.26);
-  --split-line: rgba(26, 8, 56, 0.4);
-  --sel-bg: rgba(180, 140, 255, 0.24);
-  --sel-line: rgba(200, 160, 255, 0.75);
-  --rail-active: rgba(167, 124, 255, 0.16);
-  --r-full: 6px;
-  --r-row: 6px;
-  --r-card: 6px;
-  --r-panel: 6px;
-  --r-sheet: 6px;
-  --r-btn: 6px;
-  --r-small: 6px;
-  --glass: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

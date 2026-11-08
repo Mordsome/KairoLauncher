@@ -1,14 +1,14 @@
 import { shell } from 'electron'
 import { cp, rm, mkdir } from 'node:fs/promises'
 import { join, normalize, sep } from 'node:path'
-import type { LibraryResult } from '../../shared/api'
+import type { InstallLook, LibraryResult } from '../../shared/api'
 import { describeError, KairoError } from '../errors'
 import { listVersions } from '../game/manifest'
 import { installDir as kairoDir } from '../kairo/install'
 import { loaderVersions } from '../loaders/meta'
 import { safeRelative } from '../loaders/mrpack'
 import { redact } from '../redact'
-import { customDir, freeName, getCustom, installsDir, newRecord, toInfo, writeCustom, type CustomRecord } from './custom'
+import { customDir, freeName, getCustom, installsDir, isLook, newRecord, toInfo, writeCustom, type CustomRecord } from './custom'
 import { canShare, minecraftDir } from '../minecraftDir'
 import { loadSettings } from '../settings'
 
@@ -44,6 +44,18 @@ export async function renameInstall(id: string, name: string): Promise<LibraryRe
     if (clean.length < 1 || clean.length > 48) throw new KairoError('unknown-version', 'Names need 1 to 48 characters.')
     const record = { ...(await need(id)), name: clean }
     // Only the name changes; the folder (and the worlds in it) stays where it is.
+    await writeCustom(record)
+    return ok(record)
+  } catch (error) {
+    return fail(error)
+  }
+}
+
+/** An install's own look, or null for the default. Only the record changes. */
+export async function setInstallLook(id: string, look: InstallLook | null): Promise<LibraryResult> {
+  try {
+    if (look !== null && !isLook(look)) throw new KairoError('unknown-version', 'That look is not valid.')
+    const record = { ...(await need(id)), look: look ? { accent: look.accent.toLowerCase(), rounding: look.rounding } : null }
     await writeCustom(record)
     return ok(record)
   } catch (error) {

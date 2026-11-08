@@ -177,7 +177,7 @@ function LauncherTab() {
       />
       <SwitchRow
         label="Match the selected install"
-        description="The launcher turns violet when Kairo Void is selected"
+        description="The launcher takes the look of the selected install: its colour and corners"
         checked={settings.matchTheme}
         onChange={(matchTheme) => update({ matchTheme })}
       />
