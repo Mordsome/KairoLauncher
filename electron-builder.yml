@@ -38,6 +38,8 @@ electronFuses:
   loadBrowserProcessSpecificV8Snapshot: false
 
 win:
+  # One sharp picture per size (16-256 px), drawn by scripts/render-icon.cjs.
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]
