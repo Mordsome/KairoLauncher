@@ -18,7 +18,7 @@ export function HomeScreen({ active }: { active: boolean }) {
     lastView.current = homeView
     if (was === homeView) return
     if (homeView === 'pick') {
-      requestAnimationFrame(() => pickerRoot.current?.querySelector<HTMLElement>('.ed[aria-checked="true"]')?.focus())
+      requestAnimationFrame(() => pickerRoot.current?.querySelector<HTMLElement>('.pick-tile[aria-checked="true"], .pick-tile')?.focus())
     } else {
       requestAnimationFrame(() => pickerButton.current?.focus())
     }

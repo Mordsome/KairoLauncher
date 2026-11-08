@@ -225,81 +225,87 @@ test('sign-in: Microsoft page, browser hand-back, errors, cancel', async () => {
   await shot('04-home-kairo')
 })
 
-test('picker: every edition', async () => {
-  await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await expect(page.getByRole('radio', { name: /^Kairo/ })).toBeFocused()
-  await shot('05-picker-kairo')
+/** Makes an install through Library > New install, the way a player does. */
+async function newInstall(kind: RegExp, mc?: string, name?: string) {
+  await page.getByRole('button', { name: 'Library' }).click()
+  await page.getByRole('button', { name: 'New install', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'New install' })
+  await dialog.getByRole('radio', { name: kind }).click()
+  if (mc) await dialog.getByRole('radio', { name: mc, exact: true }).click()
+  if (name) await dialog.getByRole('textbox', { name: 'Name' }).fill(name)
+  await dialog.getByRole('button', { name: /^Create / }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Done' }).click()
+}
 
-  await page.getByRole('radio', { name: /^Void/ }).hover()
+test('picker: your installs, and New install', async () => {
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  const kairo = page.getByRole('radio', { name: /^Kairo, Minecraft/ })
+  await expect(kairo).toBeFocused()
+  await expect(kairo).toHaveAttribute('aria-checked', 'true')
+  await shot('05-picker-kairo')
+  // Pointing at a Void install previews the Void look.
+  await page.getByRole('radio', { name: /^Kairo Void, Minecraft/ }).hover()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'void')
   await shot('06-picker-void')
-
-  await page.getByRole('radio', { name: /^Lite/ }).hover()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'kairo')
-  await shot('07-picker-lite')
-
-  await page.getByRole('radio', { name: /^Vanilla/ }).hover()
-  await shot('08-picker-vanilla')
-  await page.getByRole('button', { name: /More versions/ }).click()
-  await shot('09-picker-vanilla-all')
-  await page.getByRole('button', { name: 'Fewer versions' }).click()
-
-  await page.getByRole('radio', { name: /^Other/ }).hover()
-  await shot('10-picker-other')
-  await page.getByRole('radio', { name: 'NeoForge' }).click()
-  await shot('11-picker-other-neoforge')
-  await page.getByRole('radio', { name: 'OptiFine' }).click()
-  await page.getByRole('button', { name: 'More…' }).click()
-  await shot('12-picker-other-optifine-more')
-
-  // Keyboard: arrows move through editions, Escape goes back.
-  await page.getByRole('radio', { name: /^Other/ }).focus()
-  await page.keyboard.press('ArrowUp')
-  await expect(page.getByRole('radio', { name: /^Vanilla/ })).toBeFocused()
+  await kairo.hover()
+  await expect(page.getByRole('button', { name: /^New install Kairo/ })).toBeVisible()
+  await expect(page.locator('.pick-soon')).toBeVisible()
+  // Arrow keys move between installs; Escape goes back.
+  await kairo.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('radio', { name: /^Kairo Void, Minecraft/ })).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: /Choose what to play/ })).toBeFocused()
 })
 
-test('Other builder: live versions, Modrinth extras, Forge and OptiFine hand-off', async () => {
-  await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Other/ }).click()
-  await expect(page.getByRole('button', { name: 'Create Fabric 1.20.1' })).toBeVisible()
-  // Extras come from Modrinth for this loader and version.
-  await expect(page.getByRole('checkbox', { name: /^Sodium/ })).toBeVisible({ timeout: 20_000 })
-  await shot('13-other-fabric')
-
-  await page.getByRole('radio', { name: 'Forge', exact: true }).click()
-  await expect(page.getByRole('button', { name: "Open Forge's download page" })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Choose the downloaded file' })).toBeVisible()
-  await expect(page.getByText(/Forge asks to be downloaded from its own site/)).toBeVisible()
-  await shot('13b-other-forge')
-
-  await page.getByRole('radio', { name: 'OptiFine' }).click()
-  await expect(page.getByRole('button', { name: 'Open optifine.net' })).toBeVisible()
-  await page.getByRole('radio', { name: 'Fabric' }).click()
+test('New install: every kind, live versions, Modrinth extras, Forge and OptiFine hand-off', async () => {
+  await page.getByRole('button', { name: 'Library' }).click()
+  await page.getByRole('button', { name: 'New install', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'New install' })
+  // Kairo: its own version list.
+  await expect(dialog.getByRole('radio', { name: 'Minecraft 26.3', exact: true })).toBeVisible()
+  await shot('13-new-install-kairo')
+  // Fabric: versions live from Fabric, extras from Modrinth.
+  await dialog.getByRole('radio', { name: /^Fabric/ }).click()
+  await dialog.getByRole('radio', { name: '1.20.1', exact: true }).click()
+  await expect(dialog.getByRole('checkbox', { name: /^Sodium/ })).toBeVisible({ timeout: 20_000 })
+  await expect(dialog.getByRole('button', { name: 'Create Fabric 1.20.1' })).toBeVisible()
+  await shot('13b-new-install-fabric')
+  await dialog.getByRole('radio', { name: /^Forge/ }).click()
+  await expect(dialog.getByRole('button', { name: "Open Forge's download page" })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Choose the downloaded file' })).toBeVisible()
+  await expect(dialog.getByText(/Forge asks to be downloaded from its own site/)).toBeVisible()
+  await dialog.getByRole('radio', { name: /^OptiFine/ }).click()
+  await expect(dialog.getByRole('button', { name: 'Open optifine.net' })).toBeVisible()
+  // Plain Minecraft: Mojang's live list, every release from 1.8.
+  await dialog.getByRole('radio', { name: /^Minecraft Plain/ }).click()
+  await dialog.getByRole('button', { name: 'More…' }).click()
+  await expect(dialog.getByRole('radio', { name: '1.8', exact: true })).toBeVisible()
+  await dialog.getByRole('radio', { name: /^Modpack/ }).click()
+  await expect(dialog.getByRole('button', { name: 'Choose a modpack file' })).toBeVisible()
   await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
 })
 
-test('Vanilla uses the live version list', async () => {
-  await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Vanilla/ }).click()
-  await page.getByRole('button', { name: /More versions/ }).click()
-  // These come from Mojang's manifest, not the built-in list.
-  await expect(page.getByRole('radio', { name: '1.8', exact: true })).toBeVisible()
-  await page.getByRole('radio', { name: '1.20.1', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Minecraft', exact: true })).toBeVisible()
-  await shot('14-home-vanilla')
-})
+test('Kairo: any number of installs, and the real release', async () => {
+  const before = (await page.evaluate(() => window.kairo.installs.list())).length
+  await newInstall(/^Kairo Glass/, undefined, 'Kairo PvP')
+  const list = await page.evaluate(() => window.kairo.installs.list())
+  expect(list).toHaveLength(before + 1)
+  const pvp = list.find((i) => i.name === 'Kairo PvP')!
+  expect(pvp.kairo).toEqual({ edition: 'kairo', keepUpdated: true, version: null })
+  await expect(page.getByRole('heading', { name: 'Kairo PvP', level: 2 })).toBeVisible()
+  // Kairo's files are its own; a Kairo install can still take mods.
+  await expect(page.getByRole('button', { name: 'Mods', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Change version' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: /^Move to/ }).click()
+  await expect.poll(() => page.evaluate(() => window.kairo.installs.list().then((l) => l.length))).toBe(before)
 
-test('Kairo shows the real release', async () => {
-  await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Kairo/ }).first().click()
   // Read from GitHub: the newest release that has both jars and SHA256SUMS.txt.
   const latest = await page.evaluate(() => window.kairo.kairo.status().then((s) => s.latest?.version))
   expect(latest).toMatch(/^\d+\.\d+/)
-  await expect(page.getByText(`Kairo ${latest} · latest`)).toBeVisible()
-  await page.getByRole('button', { name: /^Kairo for Minecraft/ }).first().click()
-
+  await page.getByRole('button', { name: 'Home' }).click()
   // Patch notes on Home: plain text from that release, and a link to its page.
   const notes = page.getByRole('complementary', { name: `What's new in Kairo ${latest}` })
   await expect(notes).toBeVisible()
@@ -351,12 +357,7 @@ test('library: rename, duplicate, change version, logs, delete', async () => {
   const before = await page.evaluate(() => window.kairo.installs.list().then((l) => l.map((i) => i.id)))
 
   // Make a Fabric install from the builder (nothing downloads until Play).
-  await page.getByRole('button', { name: 'Home' }).click()
-  await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Other/ }).click()
-  await page.getByRole('radio', { name: 'Fabric' }).click()
-  await page.getByRole('button', { name: 'Create Fabric 1.20.1' }).click()
-  await expect(page.getByRole('heading', { name: /Fabric/ })).toBeVisible()
+  await newInstall(/^Fabric/, '1.20.1')
   const made = await page.evaluate((ids) => window.kairo.installs.list().then((l) => l.find((i) => !ids.includes(i.id))!), before)
   expect(made.loader).toBe('fabric')
 
@@ -428,11 +429,7 @@ test('mods: find on Modrinth, install, turn off, remove', async () => {
       process.getBuiltinModule('node:fs').rmSync(p, { recursive: true, force: true })
   })
   const before = await page.evaluate(() => window.kairo.installs.list().then((l) => l.map((i) => i.id)))
-  await page.getByRole('button', { name: 'Home' }).click()
-  await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Other/ }).click()
-  await page.getByRole('radio', { name: 'Fabric' }).click()
-  await page.getByRole('button', { name: 'Create Fabric 1.20.1' }).click()
+  await newInstall(/^Fabric/, '1.20.1')
   const made = await page.evaluate((ids) => window.kairo.installs.list().then((l) => l.find((i) => !ids.includes(i.id))!), before)
 
   await page.getByRole('button', { name: 'Library' }).click()
@@ -644,8 +641,7 @@ test('backgrounds: Pixel field, Aurora and your own picture', async () => {
 test('Void theme follows the selected install', async () => {
   await page.getByRole('button', { name: 'Home' }).click()
   await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Void/ }).click()
-  await page.getByRole('button', { name: /Kairo Void for Minecraft 26\.3/ }).click()
+  await page.getByRole('radio', { name: /^Kairo Void, Minecraft/ }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'void')
   await shot('23-home-void')
   await page.getByRole('button', { name: 'Library' }).click()

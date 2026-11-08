@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AccountsState, AppInfo, BackgroundFiles, LauncherSettings, UpdateState, CustomInstallInfo, GameState, KairoEdition, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
+import type { AccountsState, AppInfo, BackgroundFiles, LauncherSettings, UpdateState, CustomInstallInfo, GameState, KairoStatus, PlayTarget, VersionList } from '../../../shared/api'
 import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
 export type Screen = 'signin' | 'home' | 'library' | 'settings'
@@ -28,6 +28,8 @@ export interface Install {
   installed: boolean
   /** Modpack name, for installs imported from one. */
   modpack?: string
+  /** Kairo installs: the Kairo version once played. */
+  kairoVersion?: string | null
 }
 
 export interface Selection {
@@ -39,12 +41,6 @@ export interface Selection {
 
 export type Settings = Omit<LauncherSettings, 'lastSelection'>
 
-// Kairo and Kairo Void are always listed; their details come from the main
-// process (kairo status). Vanilla and Other entries are kept here until Phase 6.
-const KAIRO_INSTALLS: Install[] = [
-  { id: 'kairo', name: 'Kairo', edition: 'kairo', mc: '26.3', loader: 'fabric', extras: [], mods: [], playMinutes: 0, lastPlayed: null, keepUpdated: true, installed: false },
-  { id: 'void', name: 'Kairo Void', edition: 'void', mc: '26.3', loader: 'fabric', extras: [], mods: [], playMinutes: 0, lastPlayed: null, keepUpdated: true, installed: false }
-]
 
 export const IDLE_GAME: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null }
 
@@ -73,7 +69,7 @@ interface State {
   closeVoidWarning(): void
   /** Mojang's version list; null until loaded (or if offline with no saved copy). */
   versions: VersionList | null
-  /** Kairo releases and the two Kairo installs, from the main process. */
+  /** The latest Kairo release (and its patch notes), from the main process. */
   kairo: KairoStatus | null
   settings: Settings
   info: AppInfo | null
@@ -95,6 +91,10 @@ interface State {
   /** A new install from Other or a modpack: list it, select it, go Home. */
   customCreated(install: CustomInstallInfo): void
   refreshCustom(): Promise<void>
+  /** Opens the Library with the Mods dialog of this install (right after making it). */
+  openModsFor(id: string): void
+  /** Install whose Mods dialog the Library should open; cleared once opened. */
+  modsFor: string | null
   playOrStop(): void
   setAccounts(state: AccountsState): void
   useDevOffline(name: string): void
@@ -113,7 +113,7 @@ interface State {
   setGame(game: GameState): void
   refreshVersions(): Promise<void>
   refreshKairo(): Promise<void>
-  setKeepUpdated(edition: KairoEdition, on: boolean): void
+  setKeepUpdated(installId: string, on: boolean): void
 }
 
 const EXTRA_NAME: Record<string, Extra['name']> = { sodium: 'Sodium', iris: 'Iris', lithium: 'Lithium' }
@@ -122,48 +122,34 @@ function fromCustom(c: CustomInstallInfo): Install {
   return {
     id: c.id,
     name: c.name,
-    edition: c.loader === 'vanilla' ? 'vanilla' : 'other',
+    edition: c.kairo ? c.kairo.edition : c.loader === 'vanilla' ? 'vanilla' : 'other',
     mc: c.mc,
     ...(c.loader !== 'vanilla' ? { loader: c.loader } : {}),
+    ...(c.kairo ? { kairoVersion: c.kairo.version } : {}),
     extras: c.extras.map((x) => EXTRA_NAME[x]).filter((x): x is Extra['name'] => !!x),
     mods: c.mods,
     playMinutes: c.playMinutes,
     lastPlayed: c.lastPlayed,
-    keepUpdated: false,
+    keepUpdated: c.kairo?.keepUpdated ?? false,
     installed: c.installed,
     ...(c.modpack ? { modpack: c.modpack.name } : {})
   }
 }
 
 function playTarget(selection: Selection): PlayTarget {
-  // A specific vanilla install (chosen in the Library) plays that one; otherwise the version's own install.
-  if (selection.edition === 'vanilla') return selection.installId ? { kind: 'custom', id: selection.installId } : { kind: 'vanilla', mc: selection.mc }
-  if (selection.edition === 'other') return { kind: 'custom', id: selection.installId ?? '' }
-  return { kind: 'kairo', edition: selection.edition === 'void' ? 'void' : 'kairo' }
+  return selection.installId ? { kind: 'custom', id: selection.installId } : { kind: 'vanilla', mc: selection.mc }
 }
 
-function applyKairo(installs: Install[], status: KairoStatus): Install[] {
-  return installs.map((i) => {
-    if (i.edition !== 'kairo' && i.edition !== 'void') return i
-    const s = status.installs[i.edition]
-    return {
-      ...i,
-      mc: s.mc ?? i.mc,
-      mods: s.mods,
-      playMinutes: s.playMinutes,
-      lastPlayed: s.lastPlayed,
-      keepUpdated: s.keepUpdated,
-      installed: s.kairoVersion !== null
-    }
-  })
+/** What Home shows when nothing (or something deleted) is selected: a Kairo install, else the first one. */
+function fallbackSelection(installs: Install[]): Selection | null {
+  const pick = installs.find((i) => i.edition === 'kairo') ?? installs[0]
+  return pick ? { edition: pick.edition, mc: pick.mc, installId: pick.id } : null
 }
 
-function uniqueName(installs: Install[], base: string): string {
-  if (!installs.some((i) => i.name === base)) return base
-  let n = 2
-  while (installs.some((i) => i.name === `${base} ${n}`)) n++
-  return `${base} ${n}`
+export function selectionFor(install: Install): Selection {
+  return { edition: install.edition, mc: install.mc, installId: install.id }
 }
+
 
 /** Largest memory setting the main process accepts on this PC. */
 export function maxMemoryGB(info: AppInfo | null): number {
@@ -188,12 +174,13 @@ export const useStore = create<State>()((set, get) => ({
   homeView: 'home',
   pickFocus: 'kairo',
   settingsTab: 'game',
-  librarySel: 'kairo',
+  librarySel: '',
+  modsFor: null,
   account: null,
   accounts: null,
   signInMode: 'first',
-  installs: KAIRO_INSTALLS,
-  selection: { edition: 'kairo', mc: '26.3', installId: 'kairo' },
+  installs: [],
+  selection: { edition: 'kairo', mc: '26.3', installId: null },
   game: IDLE_GAME,
   notice: null,
   voidWarning: false,
@@ -250,7 +237,7 @@ export const useStore = create<State>()((set, get) => ({
   customCreated: (install) => {
     set((st) => ({
       installs: [...st.installs.filter((i) => i.id !== install.id), fromCustom(install)],
-      selection: { edition: 'other', mc: install.mc, installId: install.id },
+      selection: selectionFor(fromCustom(install)),
       librarySel: install.id,
       homeView: 'home',
       screen: 'home',
@@ -259,19 +246,16 @@ export const useStore = create<State>()((set, get) => ({
     saveSoon(get)
   },
 
+  openModsFor: (id) => set({ screen: 'library', homeView: 'home', librarySel: id, modsFor: id }),
+
   refreshCustom: async () => {
     try {
       const list = await window.kairo.installs.list()
       set((st) => {
-        const installs = [...st.installs.filter((i) => i.edition !== 'other' && i.edition !== 'vanilla'), ...list.map(fromCustom)]
-        // A selected install that no longer exists (deleted) falls back to Kairo.
-        const sel = st.selection
-        const gone = (sel.edition === 'other' || sel.edition === 'vanilla') && sel.installId && !installs.some((i) => i.id === sel.installId)
-        const selection = gone
-          ? sel.edition === 'vanilla'
-            ? { ...sel, installId: null }
-            : { edition: 'kairo' as const, mc: installs.find((i) => i.id === 'kairo')?.mc ?? '26.3', installId: 'kairo' }
-          : sel
+        const installs = list.map(fromCustom)
+        // Nothing selected yet, or the selected install was deleted: a Kairo install, else the first one.
+        const current = installs.find((i) => i.id === st.selection.installId)
+        const selection = current ? selectionFor(current) : (fallbackSelection(installs) ?? st.selection)
         return { installs, selection }
       })
     } catch {
@@ -287,16 +271,16 @@ export const useStore = create<State>()((set, get) => ({
     }
     if (game.phase !== 'idle') return
 
-    // Lite isn't out yet; an Other selection must point at a real install.
+    // Lite isn't out yet; anything else must be a real install.
     if (selection.edition === 'lite') return
-    if (selection.edition === 'other' && !selection.installId) {
-      set({ notice: 'Create the install first.\nPick Other in the picker and choose a loader.' })
+    const chosen = get().installs.find((i) => i.id === selection.installId)
+    if (!chosen) {
+      set({ notice: 'Choose what to play first.\nMake an install with New install in the picker or the Library.' })
       return
     }
 
     // Kairo Void's visuals can flash: warn once, before it's first installed.
-    const voidInstall = get().installs.find((i) => i.id === 'void')
-    if (selection.edition === 'void' && !settings.voidWarningSeen && !voidInstall?.installed) {
+    if (chosen.edition === 'void' && !settings.voidWarningSeen && !chosen.installed) {
       set({ voidWarning: true, notice: null })
       return
     }
@@ -402,24 +386,19 @@ export const useStore = create<State>()((set, get) => ({
   refreshKairo: async () => {
     try {
       const status = await window.kairo.kairo.status()
-      set((s) => {
-        const installs = applyKairo(s.installs, status)
-        const sel = s.selection
-        const current = installs.find((i) => i.id === sel.installId)
-        // Kairo's Minecraft version follows its installed release.
-        const selection = current && (sel.edition === 'kairo' || sel.edition === 'void') ? { ...sel, mc: current.mc } : sel
-        return { kairo: status, installs, selection }
-      })
+      set({ kairo: status })
     } catch {
       // keep what we have
     }
   },
 
-  setKeepUpdated: (edition, on) => {
-    get().updateInstall(edition, { keepUpdated: on })
-    void window.kairo.kairo.setKeepUpdated(edition, on).then(
-      (status) => set((s) => ({ kairo: status, installs: applyKairo(s.installs, status) })),
-      () => get().updateInstall(edition, { keepUpdated: !on })
+  setKeepUpdated: (installId, on) => {
+    get().updateInstall(installId, { keepUpdated: on })
+    void window.kairo.kairo.setKeepUpdated(installId, on).then(
+      (r) => {
+        if (!r.ok) get().updateInstall(installId, { keepUpdated: !on })
+      },
+      () => get().updateInstall(installId, { keepUpdated: !on })
     )
   }
 }))
@@ -441,14 +420,14 @@ export interface SelectionView {
 }
 
 export function describeSelection(selection: Selection, installs: Install[]): SelectionView {
+  const install = installs.find((i) => i.id === selection.installId)
   if (selection.edition !== 'other') {
     const e = EDITIONS[selection.edition]
-    return { title: e.title, mc: selection.mc, blurb: e.blurb }
+    return { title: install?.name ?? e.title, mc: install?.mc ?? selection.mc, blurb: e.blurb }
   }
-  const install = installs.find((i) => i.id === selection.installId)
   const loaderName = install?.loader ? LOADERS[install.loader].name : 'Custom'
   const extras = install?.extras ?? []
   const withExtras = extras.length ? `, with ${extras.join(' and ')}.` : ', no extra mods.'
-  if (install?.modpack) return { title: install.modpack, mc: selection.mc, blurb: `A ${loaderName} modpack for Minecraft ${selection.mc}.` }
-  return { title: loaderName, mc: selection.mc, blurb: `${loaderName} for Minecraft ${selection.mc}${withExtras}` }
+  if (install?.modpack) return { title: install.name, mc: selection.mc, blurb: `A ${loaderName} modpack for Minecraft ${selection.mc}.` }
+  return { title: install?.name ?? loaderName, mc: selection.mc, blurb: `${loaderName} for Minecraft ${selection.mc}${withExtras}` }
 }

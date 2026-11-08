@@ -3,8 +3,8 @@ import type { ChildProcess } from 'node:child_process'
 import { mkdir, open, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, normalize } from 'node:path'
 import { app, shell } from 'electron'
-import type { GameState, KairoEdition, LogView, PlayRequest } from '../../shared/api'
-import { customDir, getCustom, vanillaRecord, writeCustom } from '../installs/custom'
+import type { GameState, LogView, PlayRequest } from '../../shared/api'
+import { customDir, getCustom, vanillaRecord, writeCustom, type CustomRecord } from '../installs/custom'
 import { downloadMods, modrinthLoader, resolveModrinthMods } from '../loaders/extras'
 import { installForge, installNeoForge } from '../loaders/forge'
 import { loaderVersions } from '../loaders/meta'
@@ -13,7 +13,7 @@ import type { GameAccount } from '../account/types'
 import { describeError, KairoError } from '../errors'
 import { emptyRecord, readRecord, RECORD_FILE, writeRecord } from '../installs/record'
 import { fabricLibraryFiles, installFabricProfile, pickFabricLoader } from '../kairo/fabric'
-import { installDir, resolveKairoTarget, syncMods } from '../kairo/install'
+import { KAIRO_REQUIRES, resolveKairoTarget, syncMods } from '../kairo/install'
 import { dataPaths, safeName } from '../paths'
 import { backupMinecraftOnce, canShare, minecraftDir } from '../minecraftDir'
 import { loadSettings } from '../settings'
@@ -186,9 +186,7 @@ export class GameSession {
       const prepared =
         target.kind === 'vanilla'
           ? await this.prepareVanilla(target.mc, request, stages, signal)
-          : target.kind === 'kairo'
-            ? await this.prepareKairo(target.edition, request, stages, signal)
-            : await this.prepareCustom(target.id, request, stages, signal)
+          : await this.prepareCustom(target.id, request, stages, signal)
       clearInterval(timer)
       // Sharing .minecraft: Minecraft runs there; Fabric loads mods from the install's own folder.
       const mcDir = prepared.share.allowed && (await loadSettings()).sharedMinecraft ? minecraftDir() : null
@@ -212,17 +210,20 @@ export class GameSession {
     return this.prepareCustom(record.id, request, stages, signal)
   }
 
-  private async prepareKairo(edition: KairoEdition, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
-    const dir = installDir(edition)
+  /** A Kairo install: the verified Kairo jar decides Minecraft, the loader and the mods it needs. */
+  private async prepareKairo(record: CustomRecord, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
+    const part = record.kairo!
+    const dir = customDir(record)
+    const modsDir = join(dir, 'mods')
     const folder = MinecraftFolder.from(dataPaths().game)
-    const record = await readRecord(dir)
+    const keepUpdated = part.keepUpdated
+    const previous = { keepUpdated, kairo: part.jar, mc: part.jar ? record.mc : null, mods: part.deps }
 
     // Kairo jar first: its fabric.mod.json says which Minecraft, loader and mods to use.
-    const target = await resolveKairoTarget(edition, record, stages.mods, signal)
+    const target = await resolveKairoTarget(part.edition, previous, modsDir, stages.mods, signal)
     const entry = await findVersion(target.mc)
     if (!entry) throw new KairoError('unknown-version', `Mojang has no Minecraft ${target.mc}.`)
-    const keepUpdated = record?.keepUpdated ?? true
-    const loader = await pickFabricLoader(target.mc, target.loaderRange, keepUpdated ? null : (record?.loader ?? null))
+    const loader = await pickFabricLoader(target.mc, target.loaderRange, keepUpdated ? null : record.loaderVersion)
 
     const [{ javaPath }, fabricId] = await Promise.all([
       this.installBase(entry, request, stages, signal),
@@ -233,24 +234,34 @@ export class GameSession {
       { schemaVersion: 1, tasks: [{ id: 'fabric-libraries', type: 'files', files: await fabricLibraryFiles(version, folder, signal) }] },
       signal
     )
-    await syncMods(edition, target, record)
-    await writeRecord(dir, {
-      ...(record ?? emptyRecord(edition)),
-      edition,
+    await syncMods(modsDir, target, { kairo: part.jar, mods: part.deps })
+
+    // Mods added in the mod browser: chosen again when Kairo moves to another Minecraft version.
+    // Never a second copy of what Kairo itself requires (Fabric API, Sodium).
+    const skip = new Set([...KAIRO_REQUIRES, ...target.mods.map((m) => m.project)])
+    let mods = record.mc === target.mc ? record.mods : []
+    if (mods.length === 0 && record.wanted.length > 0) {
+      mods = await resolveModrinthMods(record.wanted, target.mc, 'fabric', dir, stages.mods, signal, skip)
+    } else {
+      await downloadMods(mods, dir, stages.mods, signal)
+    }
+    await writeCustom({
+      ...record,
       mc: target.mc,
-      loader,
-      kairo: target.kairo,
-      mods: target.mods,
-      keepUpdated
+      loaderVersion: loader,
+      versionId: version.id,
+      mods,
+      kairo: { ...part, jar: target.kairo, deps: target.mods }
     })
     stages.mods.done = true
-    return { version, javaPath, gamePath: dir, recordDir: dir, share: { allowed: true, fabric: true } }
+    return { version, javaPath, gamePath: dir, recordDir: dir, share: { allowed: record.modpack === null, fabric: true } }
   }
 
   /** "Other" installs and modpacks: the loader the record names, then its mods. */
   private async prepareCustom(id: string, request: PlayRequest, stages: Stages, signal: AbortSignal): Promise<Prepared> {
     const record = await getCustom(id)
     if (!record) throw new KairoError('unknown-version', 'This install no longer exists.')
+    if (record.kairo) return this.prepareKairo(record, request, stages, signal)
     const dir = customDir(record)
     const folder = MinecraftFolder.from(dataPaths().game)
     const entry = await findVersion(record.mc)

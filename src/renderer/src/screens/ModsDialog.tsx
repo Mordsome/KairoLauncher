@@ -105,6 +105,10 @@ export function ModsDialog({ install, onClose }: { install: Install; onClose(): 
                   {!m.managed && <span className="mod-tag">Your file</span>}
                 </span>
               </span>
+              {m.locked ? (
+                <span className="mod-tag">Part of Kairo</span>
+              ) : (
+                <>
               <Switch
                 checked={m.enabled}
                 label={`${m.name} on`}
@@ -119,6 +123,8 @@ export function ModsDialog({ install, onClose }: { install: Install; onClose(): 
               >
                 Remove
               </button>
+                </>
+              )}
             </div>
           ))}
         </div>

@@ -86,19 +86,27 @@ fails, the launcher says so instead of starting.
 
 ### Kairo installs
 
-`installs/Kairo` and `installs/Kairo Void` each hold Fabric Loader, Fabric API, Sodium and
-exactly one Kairo jar, from the newest release of
+Kairo and Kairo Void are regular installs: make as many as you like with **New install** (in the
+Library or the picker), each with its own name, worlds and mods. A Kairo install holds Fabric
+Loader, Fabric API, Sodium and exactly one Kairo jar, from the newest release of
 [Mordsome/Kairo](https://github.com/Mordsome/Kairo/releases) that has both jars and a
 `SHA256SUMS.txt`. The Minecraft version, the loader version and the mods come from the jar's
-own `fabric.mod.json`, so they always fit together.
+own `fabric.mod.json`, so they always fit together. Mods added from Modrinth never bring a second
+Fabric API or Sodium.
 
 With **Keep Kairo updated** on, every Play moves Kairo, Fabric Loader, Fabric API and Sodium to
 the newest versions that match. With it off, the install stays exactly as recorded. Files a
 player adds to `mods/` are left alone; a Kairo jar of the other edition is removed.
 
+### New install
+
+**New install** makes Kairo or Kairo Void, Fabric, NeoForge, Forge or OptiFine, plain Minecraft, or
+imports a modpack: pick a version (read live from each official source) and a name, then add
+mods from Modrinth right away or later.
+
 ### Other installs and modpacks
 
-**Other** builds an install from a loader and a Minecraft version, both read live from the
+**New install** builds an install from a loader and a Minecraft version, both read live from the
 loader's official source, plus optional Sodium, Iris and Lithium from Modrinth (only offered
 where Modrinth has them for that loader and version; their required dependencies come along).
 Versions are chosen on the first Play and then kept.

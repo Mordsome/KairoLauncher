@@ -4,7 +4,8 @@ import { copyFile, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { CreateCustomRequest, CreateResult, CustomLoader } from '../../shared/api'
 import { describeError, KairoError } from '../errors'
-import { customDir, freeName, loaderName, newRecord, toInfo, writeCustom, type CustomRecord } from '../installs/custom'
+import { listVersions } from '../game/manifest'
+import { customDir, freeName, loaderName, newRecord, toInfo, writeCustom, type CustomRecord, createKairoInstall } from '../installs/custom'
 import { dataPaths } from '../paths'
 import { redact } from '../redact'
 import { EXTRAS } from './extras'
@@ -55,14 +56,28 @@ async function attachForge(win: BrowserWindow | null, record: CustomRecord, want
 
 export async function createCustom(request: CreateCustomRequest, win: BrowserWindow | null): Promise<CreateResult> {
   try {
+    const wantedName = request.name?.trim().slice(0, 48) || null
+    // Kairo and Kairo Void: Kairo picks its Minecraft version and mods on the first Play.
+    if (request.loader === 'kairo' || request.loader === 'void') {
+      return { ok: true, install: toInfo(await createKairoInstall(request.loader, wantedName ?? undefined)) }
+    }
+    // Plain Minecraft: any release Mojang lists.
+    if (request.loader === 'vanilla') {
+      const list = await listVersions()
+      if (![...list.releases, ...list.snapshots].includes(request.mc)) throw new KairoError('unknown-version', `Mojang has no Minecraft ${request.mc}.`)
+      const record = newRecord({ name: freeName(wantedName ?? `Minecraft ${request.mc}`), mc: request.mc, loader: 'vanilla' })
+      await writeCustom(record)
+      return { ok: true, install: toInfo(record) }
+    }
     if (!LOADERS.includes(request.loader)) throw new KairoError('unknown-version', 'Unknown loader.')
-    const versions = await loaderVersions(request.loader)
-    if (!versions.mcs.includes(request.mc)) throw new KairoError('unknown-version', `${loaderName(request.loader)} has no Minecraft ${request.mc}.`)
+    const loader = request.loader
+    const versions = await loaderVersions(loader)
+    if (!versions.mcs.includes(request.mc)) throw new KairoError('unknown-version', `${loaderName(loader)} has no Minecraft ${request.mc}.`)
     const extras = request.extras.filter((x) => EXTRAS.some((e) => e.id === x))
 
     if (request.loader === 'fabric' || request.loader === 'neoforge') {
       const record = newRecord({
-        name: freeName(`${loaderName(request.loader)} ${request.mc}`),
+        name: freeName(wantedName ?? `${loaderName(request.loader)} ${request.mc}`),
         mc: request.mc,
         loader: request.loader,
         wanted: extras,

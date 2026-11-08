@@ -37,8 +37,7 @@ test('uses the empty data folder', async () => {
 test('warns before the first Kairo Void install', async () => {
   await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
   await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Void/ }).click()
-  await page.getByRole('button', { name: /Kairo Void for Minecraft/ }).first().click()
+  await page.getByRole('radio', { name: /^Kairo Void, Minecraft/ }).click()
 
   // "Not now" closes it and nothing downloads.
   await page.getByRole('button', { name: /^Play Kairo Void/ }).click()

@@ -33,8 +33,7 @@ export const EDITIONS: Record<EditionId, Edition> = {
     title: 'Kairo',
     blurb: 'Frosted glass menus, a HUD you drag into place, PvP mode, cosmetics and emotes.',
     versions: [
-      { mc: '26.3', sub: `Kairo ${KAIRO_VERSION} · latest` },
-      { mc: '1.21.x', sub: 'For servers still on 1.21', unavailable: 'Later' }
+      { mc: '26.3', sub: `Kairo ${KAIRO_VERSION} · latest` }
     ]
   },
   void: {

@@ -8,9 +8,9 @@ import { accounts } from './auth/accounts'
 import { describeAuthError } from './auth/errors'
 import { listVersions } from './game/manifest'
 import type { GameSession } from './game/session'
-import { kairoStatus, setKeepUpdated } from './kairo/status'
-import { adoptVanillaFolders, listCustom, toInfo } from './installs/custom'
-import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refDir, renameInstall, sharedGameDir } from './installs/library'
+import { kairoStatus } from './kairo/status'
+import { adoptKairoInstalls, adoptVanillaFolders, listCustom, toInfo } from './installs/custom'
+import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refDir, renameInstall, setKairoKeepUpdated, sharedGameDir } from './installs/library'
 import { checkCustomJava } from './game/java'
 import { loadSettings, saveSettings } from './settings'
 import { checkForUpdate, installUpdate, updateState } from './updater'
@@ -55,8 +55,6 @@ export function parsePlayRequest(raw: unknown): PlayRequest | null {
   let target: PlayRequest['target']
   if (t?.['kind'] === 'vanilla' && typeof t['mc'] === 'string' && /^[\w.\- ]{1,64}$/.test(t['mc'])) {
     target = { kind: 'vanilla', mc: t['mc'] }
-  } else if (t?.['kind'] === 'kairo' && isEdition(t['edition'])) {
-    target = { kind: 'kairo', edition: t['edition'] }
   } else if (t?.['kind'] === 'custom' && typeof t['id'] === 'string' && /^[0-9a-f]{12}$/.test(t['id'])) {
     target = { kind: 'custom', id: t['id'] }
   } else {
@@ -212,9 +210,9 @@ export function registerIpc(session: GameSession): void {
     return kairoStatus()
   })
 
-  ipcMain.handle(IPC.kairoSetKeepUpdated, (event, edition: unknown, on: unknown) => {
-    if (!fromApp(event) || !isEdition(edition) || typeof on !== 'boolean') throw new Error('Not allowed')
-    return setKeepUpdated(edition, on)
+  ipcMain.handle(IPC.kairoSetKeepUpdated, (event, id: unknown, on: unknown) => {
+    if (!fromApp(event) || typeof id !== 'string' || !/^[0-9a-f]{12}$/.test(id) || typeof on !== 'boolean') throw new Error('Not allowed')
+    return setKairoKeepUpdated(id, on)
   })
 
   ipcMain.handle(IPC.authState, (event) => {
@@ -267,6 +265,7 @@ export function registerIpc(session: GameSession): void {
     if (!fromApp(event)) throw new Error('Not allowed')
     if (!adopted) {
       adopted = true
+      await adoptKairoInstalls().catch(() => undefined)
       await adoptVanillaFolders().catch(() => undefined)
     }
     return (await listCustom()).map(toInfo)
@@ -276,8 +275,11 @@ export function registerIpc(session: GameSession): void {
     if (!fromApp(event) || !raw || typeof raw !== 'object') throw new Error('Not allowed')
     const r = raw as Record<string, unknown>
     const extras = Array.isArray(r['extras']) ? r['extras'].filter((x): x is string => typeof x === 'string').slice(0, 8) : []
-    if (!isLoader(r['loader']) || !isMc(r['mc'])) throw new Error('Not allowed')
-    return createCustom({ loader: r['loader'], mc: r['mc'], extras }, BrowserWindow.fromWebContents(event.sender))
+    const kind = r['loader']
+    const known = isLoader(kind) || kind === 'vanilla' || kind === 'kairo' || kind === 'void'
+    const name = typeof r['name'] === 'string' && r['name'].length <= 60 ? r['name'] : undefined
+    if (!known || !isMc(r['mc'])) throw new Error('Not allowed')
+    return createCustom({ loader: kind, mc: r['mc'], extras, name }, BrowserWindow.fromWebContents(event.sender))
   })
 
   ipcMain.handle(IPC.installsImportModpack, (event) => {
@@ -286,7 +288,7 @@ export function registerIpc(session: GameSession): void {
   })
 
   const isId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{12}$/.test(v)
-  const isRef = (v: unknown): v is string => isId(v) || v === 'kairo' || v === 'void'
+  const isRef = isId
   const busy = { ok: false as const, error: { title: 'Minecraft is running', message: 'Close the game first, then try again.' } }
   const idle = () => session.current().phase === 'idle'
 

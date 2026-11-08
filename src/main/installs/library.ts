@@ -20,7 +20,6 @@ import { loadSettings } from '../settings'
 export type InstallRef = string // a custom install id, or "kairo" / "void"
 
 export function refDir(ref: InstallRef): Promise<string | null> {
-  if (ref === 'kairo' || ref === 'void') return Promise.resolve(kairoDir(ref))
   return getCustom(ref).then((r) => (r ? customDir(r) : null))
 }
 
@@ -103,6 +102,7 @@ export async function changeVersion(id: string, mc: string): Promise<LibraryResu
   try {
     const record = await need(id)
     if (record.modpack) throw new KairoError('unknown-version', 'A modpack decides its own Minecraft version. Import a newer version of the pack instead.')
+    if (record.kairo) throw new KairoError('unknown-version', 'Kairo picks its own Minecraft version: the one its newest release is made for.')
     if (record.loader === 'forge' || record.loader === 'optifine') {
       throw new KairoError('unknown-version', `${record.loader === 'forge' ? 'Forge' : 'OptiFine'} installers are made for one Minecraft version. Create a new install with the installer for the version you want.`)
     }
@@ -130,10 +130,22 @@ export async function changeVersion(id: string, mc: string): Promise<LibraryResu
   }
 }
 
+/** Keep Kairo updated, for one Kairo install. */
+export async function setKairoKeepUpdated(id: string, on: boolean): Promise<LibraryResult> {
+  try {
+    const record = await need(id)
+    if (!record.kairo) throw new KairoError('unknown-version', 'That install has no Kairo.')
+    const next = { ...record, kairo: { ...record.kairo, keepUpdated: on } }
+    await writeCustom(next)
+    return ok(next)
+  } catch (error) {
+    return fail(error)
+  }
+}
+
 /** .minecraft, when this install shares it (Settings > Game > Game folder); else null. */
 export async function sharedGameDir(ref: InstallRef): Promise<string | null> {
   if (!(await loadSettings()).sharedMinecraft) return null
-  if (ref === 'kairo' || ref === 'void') return minecraftDir()
   const record = await getCustom(ref)
   return record && canShare(record.loader, record.modpack !== null) ? minecraftDir() : null
 }

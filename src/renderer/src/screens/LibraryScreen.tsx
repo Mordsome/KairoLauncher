@@ -1,30 +1,23 @@
 import { useEffect, useState } from 'react'
+import type { CustomInstallInfo } from '../../../shared/api'
+import { bannerKind, InstallBanner } from '../components/InstallBanner'
 import { PlayIcon } from '../components/Icons'
-import { Logo } from '../components/Logo'
-import { LOADERS, type EditionId } from '../data/catalog'
-import { useStore, type Install } from '../state/store'
+import { LOADERS } from '../data/catalog'
+import { selectionFor, useStore, type Install } from '../state/store'
 import { ChangeVersionDialog, DeleteDialog, LogsDialog, RenameDialog } from './LibraryDialogs'
 import { ModsDialog } from './ModsDialog'
 import { sharesMinecraft } from './GameFolderCard'
+import { NewInstallDialog } from './NewInstallDialog'
+import { installState, orderInstalls } from './Picker'
 
-/** Modpacks pin their own versions; Forge and OptiFine need a new installer file. */
+/** Modpacks pin their own versions; Forge and OptiFine need a new installer file; Kairo picks its own. */
 function canChangeVersion(i: Install): boolean {
-  return !i.modpack && i.loader !== 'forge' && i.loader !== 'optifine'
+  return !i.modpack && i.loader !== 'forge' && i.loader !== 'optifine' && i.edition !== 'kairo' && i.edition !== 'void'
 }
 
-const THUMB: Record<EditionId, string> = {
-  kairo: 'thumb-kairo',
-  void: 'thumb-void',
-  lite: 'thumb-lite',
-  vanilla: 'thumb-vanilla',
-  other: 'thumb-other'
+function hasMods(i: Install): boolean {
+  return i.loader === 'fabric' || i.loader === 'neoforge' || i.loader === 'forge'
 }
-
-// Rows for editions that aren't out yet. Shown, but not selectable.
-const UPCOMING = [
-  { id: 'lite', name: 'Kairo Lite', mc: '1.8.9', sub: 'The Kairo look for classic PvP', state: 'Coming soon', thumb: 'thumb-lite' },
-  { id: 'kairo-121', name: 'Kairo', mc: '1.21.x', sub: 'For servers still on 1.21', state: 'Later', thumb: 'thumb-later' }
-]
 
 function playtime(i: Install): string {
   if (i.lastPlayed === null) return 'not played yet'
@@ -50,8 +43,9 @@ function startOfDay(t: number): number {
 function summary(i: Install): string {
   const loader = i.loader ? LOADERS[i.loader].name : 'Vanilla'
   if (i.edition === 'kairo' || i.edition === 'void') {
-    if (!i.installed) return 'Downloads the first time you press Play'
-    return `${i.mods[0]?.name ?? i.name} ${i.mods[0]?.version ?? ''} · ${loader} · ${playtime(i)}`
+    const edition = i.edition === 'void' ? 'Kairo Void' : 'Kairo'
+    if (!i.installed) return `${edition} · downloads the first time you press Play`
+    return `${edition} ${i.kairoVersion ?? ''} · ${playtime(i)}`
   }
   if (i.modpack) return `Modpack · ${loader} · ${playtime(i)}`
   const extras = i.extras.length ? ` · ${i.extras.join(', ')}` : ''
@@ -74,7 +68,23 @@ export function LibraryScreen({ active }: { active: boolean }) {
   const refreshCustom = useStore((s) => s.refreshCustom)
   const sharedSetting = useStore((s) => s.settings.sharedMinecraft && s.info?.minecraftFolder != null)
   const sharedNow = !!detail && sharedSetting && sharesMinecraft(detail)
-  const [dialog, setDialog] = useState<'logs' | 'rename' | 'version' | 'delete' | 'mods' | null>(null)
+  const [dialog, setDialog] = useState<'logs' | 'rename' | 'version' | 'delete' | 'mods' | 'new' | null>(null)
+  const modsFor = useStore((s) => s.modsFor)
+
+  // Right after making an install with "Add mods": open its Mods dialog.
+  useEffect(() => {
+    if (!modsFor || !installs.some((i) => i.id === modsFor)) return
+    setLibrarySel(modsFor)
+    setDialog('mods')
+    useStore.setState({ modsFor: null })
+  }, [modsFor, installs, setLibrarySel])
+
+  const created = async (install: CustomInstallInfo, addMods: boolean) => {
+    setDialog(null)
+    await refreshCustom()
+    setLibrarySel(install.id)
+    if (addMods) setDialog('mods')
+  }
   const [problem, setProblem] = useState<{ title: string; message: string } | null>(null)
   const close = () => setDialog(null)
   const done = () => {
@@ -97,7 +107,7 @@ export function LibraryScreen({ active }: { active: boolean }) {
 
   const playDetail = () => {
     if (!detail) return
-    select({ edition: detail.edition, mc: detail.mc, installId: detail.id })
+    select(selectionFor(detail))
     if (phase === 'idle') playOrStop()
   }
 
@@ -110,16 +120,17 @@ export function LibraryScreen({ active }: { active: boolean }) {
               Library
             </h1>
             <span className="page-sub">Each install keeps its own mods, worlds and settings.</span>
+            <button type="button" className="btn-accent btn-small lib-new" onClick={() => setDialog('new')}>
+              <span aria-hidden="true">+</span> New install
+            </button>
           </div>
 
           <div className="lib-rows scroll">
-            {installs.map((i) => {
+            {orderInstalls(installs).map((i) => {
               const sel = detail?.id === i.id
               return (
                 <button key={i.id} type="button" className="librow" aria-pressed={sel} onClick={() => setLibrarySel(i.id)}>
-                  <span className={`thumb ${THUMB[i.edition]}`} aria-hidden="true">
-                    {i.edition === 'kairo' && <Logo size={40} />}
-                  </span>
+                  <InstallBanner kind={bannerKind(i)} />
                   <span className="librow-text">
                     <span className="librow-head">
                       <b className="librow-name">{i.name}</b>
@@ -127,25 +138,24 @@ export function LibraryScreen({ active }: { active: boolean }) {
                     </span>
                     <span className="librow-sub">{summary(i)}</span>
                   </span>
-                  <span className="librow-state" data-tone={stateOf(i, latestKairo) === 'Download' ? 'muted' : undefined}>
-                    {stateOf(i, latestKairo)}
+                  <span className="librow-state" data-tone={i.installed ? undefined : 'muted'}>
+                    {installState(i, latestKairo)}
                   </span>
                 </button>
               )
             })}
-            {UPCOMING.map((u) => (
-              <button key={u.id} type="button" className="librow" disabled aria-label={`${u.name} for Minecraft ${u.mc}, ${u.state.toLowerCase()}`}>
-                <span className={`thumb ${u.thumb}`} aria-hidden="true" />
-                <span className="librow-text">
-                  <span className="librow-head">
-                    <b className="librow-name">{u.name}</b>
-                    <span className="mc-chip">{u.mc}</span>
-                  </span>
-                  <span className="librow-sub">{u.sub}</span>
+            {installs.length === 0 && <p className="modal-note">No installs yet. Make one with New install.</p>}
+            <button type="button" className="librow" disabled aria-label="Kairo Lite for Minecraft 1.8.9, coming soon">
+              <InstallBanner kind="lite" />
+              <span className="librow-text">
+                <span className="librow-head">
+                  <b className="librow-name">Kairo Lite</b>
+                  <span className="mc-chip">1.8.9</span>
                 </span>
-                <span className="librow-state">{u.state}</span>
-              </button>
-            ))}
+                <span className="librow-sub">The Kairo look for classic PvP</span>
+              </span>
+              <span className="librow-state">Coming soon</span>
+            </button>
           </div>
         </section>
 
@@ -187,7 +197,7 @@ export function LibraryScreen({ active }: { active: boolean }) {
                 <input
                   type="checkbox"
                   checked={detail.keepUpdated}
-                  onChange={(e) => setKeepUpdated(detail.edition as 'kairo' | 'void', e.target.checked)}
+                  onChange={(e) => setKeepUpdated(detail.id, e.target.checked)}
                 />
               </label>
             )}
@@ -206,9 +216,9 @@ export function LibraryScreen({ active }: { active: boolean }) {
               <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('logs')}>
                 Logs
               </button>
-              {!isKairo && (
+              {(
                 <>
-                  {(detail.loader === 'fabric' || detail.loader === 'neoforge' || detail.loader === 'forge') && (
+                  {hasMods(detail) && (
                     <button type="button" className="btn-ghost btn-small" onClick={() => setDialog('mods')}>
                       Mods
                     </button>
@@ -238,6 +248,7 @@ export function LibraryScreen({ active }: { active: boolean }) {
           </aside>
         )}
       </div>
+      {dialog === 'new' && <NewInstallDialog onClose={close} onDone={(install, addMods) => void created(install, addMods)} />}
       {detail && dialog === 'logs' && <LogsDialog install={detail} onClose={close} />}
       {detail && dialog === 'mods' && <ModsDialog install={detail} onClose={done} />}
       {detail && dialog === 'rename' && <RenameDialog install={detail} onDone={done} onClose={close} />}
@@ -247,11 +258,3 @@ export function LibraryScreen({ active }: { active: boolean }) {
   )
 }
 
-function stateOf(i: Install, latestKairo: string | null): string {
-  if (i.edition === 'other') return i.installed ? 'Ready' : 'Download'
-  if (i.edition !== 'kairo' && i.edition !== 'void') return 'Ready'
-  if (!i.installed) return 'Download'
-  const installed = i.mods[0]?.version ?? null
-  if (latestKairo && installed && latestKairo !== installed) return i.keepUpdated ? 'Updates on Play' : 'Update available'
-  return 'Up to date'
-}

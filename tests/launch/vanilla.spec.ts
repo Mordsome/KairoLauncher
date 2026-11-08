@@ -65,22 +65,41 @@ async function setHide(on: boolean) {
   await page.getByRole('button', { name: 'Home' }).click()
 }
 
+/** The install for a Minecraft version: made with New install the first time, then picked in the picker. Returns its id. */
+async function pickVanilla(mc: string): Promise<string> {
+  const find = () =>
+    page.evaluate((v) => window.kairo.installs.list().then((l) => l.find((i) => i.loader === 'vanilla' && i.mc === v)?.id ?? null), mc)
+  if (!(await find())) {
+    await page.getByRole('button', { name: 'Library' }).click()
+    await page.getByRole('button', { name: 'New install', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'New install' })
+    await dialog.getByRole('radio', { name: /^Minecraft Plain/ }).click()
+    await dialog.getByRole('button', { name: 'More…' }).click()
+    await dialog.getByRole('radio', { name: mc, exact: true }).click()
+    await dialog.getByRole('button', { name: /^Create / }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Done' }).click()
+  }
+  const id = (await find())!
+  const name = await page.evaluate((i) => window.kairo.installs.list().then((l) => l.find((x) => x.id === i)!.name), id)
+  await page.getByRole('button', { name: 'Home' }).click()
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: new RegExp(`^${name.replace(/[.()]/g, '\\$&')}, Minecraft`) }).click()
+  return id
+}
+
+/** The game's own log, through the launcher's log view. */
+const gameLog = (id: string) => page.evaluate((i) => window.kairo.game.logs(i).then((v) => v.lines.join('\n')), id)
+
 for (const mc of VERSIONS) {
   test(`plays Minecraft ${mc}`, async () => {
     // Keep the launcher visible for most runs; check hiding on the last one.
     const hide = mc === VERSIONS[VERSIONS.length - 1]
     await setHide(hide)
 
-    await page.getByRole('button', { name: /Choose what to play/ }).click()
-    await page.getByRole('radio', { name: /^Vanilla/ }).click()
-    await page.getByRole('button', { name: /More versions/ }).click()
-    await page.getByRole('radio', { name: mc, exact: true }).click()
-
-    const log = join(userData, 'installs', `vanilla-${mc}`, 'logs', 'latest.log')
-    if (existsSync(log)) rmSync(log)
+    const id = await pickVanilla(mc)
 
     const started = Date.now()
-    await page.getByRole('button', { name: new RegExp(`^Play Minecraft on Minecraft ${mc.replace(/\./g, '\\.')}`) }).click()
+    await page.getByRole('button', { name: new RegExp(`^Play .* on Minecraft ${mc.replace(/\./g, '\\.')}$`) }).click()
     await expect(page.getByRole('status')).toHaveText(/Downloading game files|Checking game files|Starting Minecraft|is running/, { timeout: 30_000 })
 
     // Errors show up on the status line; fail fast with their text.
@@ -104,7 +123,7 @@ for (const mc of VERSIONS) {
 
     // The game's own log proves it got past start-up: sound and textures loaded.
     await expect
-      .poll(() => (existsSync(log) ? readFileSync(log, 'utf8') : ''), { timeout: 3 * 60_000, intervals: [2000] })
+      .poll(() => gameLog(id), { timeout: 3 * 60_000, intervals: [2000] })
       .toMatch(/Sound engine started|Created: \d+x\d+/)
     const state = await page.evaluate(() => window.kairo.game.state())
     expect(state.phase).toBe('running')
@@ -134,11 +153,8 @@ test('a corrupted game file is caught and replaced', async () => {
   expect(sha1()).not.toBe(expected)
 
   await setHide(false)
-  await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Vanilla/ }).click()
-  await page.getByRole('button', { name: /More versions/ }).click()
-  await page.getByRole('radio', { name: mc, exact: true }).click()
-  await page.getByRole('button', { name: /^Play Minecraft on Minecraft 1\.8\.9/ }).click()
+  await pickVanilla(mc)
+  await page.getByRole('button', { name: /^Play .* on Minecraft 1\.8\.9$/ }).click()
   await expect
     .poll(
       async () => {

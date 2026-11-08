@@ -111,8 +111,8 @@ const api: KairoApi = {
   },
   kairo: {
     status: () => ipcRenderer.invoke(IPC.kairoStatus) as Promise<KairoStatus>,
-    setKeepUpdated: (edition: KairoEdition, on: boolean) =>
-      ipcRenderer.invoke(IPC.kairoSetKeepUpdated, edition, Boolean(on)) as Promise<KairoStatus>
+    setKeepUpdated: (installId: string, on: boolean) =>
+      ipcRenderer.invoke(IPC.kairoSetKeepUpdated, String(installId), Boolean(on)) as Promise<LibraryResult>
   }
 }
 

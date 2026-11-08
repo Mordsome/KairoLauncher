@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { KairoError } from '../errors'
 import { getVersionManifest } from '../game/manifest'
 import type { Stage } from '../game/runtime'
-import type { InstallRecord, ManagedMod } from '../installs/record'
+import type { ManagedMod } from '../installs/record'
 import { dataPaths } from '../paths'
 import { isAnyKairoJar, latestKairoRelease, type KairoEdition } from './github'
 import { readFabricModJson } from './modjson'
@@ -62,14 +62,25 @@ async function pickMinecraft(range: string | string[] | undefined, pinned: strin
 }
 
 /** Works out (and downloads, verified) the Kairo jar and the mods it needs. */
+/** What a Kairo install had last time: the pinned jar, Minecraft version and Kairo's required mods. */
+export interface KairoPrevious {
+  keepUpdated: boolean
+  kairo: ManagedMod | null
+  mc: string | null
+  mods: ManagedMod[]
+}
+
+/** Mods Kairo itself requires; the mod browser never adds a second copy of these. */
+export const KAIRO_REQUIRES = new Set(Object.values(MODRINTH_PROJECT))
+
 export async function resolveKairoTarget(
   edition: KairoEdition,
-  record: InstallRecord | null,
+  record: KairoPrevious | null,
+  modsDir: string,
   stage: Stage,
   signal: AbortSignal
 ): Promise<KairoTarget> {
   const keepUpdated = record?.keepUpdated ?? true
-  const modsDir = join(installDir(edition), 'mods')
 
   // 1. The Kairo jar: the latest verifiable release, or the recorded one.
   let kairo: ManagedMod
@@ -130,8 +141,7 @@ export async function resolveKairoTarget(
  * install any more, and any Kairo jar but this one: never both editions
  * (or two versions) in one install. Mods the player added are left alone.
  */
-export async function syncMods(edition: KairoEdition, target: KairoTarget, previous: InstallRecord | null): Promise<void> {
-  const modsDir = join(installDir(edition), 'mods')
+export async function syncMods(modsDir: string, target: KairoTarget, previous: Pick<KairoPrevious, 'kairo' | 'mods'> | null): Promise<void> {
   const keep = new Set([target.kairo.filename, ...target.mods.map((m) => m.filename)])
   const stale = new Set<string>()
   for (const m of [...(previous?.mods ?? []), ...(previous?.kairo ? [previous.kairo] : [])]) if (!keep.has(m.filename)) stale.add(m.filename)

@@ -39,10 +39,12 @@ const problems: string[] = []
 
 interface Record {
   mc: string
-  loader: string
-  keepUpdated: boolean
-  kairo: { filename: string; version: string }
-  mods: { project: string; version: string; filename: string; url: string; hash: { algorithm: string; value: string } }[]
+  loaderVersion: string
+  kairo: {
+    keepUpdated: boolean
+    jar: { filename: string; version: string }
+    deps: { project: string; version: string; filename: string; url: string; hash: { algorithm: string; value: string } }[]
+  }
 }
 
 const dir = (edition: 'kairo' | 'void') => join(userData, 'installs', edition === 'kairo' ? 'Kairo' : 'Kairo Void')
@@ -80,9 +82,7 @@ test.afterAll(async () => {
 async function pick(edition: 'kairo' | 'void') {
   await page.getByRole('button', { name: 'Home' }).click()
   await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: edition === 'kairo' ? /^Kairo/ : /^Void/ }).first().click()
-  const title = edition === 'kairo' ? 'Kairo' : 'Kairo Void'
-  await page.getByRole('button', { name: new RegExp(`^${title} for Minecraft`) }).first().click()
+  await page.getByRole('radio', { name: edition === 'kairo' ? /^Kairo, Minecraft/ : /^Kairo Void, Minecraft/ }).click()
 }
 
 /** Plays the selected install until the game's own log shows it started with Kairo loaded. */
@@ -132,7 +132,7 @@ test('plays Kairo', async () => {
   expect(files.some((f) => f.startsWith('sodium-'))).toBe(true)
   const r = record('kairo')
   expect(r.mc).toBe('26.3')
-  console.log(`Kairo ${r.kairo.version} on ${r.mc}, Fabric Loader ${r.loader}, ${r.mods.map((m) => `${m.project} ${m.version}`).join(', ')}`)
+  console.log(`Kairo ${r.kairo.jar.version} on ${r.mc}, Fabric Loader ${r.loaderVersion}, ${r.kairo.deps.map((m) => `${m.project} ${m.version}`).join(', ')}`)
 })
 
 test('plays Kairo Void, in the Void theme', async () => {
@@ -171,10 +171,10 @@ test('"Keep Kairo updated" off pins versions; on updates them', async () => {
   const olderFile = older.files.find((f) => f.primary) ?? older.files[0]!
 
   const r = record('kairo')
-  const current = r.mods.find((m) => m.project === 'fabric-api')!
+  const current = r.kairo.deps.find((m) => m.project === 'fabric-api')!
   expect(current.filename).toBe((latest.files.find((f) => f.primary) ?? latest.files[0]!).filename)
   rmSync(join(dir('kairo'), 'mods', current.filename))
-  r.mods = r.mods.map((m) =>
+  r.kairo.deps = r.kairo.deps.map((m) =>
     m.project === 'fabric-api'
       ? { ...m, version: older.version_number, filename: olderFile.filename, url: olderFile.url, hash: { algorithm: 'sha512', value: olderFile.hashes.sha512 } }
       : m
@@ -184,11 +184,12 @@ test('"Keep Kairo updated" off pins versions; on updates them', async () => {
   // Off: the launcher keeps (and downloads, verified) exactly the recorded version.
   await page.getByRole('button', { name: 'Library' }).click()
   await page.getByRole('button', { name: /^Kairo 26\.3/ }).click()
-  await page.evaluate(() => window.kairo.kairo.setKeepUpdated('kairo', false))
+  const kairoId = await page.evaluate(() => window.kairo.installs.list().then((l) => l.find((i) => i.kairo?.edition === 'kairo' && i.name === 'Kairo')!.id))
+  await page.evaluate((id) => window.kairo.kairo.setKeepUpdated(id, false), kairoId)
   await pick('kairo')
   await playAndCheck('kairo')
   expect(mods('kairo')).toContain(olderFile.filename)
-  expect(record('kairo').keepUpdated).toBe(false)
+  expect(record('kairo').kairo.keepUpdated).toBe(false)
 
   // On: the next Play moves Fabric API to the newest release again and removes the old file.
   await page.getByRole('button', { name: 'Library' }).click()
@@ -196,7 +197,7 @@ test('"Keep Kairo updated" off pins versions; on updates them', async () => {
   const box = page.getByRole('checkbox', { name: /Keep Kairo updated/ })
   await expect(box).not.toBeChecked()
   await box.check()
-  await expect.poll(() => record('kairo').keepUpdated).toBe(true)
+  await expect.poll(() => record('kairo').kairo.keepUpdated).toBe(true)
   await pick('kairo')
   await playAndCheck('kairo')
   const files = mods('kairo')

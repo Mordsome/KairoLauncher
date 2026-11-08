@@ -97,7 +97,7 @@ export interface VersionList {
   ready: string[]
 }
 
-export type PlayTarget = { kind: 'vanilla'; mc: string } | { kind: 'kairo'; edition: KairoEdition } | { kind: 'custom'; id: string }
+export type PlayTarget = { kind: 'vanilla'; mc: string } | { kind: 'custom'; id: string }
 
 export type CustomLoader = 'fabric' | 'neoforge' | 'forge' | 'optifine'
 /** Plain Minecraft installs use the same records as custom ones. */
@@ -202,12 +202,19 @@ export interface CustomInstallInfo {
   playMinutes: number
   /** Set for installs made from a modpack. */
   modpack: { name: string; version: string } | null
+  /** Set for Kairo installs: which edition, and its Kairo version once played. */
+  kairo: { edition: KairoEdition; keepUpdated: boolean; version: string | null } | null
 }
 
+/** What a new install is built on: Kairo or Kairo Void, a loader, or plain Minecraft. */
+export type NewInstallKind = CustomLoader | 'vanilla' | KairoEdition
+
 export interface CreateCustomRequest {
-  loader: CustomLoader
+  loader: NewInstallKind
   mc: string
   extras: string[]
+  /** Optional; a free name is made from the loader and version otherwise. */
+  name?: string
 }
 
 /** A jar in an install's mods folder. */
@@ -221,6 +228,8 @@ export interface InstalledMod {
   managed: boolean
   /** Modrinth project slug, for the launcher's own. */
   project: string | null
+  /** Part of Kairo itself (the Kairo jar, Fabric API, Sodium): can't be turned off or removed here. */
+  locked: boolean
 }
 
 export interface ModHit {
@@ -286,7 +295,6 @@ export interface PatchNotes {
 export interface KairoStatus {
   /** Newest verifiable release on GitHub, or null if it can't be reached and none was seen yet. */
   latest: { version: string; notes: PatchNotes | null } | null
-  installs: Record<KairoEdition, KairoInstallInfo>
 }
 
 export interface PlayRequest {
@@ -342,13 +350,13 @@ export interface KairoApi {
     state(): Promise<GameState>
     /** Calls back on every state change. Returns an unsubscribe function. */
     onState(listener: (state: GameState) => void): () => void
-    /** A custom install id, or "kairo" / "void". */
-    logs(ref: string): Promise<LogView>
+    logs(installId: string): Promise<LogView>
     openCrashReport(): Promise<void>
   }
   kairo: {
     status(): Promise<KairoStatus>
-    setKeepUpdated(edition: KairoEdition, on: boolean): Promise<KairoStatus>
+    /** For one Kairo install. */
+    setKeepUpdated(installId: string, on: boolean): Promise<LibraryResult>
   }
   loaders: {
     versions(loader: CustomLoader): Promise<LoaderVersions>
@@ -367,8 +375,7 @@ export interface KairoApi {
     /** Moves the install's folder to the Recycle Bin / Trash. */
     remove(id: string): Promise<{ ok: true } | { ok: false; error: { title: string; message: string } }>
     changeVersion(id: string, mc: string): Promise<LibraryResult>
-    /** A custom install id, or "kairo" / "void". */
-    openFolder(ref: string): Promise<void>
+    openFolder(installId: string): Promise<void>
   }
   mods: {
     list(installId: string): Promise<ModsResult>

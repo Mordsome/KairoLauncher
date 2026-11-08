@@ -2,13 +2,24 @@ import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
-import type { CustomInstallInfo, InstallLoader, ModInfo } from '../../shared/api'
+import type { CustomInstallInfo, InstallLoader, KairoEdition, ModInfo } from '../../shared/api'
 import { dataPaths } from '../paths'
-import { RECORD_FILE, type ManagedMod } from './record'
+import { readRecord, RECORD_FILE, type ManagedMod } from './record'
 
 // Installs built in "Other" (and modpacks): one folder each under installs/,
 // with a kairo-launcher.json record. Versions are chosen on the first Play
 // and then kept, so an install doesn't change under the player.
+
+/** The Kairo part of a Kairo install: which edition, and what the last Play chose. */
+export interface KairoPart {
+  edition: KairoEdition
+  /** Move Kairo, Fabric API and Sodium to new matching versions on every Play. */
+  keepUpdated: boolean
+  /** The verified Kairo jar in mods/ (null until the first Play). */
+  jar: ManagedMod | null
+  /** What Kairo itself requires (Fabric API, Sodium), chosen to fit it. */
+  deps: ManagedMod[]
+}
 
 export interface CustomRecord {
   schema: 1
@@ -32,6 +43,8 @@ export interface CustomRecord {
   /** What the launcher put in mods/. */
   mods: ManagedMod[]
   modpack: { name: string; version: string } | null
+  /** Kairo installs only. */
+  kairo?: KairoPart | null
   lastPlayed: number | null
   playMinutes: number
 }
@@ -47,6 +60,18 @@ function insideFile(p: unknown): boolean {
     !isAbsolute(p) &&
     !p.includes(':') &&
     p.split(/[\\/]/).every((part) => part !== '' && part !== '.' && part !== '..')
+  )
+}
+
+function validKairo(x: unknown): boolean {
+  if (x === undefined || x === null) return true
+  const k = x as KairoPart
+  return (
+    (k.edition === 'kairo' || k.edition === 'void') &&
+    typeof k.keepUpdated === 'boolean' &&
+    (k.jar === null || (!!k.jar && insideFile(k.jar.filename))) &&
+    Array.isArray(k.deps) &&
+    k.deps.every((m) => !!m && insideFile(m.filename))
   )
 }
 
@@ -71,7 +96,8 @@ export function isCustom(x: unknown): x is CustomRecord {
     Array.isArray(r.mods) &&
     r.mods.every((m) => !!m && insideFile(m.filename)) &&
     Array.isArray(r.wanted) &&
-    validInstaller(r.installer ?? null)
+    validInstaller(r.installer ?? null) &&
+    validKairo(r.kairo)
   )
 }
 
@@ -165,15 +191,18 @@ export function loaderName(loader: InstallLoader): string {
   return LOADER_NAME[loader]
 }
 
+const shortVersion = (v: string) => v.split('+')[0] ?? v
+
 export function toInfo(r: CustomRecord): CustomInstallInfo {
   const mods: ModInfo[] = []
+  if (r.kairo?.jar) mods.push({ name: r.kairo.jar.name, version: shortVersion(r.kairo.jar.version) })
   if (r.loaderVersion) mods.push({ name: loaderName(r.loader) + (r.loader === 'fabric' ? ' Loader' : ''), version: r.loaderVersion })
   if (r.modpack) {
     // A modpack can have hundreds of files: show a count, not a list.
     const count = r.mods.filter((m) => m.filename.startsWith('mods')).length
     if (count) mods.push({ name: 'Mods from the modpack', version: String(count) })
   } else {
-    for (const m of r.mods) mods.push({ name: m.name, version: m.version.split('+')[0] ?? m.version })
+    for (const m of [...(r.kairo?.deps ?? []), ...r.mods]) mods.push({ name: m.name, version: shortVersion(m.version) })
   }
   return {
     id: r.id,
@@ -186,7 +215,8 @@ export function toInfo(r: CustomRecord): CustomInstallInfo {
     installed: r.versionId !== null,
     lastPlayed: r.lastPlayed,
     playMinutes: r.playMinutes,
-    modpack: r.modpack
+    modpack: r.modpack,
+    kairo: r.kairo ? { edition: r.kairo.edition, keepUpdated: r.kairo.keepUpdated, version: r.kairo.jar ? shortVersion(r.kairo.jar.version) : null } : null
   }
 }
 
@@ -217,3 +247,46 @@ export async function adoptVanillaFolders(): Promise<void> {
   }
 }
 
+
+/** The Minecraft version Kairo is made for, until a Play reads it from the Kairo jar. */
+export const KAIRO_MC = '26.3'
+const KAIRO_NAME: Record<KairoEdition, string> = { kairo: 'Kairo', void: 'Kairo Void' }
+
+/** A new Kairo or Kairo Void install. Kairo, its Minecraft version and its mods are chosen on the first Play. */
+export async function createKairoInstall(edition: KairoEdition, name?: string): Promise<CustomRecord> {
+  const record = newRecord({
+    name: freeName(name?.trim() || KAIRO_NAME[edition]),
+    mc: KAIRO_MC,
+    loader: 'fabric',
+    kairo: { edition, keepUpdated: true, jar: null, deps: [] }
+  })
+  await writeCustom(record)
+  return record
+}
+
+/**
+ * Kairo installs used to be two fixed folders with their own record. They
+ * become regular installs (same folder, worlds and play time). New players get
+ * one Kairo and one Kairo Void install, once; after that, deleting them sticks.
+ */
+export async function adoptKairoInstalls(): Promise<void> {
+  const marker = join(installsDir(), '.kairo-installs')
+  if (existsSync(marker)) return
+  for (const [edition, folder] of [['kairo', 'Kairo'], ['void', 'Kairo Void']] as const) {
+    const dir = join(installsDir(), folder)
+    const old = existsSync(dir) ? await readRecord(dir) : null
+    if (old) {
+      await writeCustom({
+        ...newRecord({ name: KAIRO_NAME[edition], folder, mc: old.mc ?? KAIRO_MC, loader: 'fabric' }),
+        loaderVersion: old.loader,
+        lastPlayed: old.lastPlayed,
+        playMinutes: old.playMinutes,
+        kairo: { edition, keepUpdated: old.keepUpdated, jar: old.kairo, deps: old.mods }
+      })
+    } else if (!(await listCustom()).some((r) => r.kairo?.edition === edition)) {
+      await createKairoInstall(edition)
+    }
+  }
+  await mkdir(installsDir(), { recursive: true })
+  await writeFile(marker, 'Kairo and Kairo Void are regular installs now.\n')
+}

@@ -151,10 +151,10 @@ async function zipTo(file: string, entries: Record<string, string>) {
   writeFileSync(file, Buffer.concat(chunks))
 }
 
-test('Fabric 1.20.1 with Sodium, Iris and Lithium, built in the picker', async () => {
-  await page.getByRole('button', { name: /Choose what to play/ }).click()
-  await page.getByRole('radio', { name: /^Other/ }).click()
-  await page.getByRole('radio', { name: 'Fabric' }).click()
+test('Fabric 1.20.1 with Sodium, Iris and Lithium, made with New install', async () => {
+  await page.getByRole('button', { name: 'Library' }).click()
+  await page.getByRole('button', { name: 'New install', exact: true }).click()
+  await page.getByRole('dialog', { name: 'New install' }).getByRole('radio', { name: /^Fabric/ }).click()
   await page.getByRole('radio', { name: '1.20.1', exact: true }).click()
   for (const name of ['Sodium', 'Iris', 'Lithium']) {
     const box = page.getByRole('checkbox', { name: new RegExp(`^${name}`) })
@@ -163,7 +163,7 @@ test('Fabric 1.20.1 with Sodium, Iris and Lithium, built in the picker', async (
   }
   await page.screenshot({ path: join(SHOTS, 'other-fabric.png') })
   await page.getByRole('button', { name: 'Create Fabric 1.20.1' }).click()
-  await expect(page.getByRole('heading', { name: 'Fabric', exact: true })).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Done' }).click()
   const install = (await page.evaluate(() => window.kairo.installs.list())).find(
     (i) => i.loader === 'fabric' && i.mc === '1.20.1' && !existing.includes(i.id)
   )!

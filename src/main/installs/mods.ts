@@ -7,6 +7,7 @@ import { KairoError } from '../errors'
 import { Stage } from '../game/runtime'
 import { sniffImage } from '../imageSniff'
 import { readFabricModJson } from '../kairo/modjson'
+import { KAIRO_REQUIRES } from '../kairo/install'
 import { modrinthProject } from '../kairo/modrinth'
 import { resolveModrinthMods } from '../loaders/extras'
 import { fetchJson, fetchOk } from '../net/http'
@@ -49,6 +50,8 @@ export async function listMods(id: string): Promise<InstalledMod[]> {
   const { record, dir } = await need(id)
   const managed = new Map(record.mods.filter((m) => /^mods[\\/]/.test(m.filename)).map((m) => [basename(m.filename), m]))
   const names = await readdir(dir).catch(() => [] as string[])
+  // A Kairo install's own files (the Kairo jar, Fabric API, Sodium) belong to Kairo.
+  const kairoFiles = new Map([...(record.kairo?.jar ? [record.kairo.jar] : []), ...(record.kairo?.deps ?? [])].map((m) => [basename(m.filename), m]))
   const out: InstalledMod[] = []
   for (const name of names) {
     const off = name.endsWith(`.jar${OFF}`)
@@ -64,7 +67,12 @@ export async function listMods(id: string): Promise<InstalledMod[]> {
         version = info.version
       }
     }
-    out.push({ file, name: label, version, enabled: !off, managed: !!mine, project: mine?.project ?? null })
+    const kairoOwn = kairoFiles.get(file)
+    if (kairoOwn) {
+      out.push({ file, name: kairoOwn.name, version: kairoOwn.version.split('+')[0] ?? kairoOwn.version, enabled: !off, managed: true, project: kairoOwn.project, locked: true })
+      continue
+    }
+    out.push({ file, name: label, version, enabled: !off, managed: !!mine, project: mine?.project ?? null, locked: false })
   }
   return out.sort((a, b) => a.name.localeCompare(b.name))
 }
@@ -91,7 +99,7 @@ export async function searchMods(id: string, query: string, offset: number): Pro
   const q = query.trim().slice(0, 100)
   const params = `query=${encodeURIComponent(q)}&facets=${encodeURIComponent(facets)}&limit=20&offset=${offset}&index=${q ? 'relevance' : 'downloads'}`
   const res = await fetchJson<{ hits: SearchHit[]; total_hits: number }>(`${API}/search?${params}`)
-  const installed = new Set(record.mods.map((m) => m.project))
+  const installed = new Set([...record.mods, ...(record.kairo?.deps ?? [])].map((m) => m.project))
   return {
     total: res.total_hits,
     hits: res.hits
@@ -121,11 +129,13 @@ export async function installMod(id: string, projectId: string): Promise<Install
   const signal = new AbortController().signal
   const installDir = customDir(record)
   let mods
+  // Kairo brings its own Fabric API and Sodium: never a second copy.
+  const kairoOwn = record.kairo ? new Set([...KAIRO_REQUIRES, ...record.kairo.deps.map((m) => m.project)]) : new Set<string>()
   if (record.mods.length === 0) {
     // Never played yet: choose everything wanted (the builder's extras too) now.
-    mods = await resolveModrinthMods(wanted, record.mc, loader, installDir, new Stage(), signal)
+    mods = await resolveModrinthMods(wanted, record.mc, loader, installDir, new Stage(), signal, kairoOwn)
   } else {
-    const have = new Set(record.mods.map((m) => m.project))
+    const have = new Set([...record.mods.map((m) => m.project), ...kairoOwn])
     mods = [...record.mods, ...(await resolveModrinthMods([project.slug], record.mc, loader, installDir, new Stage(), signal, have))]
   }
   await writeCustom({ ...record, wanted, mods })
@@ -133,9 +143,14 @@ export async function installMod(id: string, projectId: string): Promise<Install
 }
 
 /** Turns a mod on or off by renaming it (x.jar <-> x.jar.disabled). Play keeps it that way. */
+function kairoOwns(record: CustomRecord, file: string): boolean {
+  return [...(record.kairo?.jar ? [record.kairo.jar] : []), ...(record.kairo?.deps ?? [])].some((m) => basename(m.filename) === file)
+}
+
 export async function setModEnabled(id: string, rawFile: unknown, enabled: boolean): Promise<InstalledMod[]> {
   const file = jarName(rawFile)
   const { record, dir } = await need(id)
+  if (kairoOwns(record, file)) throw new KairoError('unknown-version', 'That file is part of Kairo.')
   const on = join(dir, file)
   const off = join(dir, file + OFF)
   const from = enabled ? off : on
@@ -151,6 +166,7 @@ export async function setModEnabled(id: string, rawFile: unknown, enabled: boole
 export async function removeMod(id: string, rawFile: unknown): Promise<InstalledMod[]> {
   const file = jarName(rawFile)
   const { record, dir } = await need(id)
+  if (kairoOwns(record, file)) throw new KairoError('unknown-version', 'That file is part of Kairo.')
   const path = existsSync(join(dir, file)) ? join(dir, file) : join(dir, file + OFF)
   const mine = record.mods.find((m) => basename(m.filename) === file)
   if (mine) {
