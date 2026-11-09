@@ -14,8 +14,8 @@ import { changeVersion, deleteInstall, duplicateInstall, openInstallFolder, refD
 import { checkCustomJava } from './game/java'
 import { loadSettings, saveSettings } from './settings'
 import { checkForUpdate, installUpdate, updateState } from './updater'
-import { backgroundFiles, importBackground, pickBackground, removeBackground } from './background'
-import { installMod, listMods, removeMod, searchMods, setModEnabled } from './installs/mods'
+import { backgroundFiles, importBackground, isSlot, pickBackground, removeBackground } from './background'
+import { checkMod, installMods, listMods, MOD_SORTS, removeMod, searchMods, setModEnabled } from './installs/mods'
 import { describeError } from './errors'
 import { dialog } from 'electron'
 import { createCustom, importModpack, openDownloadPage } from './loaders/create'
@@ -102,7 +102,6 @@ export function registerIpc(session: GameSession): void {
     }
   })
 
-  const isSlot = (v: unknown): v is 'main' | 'void' => v === 'main' || v === 'void'
   const isInstall = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{12}$/.test(v)
   const modsBusy = { ok: false as const, error: { title: 'Minecraft is running', message: 'Close the game first, then change its mods.' } }
   const modsResult = (work: Promise<import('../shared/api').InstalledMod[]>) =>
@@ -116,18 +115,28 @@ export function registerIpc(session: GameSession): void {
     return modsResult(listMods(id))
   })
 
-  ipcMain.handle(IPC.modsSearch, (event, id: unknown, query: unknown, offset: unknown) => {
+  ipcMain.handle(IPC.modsSearch, (event, id: unknown, query: unknown, offset: unknown, sort: unknown) => {
     if (!fromApp(event) || !isInstall(id) || typeof query !== 'string' || query.length > 200) throw new Error('Not allowed')
     if (typeof offset !== 'number' || !Number.isInteger(offset) || offset < 0 || offset > 10_000) throw new Error('Not allowed')
-    return searchMods(id, query, offset).then(
+    if (!MOD_SORTS.includes(sort as never)) throw new Error('Not allowed')
+    return searchMods(id, query, offset, sort as (typeof MOD_SORTS)[number]).then(
       (search) => ({ ok: true as const, search }),
       (error: unknown) => ({ ok: false as const, error: describeError(error) })
     )
   })
 
-  ipcMain.handle(IPC.modsInstall, (event, id: unknown, projectId: unknown) => {
-    if (!fromApp(event) || !isInstall(id) || typeof projectId !== 'string' || !/^[A-Za-z0-9]{8}$/.test(projectId)) throw new Error('Not allowed')
-    return session.current().phase === 'idle' ? modsResult(installMod(id, projectId)) : modsBusy
+  const isProject = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9]{8}$/.test(v)
+
+  ipcMain.handle(IPC.modsCheck, (event, id: unknown, projectId: unknown) => {
+    if (!fromApp(event) || !isInstall(id) || !isProject(projectId)) throw new Error('Not allowed')
+    return checkMod(id, projectId).catch((error: unknown) => ({ ok: false as const, message: describeError(error).message }))
+  })
+
+  ipcMain.handle(IPC.modsInstall, (event, id: unknown, projectIds: unknown) => {
+    if (!fromApp(event) || !isInstall(id) || !Array.isArray(projectIds) || projectIds.length < 1 || projectIds.length > 50 || !projectIds.every(isProject)) {
+      throw new Error('Not allowed')
+    }
+    return session.current().phase === 'idle' ? modsResult(installMods(id, projectIds)) : modsBusy
   })
 
   ipcMain.handle(IPC.modsSetEnabled, (event, id: unknown, file: unknown, enabled: unknown) => {
@@ -240,9 +249,17 @@ export function registerIpc(session: GameSession): void {
     return accounts.switchTo(uuid)
   })
 
-  ipcMain.handle(IPC.authSignOut, (event, uuid: unknown) => {
+  ipcMain.handle(IPC.authSignOut, async (event, uuid: unknown) => {
     if (!fromApp(event) || typeof uuid !== 'string' || !/^[0-9a-f]{32}$/.test(uuid)) throw new Error('Not allowed')
-    return accounts.signOut(uuid)
+    const state = await accounts.signOut(uuid)
+    // Its own picture goes with it.
+    await removeBackground(`account:${uuid}`).catch(() => undefined)
+    return state
+  })
+
+  ipcMain.handle(IPC.authRefresh, (event) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return accounts.refreshProfiles()
   })
 
   ipcMain.handle(IPC.loaderVersions, (event, loader: unknown) => {

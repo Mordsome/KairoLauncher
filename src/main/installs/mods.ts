@@ -2,13 +2,13 @@ import { protocol, shell } from 'electron'
 import { existsSync } from 'node:fs'
 import { readdir, rename, rm } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import type { InstalledMod, InstallLoader, ModSearch } from '../../shared/api'
+import type { InstalledMod, InstallLoader, ModCheck, ModSearch, ModSort } from '../../shared/api'
 import { KairoError } from '../errors'
 import { Stage } from '../game/runtime'
 import { sniffImage } from '../imageSniff'
 import { readFabricModJson } from '../kairo/modjson'
 import { KAIRO_REQUIRES } from '../kairo/install'
-import { modrinthProject } from '../kairo/modrinth'
+import { modrinthCandidates, modrinthProject } from '../kairo/modrinth'
 import { resolveModrinthMods } from '../loaders/extras'
 import { fetchJson, fetchOk } from '../net/http'
 import { customDir, getCustom, writeCustom, type CustomRecord } from './custom'
@@ -93,11 +93,16 @@ interface SearchHit {
   icon_url?: string | null
 }
 
-export async function searchMods(id: string, query: string, offset: number): Promise<ModSearch> {
+export const MOD_SORTS: readonly ModSort[] = ['relevance', 'downloads', 'follows', 'newest', 'updated']
+
+export async function searchMods(id: string, query: string, offset: number, sort: ModSort = 'relevance'): Promise<ModSearch> {
   const { record, loader } = await need(id)
+  // Only mods for this install's loader and Minecraft version (each pick is checked again, see checkMod).
   const facets = JSON.stringify([['project_type:mod'], [`categories:${loader}`], [`versions:${record.mc}`]])
   const q = query.trim().slice(0, 100)
-  const params = `query=${encodeURIComponent(q)}&facets=${encodeURIComponent(facets)}&limit=20&offset=${offset}&index=${q ? 'relevance' : 'downloads'}`
+  // "Relevance" with nothing typed means nothing: show the most downloaded.
+  const index = MOD_SORTS.includes(sort) ? (sort === 'relevance' && !q ? 'downloads' : sort) : 'relevance'
+  const params = `query=${encodeURIComponent(q)}&facets=${encodeURIComponent(facets)}&limit=20&offset=${offset}&index=${index}`
   const res = await fetchJson<{ hits: SearchHit[]; total_hits: number }>(`${API}/search?${params}`)
   const installed = new Set([...record.mods, ...(record.kairo?.deps ?? [])].map((m) => m.project))
   return {
@@ -120,12 +125,35 @@ export async function searchMods(id: string, query: string, offset: number): Pro
   }
 }
 
-/** Installs a project and whatever it requires that isn't there yet. */
-export async function installMod(id: string, projectId: string): Promise<InstalledMod[]> {
+const LOADER_NAME: Record<ModLoader, string> = { fabric: 'Fabric', neoforge: 'NeoForge', forge: 'Forge' }
+
+/**
+ * Modrinth's search matches loader and version separately (a mod with Forge
+ * 1.12.2 files and Fabric 26.3 files shows up for Forge 26.3 too), so each
+ * pick is checked for a file made for exactly this loader and version.
+ */
+export async function checkMod(id: string, projectId: string): Promise<ModCheck> {
   if (!PROJECT_ID.test(projectId)) throw new KairoError('unknown-version', 'Unexpected Modrinth project.')
   const { record, loader } = await need(id)
   const project = await modrinthProject(projectId)
-  const wanted = [...new Set([...record.wanted, project.slug])]
+  try {
+    const [best] = await modrinthCandidates(project.slug, record.mc, loader)
+    if (best) return { ok: true, version: best.versionNumber }
+  } catch {
+    // none for this loader and version
+  }
+  return { ok: false, message: `No ${LOADER_NAME[loader]} ${record.mc} version` }
+}
+
+/** Installs one or more projects and whatever they require that isn't there yet. */
+export async function installMods(id: string, projectIds: string[]): Promise<InstalledMod[]> {
+  if (projectIds.length === 0 || projectIds.length > 50 || !projectIds.every((p) => PROJECT_ID.test(p))) {
+    throw new KairoError('unknown-version', 'Unexpected Modrinth project.')
+  }
+  const { record, loader } = await need(id)
+  const slugs: string[] = []
+  for (const p of new Set(projectIds)) slugs.push((await modrinthProject(p)).slug)
+  const wanted = [...new Set([...record.wanted, ...slugs])]
   const signal = new AbortController().signal
   const installDir = customDir(record)
   let mods
@@ -136,7 +164,7 @@ export async function installMod(id: string, projectId: string): Promise<Install
     mods = await resolveModrinthMods(wanted, record.mc, loader, installDir, new Stage(), signal, kairoOwn)
   } else {
     const have = new Set([...record.mods.map((m) => m.project), ...kairoOwn])
-    mods = [...record.mods, ...(await resolveModrinthMods([project.slug], record.mc, loader, installDir, new Stage(), signal, have))]
+    mods = [...record.mods, ...(await resolveModrinthMods(slugs, record.mc, loader, installDir, new Stage(), signal, have))]
   }
   await writeCustom({ ...record, wanted, mods })
   return listMods(id)

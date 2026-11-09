@@ -6,6 +6,7 @@ import { Picker } from './Picker'
 
 export function HomeScreen({ active }: { active: boolean }) {
   const homeView = useStore((s) => s.homeView)
+  const layout = useStore((s) => s.settings.homeLayout)
   const pick = homeView === 'pick'
 
   const pickerButton = useRef<HTMLButtonElement>(null)
@@ -26,7 +27,7 @@ export function HomeScreen({ active }: { active: boolean }) {
 
   return (
     <div className="page" data-active={active} inert={!active}>
-      <div className="shade shade-home" data-on={!pick} aria-hidden="true" />
+      <div className="shade shade-home" data-layout={layout} data-on={!pick} aria-hidden="true" />
       <div className="shade shade-pick" data-on={pick} aria-hidden="true" />
       <HomeMain visible={!pick} pickerButton={pickerButton} />
       <Picker visible={pick} rootRef={pickerRoot} />
@@ -71,6 +72,7 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
   const notice = useStore((s) => s.notice)
   const account = useStore((s) => s.account)
   const playOrStop = useStore((s) => s.playOrStop)
+  const layout = useStore((s) => s.settings.homeLayout)
   const openPicker = useStore((s) => s.openPicker)
   const [showLog, setShowLog] = useState(false)
 
@@ -109,52 +111,54 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
           : `${sel.title} is running`
 
   return (
-    <section className="screen screen-home" data-on={visible} inert={!visible} aria-label="Home">
-      <div className="hero">
-        <span className="hero-ver">Minecraft {sel.mc}</span>
-        <h1 className="hero-title">{sel.title}</h1>
-        <p className="hero-blurb">{sel.blurb}</p>
-      </div>
-
-      <div className="home-actions">
-        <div className="split" data-running={phase === 'running'}>
-          <button type="button" className="half half-play" aria-label={playAria} onClick={playOrStop}>
-            <span className="fill" style={{ width: phase === 'download' ? `${percent}%` : '0%' }} />
-            {phase === 'idle' && <PlayIcon />}
-            <span className="half-label">{label}</span>
-          </button>
-          <button
-            ref={pickerButton}
-            type="button"
-            className="half half-pick"
-            disabled={phase !== 'idle'}
-            aria-label={`Choose what to play. Now: ${sel.title}, Minecraft ${sel.mc}`}
-            onClick={openPicker}
-          >
-            <span className="pick-text">
-              <b>{sel.title}</b>
-              <span>{sel.mc}</span>
-            </span>
-            <GridIcon />
-          </button>
+    <section className="screen screen-home" data-layout={layout} data-on={visible} inert={!visible} aria-label="Home">
+      <div className="home-stage">
+        <div className="hero">
+          <span className="hero-ver">Minecraft {sel.mc}</span>
+          <h1 className="hero-title">{sel.title}</h1>
+          <p className="hero-blurb">{sel.blurb}</p>
         </div>
-        <span className="status" role="status" data-tone={phase === 'idle' && (game.error || game.crash) ? 'error' : undefined}>
-          {status}
-        </span>
-        {phase === 'idle' && game.crash && !notice && (
-          <div className="crash-actions">
-            {game.crash.hasReport && (
-              <button type="button" className="btn-ghost btn-small" onClick={() => void window.kairo.game.openCrashReport()}>
-                Open crash report
-              </button>
-            )}
-            {crashed && (
-              <button type="button" className="btn-ghost btn-small" onClick={() => setShowLog(true)}>
-                View log
-              </button>
-            )}
+
+        <div className="home-actions">
+          <div className="split" data-running={phase === 'running'}>
+            <button type="button" className="half half-play" aria-label={playAria} onClick={playOrStop}>
+              <span className="fill" style={{ width: phase === 'download' ? `${percent}%` : '0%' }} />
+              {phase === 'idle' && <PlayIcon />}
+              <span className="half-label">{label}</span>
+            </button>
+            <button
+              ref={pickerButton}
+              type="button"
+              className="half half-pick"
+              disabled={phase !== 'idle'}
+              aria-label={`Choose what to play. Now: ${sel.title}, Minecraft ${sel.mc}`}
+              onClick={openPicker}
+            >
+              <span className="pick-text">
+                <b>{sel.title}</b>
+                <span>{sel.mc}</span>
+              </span>
+              <GridIcon />
+            </button>
           </div>
-        )}
+          <span className="status" role="status" data-tone={phase === 'idle' && (game.error || game.crash) ? 'error' : undefined}>
+            {status}
+          </span>
+          {phase === 'idle' && game.crash && !notice && (
+            <div className="crash-actions">
+              {game.crash.hasReport && (
+                <button type="button" className="btn-ghost btn-small" onClick={() => void window.kairo.game.openCrashReport()}>
+                  Open crash report
+                </button>
+              )}
+              {crashed && (
+                <button type="button" className="btn-ghost btn-small" onClick={() => setShowLog(true)}>
+                  View log
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       {showLog && crashed && <LogsDialog install={crashed} onClose={() => setShowLog(false)} />}
       <PatchNotesCard />

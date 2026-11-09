@@ -24,6 +24,8 @@ const ALLOWED: Record<string, string[] | null> = {
   'launcher.mojang.com': null,
   'libraries.minecraft.net': null,
   'resources.download.minecraft.net': null,
+  // Mojang: the skin an account wears, for its picture in the launcher
+  'textures.minecraft.net': ['/texture/'],
   // Fabric: loader versions and libraries
   'meta.fabricmc.net': null,
   'maven.fabricmc.net': null,

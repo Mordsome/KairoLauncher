@@ -8,6 +8,7 @@ import { SettingsScreen } from './screens/SettingsScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { applyLook } from './state/look'
 import { selectLook, selectTheme, useStore } from './state/store'
+import { SignOutDialog } from './screens/SignOutDialog'
 import { VoidWarning } from './screens/VoidWarning'
 
 export function App() {
@@ -20,6 +21,7 @@ export function App() {
   const refreshKairo = useStore((s) => s.refreshKairo)
   const refreshCustom = useStore((s) => s.refreshCustom)
   const setAccounts = useStore((s) => s.setAccounts)
+  const refreshAccounts = useStore((s) => s.refreshAccounts)
   const loadSettings = useStore((s) => s.loadSettings)
   const setUpdate = useStore((s) => s.setUpdate)
   const setBgFiles = useStore((s) => s.setBgFiles)
@@ -39,6 +41,8 @@ export function App() {
     void window.kairo.auth.state().then((state) => {
       setAccounts(state)
       if (state.active) go('home')
+      // New names and skins for the account pictures, in the background.
+      if (state.accounts.length) void refreshAccounts()
     })
     void refreshVersions()
     void refreshKairo()
@@ -53,7 +57,7 @@ export function App() {
       offUpdate()
       offGame()
     }
-  }, [setBgFiles, setUpdate, setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, loadSettings, setAccounts, go])
+  }, [setBgFiles, setUpdate, setInfo, setGame, refreshVersions, refreshKairo, refreshCustom, loadSettings, setAccounts, refreshAccounts, go])
 
 
   return (
@@ -66,6 +70,7 @@ export function App() {
       <Rail />
       <TitleBar />
       <VoidWarning />
+      <SignOutDialog />
     </div>
   )
 }

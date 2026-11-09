@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS: LauncherSettings = {
   showPatchNotes: true,
   sharedMinecraft: false,
   reduceMotion: false,
+  homeLayout: 'classic',
   lastSelection: null
 }
 
@@ -97,6 +98,7 @@ export function cleanSettings(raw: unknown): LauncherSettings {
     showPatchNotes: bool('showPatchNotes'),
     sharedMinecraft: bool('sharedMinecraft'),
     reduceMotion: bool('reduceMotion'),
+    homeLayout: oneOf(r['homeLayout'], ['classic', 'centre', 'panel', 'compact'], DEFAULT_SETTINGS.homeLayout),
     lastSelection
   }
 }

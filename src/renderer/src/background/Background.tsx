@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import type { BackgroundSettings } from '../../../shared/api'
+import type { BackgroundSettings, BackgroundSlot } from '../../../shared/api'
 import { fieldColours } from '../state/look'
-import { selectLook, selectTheme, useStore } from '../state/store'
+import { selectLook, selectPictureInstall, selectTheme, useStore } from '../state/store'
 import { PixelField, trailPeak, trailRadius } from './pixelField'
 
 // The one background behind every screen: the Pixel field, Aurora, or the
-// player's own picture. Changing it crossfades (CSS). Custom pictures come
-// only through kairo-bg://, which serves the two stored files and nothing else.
+// player's own picture, and an install's own picture while it's selected.
+// Changing it crossfades (CSS). Pictures come only through kairo-bg://, which
+// serves the stored files and nothing else.
 
 const W = 1280
 const H = 760
@@ -18,8 +19,20 @@ export function previewTrail(): void {
   field?.preview()
 }
 
-export function pictureUrl(slot: 'main' | 'void', version: number): string {
-  return `${slot === 'main' ? 'kairo-bg://current' : 'kairo-bg://void'}/?v=${version}`
+export function pictureUrl(slot: BackgroundSlot, version: number): string {
+  if (slot === 'main') return `kairo-bg://current/?v=${version}`
+  if (slot === 'void') return `kairo-bg://void/?v=${version}`
+  const [kind, id] = slot.split(':')
+  return `kairo-bg://${kind}/${id}?v=${version}`
+}
+
+/** The install pictures to keep on the page: the one shown now and the one before (so they crossfade). */
+function useRecentPictures(id: string | null): string[] {
+  const [recent, setRecent] = useState<string[]>(id ? [id] : [])
+  useEffect(() => {
+    if (id) setRecent((r) => (r[0] === id ? r : [id, ...r.filter((x) => x !== id)].slice(0, 2)))
+  }, [id])
+  return recent
 }
 
 /** The system's "reduce motion" preference, kept up to date. */
@@ -45,14 +58,19 @@ export function Background() {
   const theme = useStore(selectTheme)
   const look = useStore(selectLook)
   const files = useStore((s) => s.bgFiles)
+  const pictureInstall = useStore(selectPictureInstall)
+  const recent = useRecentPictures(pictureInstall)
   const problem = useStore((s) => s.bgProblem)
   const setProblem = useStore((s) => s.setBgProblem)
   const reduced = useReducedMotion()
 
   const main = files?.main ?? null
   const customOk = bg.kind === 'custom' && main !== null && problem === null
-  const kind = bg.kind === 'custom' && !customOk ? 'pixels' : bg.kind
-  const showPixels = kind === 'pixels' || (kind === 'custom' && bg.pixelsOnTop)
+  const chosen = bg.kind === 'custom' && !customOk ? 'pixels' : bg.kind
+  // An install's own picture takes the place of the background; the Pixel field stays on top of it if it was on.
+  const own = pictureInstall !== null
+  const kind = own ? 'custom' : chosen
+  const showPixels = chosen === 'pixels' || (chosen === 'custom' && bg.pixelsOnTop)
   const isVoid = theme === 'void'
   const voidPicture = bg.separateVoid ? (files?.void ?? null) : null
 
@@ -112,8 +130,14 @@ export function Background() {
       </div>
 
       <div className="bd-layer bd-custom" data-on={kind === 'custom'}>
-        {main && <Picture url={pictureUrl('main', main.version)} settings={bg} still={reduced} visible={!(isVoid && voidPicture)} />}
-        {voidPicture && <Picture url={pictureUrl('void', voidPicture.version)} settings={bg} still={reduced} visible={isVoid} />}
+        {main && <Picture url={pictureUrl('main', main.version)} settings={bg} still={reduced} visible={!own && !(isVoid && voidPicture)} />}
+        {voidPicture && <Picture url={pictureUrl('void', voidPicture.version)} settings={bg} still={reduced} visible={!own && isVoid} />}
+        {recent.map((id) => {
+          const file = files?.installs[id]
+          return file ? (
+            <Picture key={id} url={pictureUrl(`install:${id}`, file.version)} settings={bg} still={reduced} visible={id === pictureInstall} />
+          ) : null
+        })}
         <div className="bd-dim" style={{ background: `rgba(0, 0, 0, ${bg.dim / 100})` }} />
       </div>
 

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { InstalledMod, ModHit, ModsResult } from '../../../shared/api'
+import type { InstalledMod, ModHit, ModsResult, ModSort } from '../../../shared/api'
+import { ChevronIcon } from '../components/Icons'
+import { Menu } from '../components/Menu'
 import { Modal } from '../components/Modal'
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
 import { Switch } from '../components/Switch'
@@ -32,10 +34,14 @@ export function ModsDialog({ install, onClose }: { install: Install; onClose(): 
     void window.kairo.mods.list(install.id).then(apply)
   }, [install.id])
 
-  const act = async (key: string, work: () => Promise<ModsResult>) => {
+  const act = async (key: string, work: () => Promise<ModsResult>): Promise<boolean> => {
     setBusy(key)
     try {
-      apply(await work())
+      const r = await work()
+      apply(r)
+      return r.ok
+    } catch {
+      return false
     } finally {
       setBusy(null)
     }
@@ -129,13 +135,27 @@ export function ModsDialog({ install, onClose }: { install: Install; onClose(): 
           ))}
         </div>
       ) : (
-        <FindMods install={install} busy={busy} installed={new Set(mods?.map((m) => m.project).filter((p): p is string => !!p))} onInstall={(hit) =>
-          void act(`install:${hit.id}`, () => window.kairo.mods.install(install.id, hit.id))
-        } />
+        <FindMods
+          install={install}
+          busy={busy}
+          installed={new Set(mods?.map((m) => m.project).filter((p): p is string => !!p))}
+          onInstall={(ids) => act('install', () => window.kairo.mods.install(install.id, ids))}
+        />
       )}
     </Modal>
   )
 }
+
+const SORTS: [ModSort, string][] = [
+  ['relevance', 'Best match'],
+  ['downloads', 'Most downloaded'],
+  ['follows', 'Most followed'],
+  ['newest', 'Newest'],
+  ['updated', 'Recently updated']
+]
+
+/** A mod picked to install: being checked, fine (with the version it gets), or with nothing for this version. */
+type Pick = { title: string; state: 'checking' } | { title: string; state: 'ok'; version: string } | { title: string; state: 'none'; message: string }
 
 function FindMods({
   install,
@@ -146,20 +166,26 @@ function FindMods({
   install: Install
   busy: string | null
   installed: Set<string>
-  onInstall(hit: ModHit): void
+  /** True when they were installed. */
+  onInstall(ids: string[]): Promise<boolean>
 }) {
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<ModSort>('relevance')
+  const [sortMenu, setSortMenu] = useState<{ x: number; y: number } | null>(null)
   const [hits, setHits] = useState<ModHit[] | null>(null)
   const [total, setTotal] = useState(0)
   const [problem, setProblem] = useState<Problem>(null)
+  const [picked, setPicked] = useState<Map<string, Pick>>(new Map())
   const latest = useRef(0)
 
   const search = (q: string, offset: number) => {
     const ticket = ++latest.current
-    void window.kairo.mods.search(install.id, q, offset).then((r) => {
+    if (offset === 0) setHits(null)
+    void window.kairo.mods.search(install.id, q, offset, sort).then((r) => {
       if (ticket !== latest.current) return // a newer search already started
       if (!r.ok) {
         setProblem(r.error)
+        setHits((h) => h ?? [])
         return
       }
       setProblem(null)
@@ -172,22 +198,88 @@ function FindMods({
   useEffect(() => {
     const timer = setTimeout(() => search(query, 0), query ? 350 : 0)
     return () => clearTimeout(timer)
-  }, [query, install.id])
+  }, [query, sort, install.id])
+
+  const setPick = (id: string, pick: Pick | null) =>
+    setPicked((before) => {
+      const next = new Map(before)
+      if (pick) next.set(id, pick)
+      else next.delete(id)
+      return next
+    })
+
+  // Picking a mod checks that Modrinth really has a file for this loader and version.
+  const toggle = (h: ModHit) => {
+    if (picked.has(h.id)) {
+      setPick(h.id, null)
+      return
+    }
+    setPick(h.id, { title: h.title, state: 'checking' })
+    void window.kairo.mods.check(install.id, h.id).then(
+      (r) =>
+        setPicked((before) => {
+          if (!before.has(h.id)) return before // un-picked meanwhile
+          const next = new Map(before)
+          next.set(h.id, r.ok ? { title: h.title, state: 'ok', version: r.version } : { title: h.title, state: 'none', message: r.message })
+          return next
+        }),
+      () => setPick(h.id, { title: h.title, state: 'none', message: "Couldn't check it" })
+    )
+  }
+
+  const okPicks = [...picked].filter((e): e is [string, Extract<Pick, { state: 'ok' }>] => e[1].state === 'ok')
+  const ready = okPicks.map(([id]) => id)
+  const checking = [...picked.values()].some((p) => p.state === 'checking')
+  const installing = busy === 'install'
+  const mods = (n: number) => (n === 1 ? 'mod' : 'mods')
+
+  const installPicked = async () => {
+    const ids = ready
+    // If it fails, the picks stay (the reason shows at the top).
+    if (!(await onInstall(ids))) return
+    setPicked((before) => new Map([...before].filter(([id]) => !ids.includes(id))))
+  }
 
   const loaderName = install.loader ? LOADERS[install.loader].name : ''
+  const sortName = SORTS.find(([id]) => id === sort)?.[1] ?? ''
   return (
     <div id="mods-panel-find" role="tabpanel" aria-labelledby="mods-tab-find" className="mods-find">
-      <input
-        className="text-input"
-        type="search"
-        spellCheck={false}
-        value={query}
-        maxLength={100}
-        placeholder={`Search Modrinth for ${loaderName} ${install.mc} mods`}
-        aria-label="Search mods"
-        onChange={(e) => setQuery(e.target.value)}
-        data-autofocus
-      />
+      <div className="mods-search-row">
+        <input
+          className="text-input"
+          type="search"
+          spellCheck={false}
+          value={query}
+          maxLength={100}
+          placeholder={`Search Modrinth for ${loaderName} ${install.mc} mods`}
+          aria-label="Search mods"
+          onChange={(e) => setQuery(e.target.value)}
+          data-autofocus
+        />
+        <button
+          type="button"
+          className="btn-ghost mods-sort"
+          aria-haspopup="menu"
+          aria-expanded={sortMenu !== null}
+          aria-label={`Sort: ${sortName}`}
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            setSortMenu({ x: r.left, y: r.bottom + 6 })
+          }}
+        >
+          <span className="mods-sort-label">Sort</span>
+          {sortName}
+          <ChevronIcon />
+        </button>
+      </div>
+      {sortMenu && (
+        <Menu
+          label="Sort mods"
+          at={sortMenu}
+          onClose={() => setSortMenu(null)}
+          items={SORTS.map(([id, name]) => ({ label: name, checked: id === sort, onSelect: () => setSort(id) }))}
+        />
+      )}
       {problem && (
         <p className="modal-error" role="alert">
           <b>{problem.title}</b> {problem.message}
@@ -195,12 +287,19 @@ function FindMods({
       )}
       <div className="mods-list scroll" aria-busy={hits === null}>
         {hits === null && <span className="field-label">Searching Modrinth…</span>}
-        {hits?.length === 0 && <p className="modal-note">Nothing on Modrinth matches that for {loaderName} {install.mc}.</p>}
+        {hits?.length === 0 && !problem && (
+          <p className="modal-note">
+            Nothing on Modrinth matches that for {loaderName} {install.mc}.
+          </p>
+        )}
         {hits?.map((h) => {
           const have = h.installed || installed.has(h.slug)
-          const working = busy === `install:${h.id}`
+          const pick = picked.get(h.id)
+          const on = !!pick && pick.state !== 'none'
+          const status =
+            pick?.state === 'checking' ? 'Checking…' : pick?.state === 'ok' ? `Gets ${pick.version}` : pick?.state === 'none' ? pick.message : null
           return (
-            <div key={h.id} className="mod-hit">
+            <div key={h.id} className="mod-hit" data-picked={on || undefined}>
               {h.hasIcon ? (
                 <img className="mod-icon" src={`kairo-icon://modrinth/${h.id}`} alt="" width={44} height={44} loading="lazy" />
               ) : (
@@ -210,18 +309,30 @@ function FindMods({
                 <b>{h.title}</b>
                 <span className="mod-item-sub">
                   by {h.author} · {downloads(h.downloads)}
+                  {status && (
+                    <span className="mod-tag" data-tone={pick?.state === 'none' ? 'bad' : pick?.state === 'ok' ? 'ok' : undefined}>
+                      {status}
+                    </span>
+                  )}
                 </span>
                 <span className="mod-desc">{h.description}</span>
               </span>
-              <button
-                type="button"
-                className={have ? 'btn-ghost btn-small' : 'btn-accent btn-small'}
-                disabled={have || busy !== null}
-                aria-label={have ? `${h.title} is installed` : `Install ${h.title}`}
-                onClick={() => onInstall(h)}
-              >
-                {have ? 'Installed' : working ? 'Installing…' : 'Install'}
-              </button>
+              {have ? (
+                <button type="button" className="btn-ghost btn-small" disabled aria-label={`${h.title} is installed`}>
+                  Installed
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={on ? 'btn-accent btn-small mod-pick' : 'btn-ghost btn-small mod-pick'}
+                  aria-pressed={on}
+                  disabled={installing || pick?.state === 'none'}
+                  aria-label={on ? `Unpick ${h.title}` : `Pick ${h.title}`}
+                  onClick={() => toggle(h)}
+                >
+                  {pick?.state === 'none' ? 'Not available' : on ? 'Picked' : 'Pick'}
+                </button>
+              )}
             </div>
           )
         })}
@@ -230,6 +341,30 @@ function FindMods({
             Show more
           </button>
         )}
+      </div>
+      <div className="mods-tray" role="status">
+        <span className="mods-tray-text">
+          {installing
+            ? `Installing ${ready.length} ${mods(ready.length)} and what they need…`
+            : ready.length
+              ? `${ready.length} picked: ${okPicks.map(([, p]) => p.title).join(', ')}`
+              : checking
+                ? 'Checking…'
+                : `Pick a few mods, then install them together. Only ${loaderName} ${install.mc} files are used.`}
+        </span>
+        {picked.size > 0 && (
+          <button type="button" className="btn-ghost btn-small" disabled={installing} onClick={() => setPicked(new Map())}>
+            Clear
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn-accent btn-small"
+          disabled={installing || checking || ready.length === 0}
+          onClick={() => void installPicked()}
+        >
+          {installing ? 'Installing…' : ready.length ? `Install ${ready.length} ${mods(ready.length)}` : 'Install'}
+        </button>
       </div>
     </div>
   )

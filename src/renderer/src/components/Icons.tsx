@@ -92,3 +92,11 @@ export function CloseIcon() {
     </svg>
   )
 }
+
+export function ChevronIcon() {
+  return (
+    <svg {...base} width="12" height="12" viewBox="0 0 12 12">
+      <path d="M2.5 4.5l3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}

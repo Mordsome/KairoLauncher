@@ -9,7 +9,9 @@ import {
   type InstallLook,
   type LibraryResult,
   type LogView,
+  type ModCheck,
   type ModSearchResult,
+  type ModSort,
   type ModsResult,
   type UpdateState,
   type CreateCustomRequest,
@@ -86,19 +88,21 @@ const api: KairoApi = {
   },
   mods: {
     list: (id: string) => ipcRenderer.invoke(IPC.modsList, String(id)) as Promise<ModsResult>,
-    search: (id: string, query: string, offset: number) =>
-      ipcRenderer.invoke(IPC.modsSearch, String(id), String(query), Number(offset)) as Promise<ModSearchResult>,
-    install: (id: string, projectId: string) => ipcRenderer.invoke(IPC.modsInstall, String(id), String(projectId)) as Promise<ModsResult>,
+    search: (id: string, query: string, offset: number, sort: ModSort) =>
+      ipcRenderer.invoke(IPC.modsSearch, String(id), String(query), Number(offset), String(sort)) as Promise<ModSearchResult>,
+    check: (id: string, projectId: string) => ipcRenderer.invoke(IPC.modsCheck, String(id), String(projectId)) as Promise<ModCheck>,
+    install: (id: string, projectIds: string[]) =>
+      ipcRenderer.invoke(IPC.modsInstall, String(id), Array.isArray(projectIds) ? projectIds.map(String) : []) as Promise<ModsResult>,
     setEnabled: (id: string, file: string, enabled: boolean) =>
       ipcRenderer.invoke(IPC.modsSetEnabled, String(id), String(file), Boolean(enabled)) as Promise<ModsResult>,
     remove: (id: string, file: string) => ipcRenderer.invoke(IPC.modsRemove, String(id), String(file)) as Promise<ModsResult>
   },
   background: {
     files: () => ipcRenderer.invoke(IPC.backgroundFiles) as Promise<BackgroundFiles>,
-    pick: (slot: BackgroundSlot) => ipcRenderer.invoke(IPC.backgroundPick, slot) as Promise<BackgroundResult>,
+    pick: (slot: BackgroundSlot) => ipcRenderer.invoke(IPC.backgroundPick, String(slot)) as Promise<BackgroundResult>,
     importBytes: (slot: BackgroundSlot, bytes: Uint8Array) =>
-      ipcRenderer.invoke(IPC.backgroundImport, slot, bytes instanceof Uint8Array ? bytes : new Uint8Array(0)) as Promise<BackgroundResult>,
-    remove: (slot: BackgroundSlot) => ipcRenderer.invoke(IPC.backgroundRemove, slot) as Promise<BackgroundFiles>
+      ipcRenderer.invoke(IPC.backgroundImport, String(slot), bytes instanceof Uint8Array ? bytes : new Uint8Array(0)) as Promise<BackgroundResult>,
+    remove: (slot: BackgroundSlot) => ipcRenderer.invoke(IPC.backgroundRemove, String(slot)) as Promise<BackgroundFiles>
   },
   settings: {
     get: () => ipcRenderer.invoke(IPC.settingsGet) as Promise<LauncherSettings>,
@@ -110,7 +114,8 @@ const api: KairoApi = {
     signIn: () => ipcRenderer.invoke(IPC.authSignIn) as Promise<SignInResult>,
     cancel: () => ipcRenderer.invoke(IPC.authCancel) as Promise<void>,
     switchTo: (uuid: string) => ipcRenderer.invoke(IPC.authSwitch, String(uuid)) as Promise<AccountsState>,
-    signOut: (uuid: string) => ipcRenderer.invoke(IPC.authSignOut, String(uuid)) as Promise<AccountsState>
+    signOut: (uuid: string) => ipcRenderer.invoke(IPC.authSignOut, String(uuid)) as Promise<AccountsState>,
+    refresh: () => ipcRenderer.invoke(IPC.authRefresh) as Promise<AccountsState>
   },
   kairo: {
     status: () => ipcRenderer.invoke(IPC.kairoStatus) as Promise<KairoStatus>,

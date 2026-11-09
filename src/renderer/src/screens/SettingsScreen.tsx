@@ -1,4 +1,7 @@
-import type { UpdateState } from '../../../shared/api'
+import { useState } from 'react'
+import type { HomeLayout, UpdateState } from '../../../shared/api'
+import { Avatar } from '../components/Avatar'
+import { Menu } from '../components/Menu'
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
 import { Switch, SwitchRow } from '../components/Switch'
 import { BackgroundSection } from './BackgroundSettings'
@@ -168,6 +171,7 @@ function LauncherTab() {
   const update = useStore((s) => s.updateSettings)
   return (
     <>
+      <HomeLayoutPicker value={settings.homeLayout} onChange={(homeLayout) => update({ homeLayout })} />
       <BackgroundSection />
       <SwitchRow
         label="Show Kairo patch notes on Home"
@@ -191,6 +195,55 @@ function LauncherTab() {
   )
 }
 
+const LAYOUTS: { id: HomeLayout; name: string; desc: string }[] = [
+  { id: 'classic', name: 'Classic', desc: 'Big title on the left, Play below it' },
+  { id: 'centre', name: 'Centred', desc: 'Everything in the middle' },
+  { id: 'panel', name: 'Side panel', desc: 'A panel on the right, the background free' },
+  { id: 'compact', name: 'Bottom bar', desc: 'One slim bar along the bottom' }
+]
+
+/** How Home is laid out, each with a small drawing of it. */
+function HomeLayoutPicker({ value, onChange }: { value: HomeLayout; onChange(layout: HomeLayout): void }) {
+  return (
+    <div className="card">
+      <span className="setting-name" id="home-layout-label">
+        Home layout
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby="home-layout-label"
+        className="layouts"
+        data-roving
+        onKeyDown={(e) => rovingKeyDown(e, { select: true })}
+      >
+        {LAYOUTS.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            role="radio"
+            className="layout-tile"
+            aria-checked={value === l.id}
+            aria-label={l.name}
+            aria-describedby={`layout-${l.id}-desc`}
+            tabIndex={rovingTabIndex(value === l.id)}
+            onClick={() => onChange(l.id)}
+          >
+            <span className="layout-mini" data-layout={l.id} aria-hidden="true">
+              <i className="lm-title" />
+              <i className="lm-text" />
+              <i className="lm-play" />
+            </span>
+            <b>{l.name}</b>
+            <span id={`layout-${l.id}-desc`} className="layout-desc">
+              {l.desc}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function secureStoreName(platform: string | undefined): string {
   if (platform === 'darwin') return 'the macOS Keychain'
   if (platform === 'linux') return "your desktop's keyring"
@@ -201,50 +254,77 @@ function AccountTab() {
   const accounts = useStore((s) => s.accounts)
   const account = useStore((s) => s.account)
   const switchAccount = useStore((s) => s.switchAccount)
-  const signOut = useStore((s) => s.signOut)
+  const askSignOut = useStore((s) => s.askSignOut)
   const addAccount = useStore((s) => s.addAccount)
   const busy = useStore((s) => s.game.phase !== 'idle')
   const info = useStore((s) => s.info)
   const list = accounts?.accounts ?? []
+  const active = list.find((a) => a.uuid === accounts?.active)
+  const others = list.filter((a) => a !== active)
+  const [problem, setProblem] = useState<{ title: string; message: string } | null>(null)
 
   return (
     <>
       {list.length === 0 && account?.uuid === null && (
-        <div className="card account-card">
-          <span className="avatar" aria-hidden="true">
-            {account.name.slice(0, 1).toUpperCase()}
-          </span>
+        <div className="card account-hero">
+          <Avatar uuid={null} name={account.name} skin={false} className="avatar-hero" />
           <span className="account-text">
+            <span className="account-kicker">Playing now</span>
             <b className="account-name">{account.name}</b>
             <span className="setting-desc">Offline dev account · only in development builds</span>
           </span>
         </div>
       )}
 
-      <ul className="account-list" aria-label="Minecraft accounts">
-        {list.map((a) => {
-          const isActive = a.uuid === accounts?.active
-          return (
-            <li key={a.uuid} className="card account-card" data-active={isActive}>
-              <span className="avatar" aria-hidden="true">
-                {a.name.slice(0, 1).toUpperCase()}
-              </span>
-              <span className="account-text">
-                <b className="account-name">{a.name}</b>
-                <span className="setting-desc">{isActive ? 'Plays now · Microsoft account' : 'Microsoft account'}</span>
-              </span>
-              {!isActive && (
-                <button type="button" className="btn-accent account-use" disabled={busy} onClick={() => switchAccount(a.uuid)} aria-label={`Play as ${a.name}`}>
+      {active && (
+        <div className="card account-hero" data-active="true">
+          <Avatar uuid={active.uuid} name={active.name} skin={active.skin} className="avatar-hero" />
+          <span className="account-text">
+            <span className="account-kicker">Playing now</span>
+            <b className="account-name">{active.name}</b>
+            <span className="setting-desc">Microsoft account</span>
+          </span>
+          <span className="account-actions">
+            <PictureButton uuid={active.uuid} name={active.name} onProblem={setProblem} />
+            <button type="button" className="btn-ghost" onClick={() => askSignOut(active.uuid)} aria-label={`Sign out of ${active.name}`}>
+              Sign out
+            </button>
+          </span>
+        </div>
+      )}
+      {problem && (
+        <p className="detail-error" role="alert">
+          <b>{problem.title}.</b> {problem.message}
+        </p>
+      )}
+
+      {others.length > 0 && (
+        <>
+          <span className="field-label account-others">Other accounts</span>
+          <ul className="account-list" aria-label="Other Minecraft accounts">
+            {others.map((a) => (
+              <li key={a.uuid} className="card account-card">
+                <Avatar uuid={a.uuid} name={a.name} skin={a.skin} className="avatar-row" />
+                <span className="account-text">
+                  <b className="account-row-name">{a.name}</b>
+                  <span className="setting-desc">Microsoft account</span>
+                </span>
+                <button
+                  type="button"
+                  className="btn-accent account-use"
+                  disabled={busy}
+                  title={busy ? 'Close the game to switch' : undefined}
+                  onClick={() => switchAccount(a.uuid)}
+                  aria-label={`Play as ${a.name}`}
+                >
                   Play as {a.name}
                 </button>
-              )}
-              <button type="button" className="btn-ghost" disabled={busy && isActive} onClick={() => signOut(a.uuid)} aria-label={`Sign out ${a.name}`}>
-                Sign out
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+                <AccountMore uuid={a.uuid} name={a.name} onProblem={setProblem} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       <button type="button" className="btn-ghost account-add" onClick={addAccount}>
         Add another account
@@ -253,7 +333,97 @@ function AccountTab() {
       <p className="prose">
         You sign in on Microsoft's own page. The launcher never sees your password, and it keeps each account's sign-in
         tokens in your system's secure storage ({secureStoreName(info?.platform)}), not in a file. Signing out deletes them.
+        Account pictures are the head of the skin you wear (from Mojang), or a picture you choose, kept on this PC only.
       </p>
+    </>
+  )
+}
+
+type OnProblem = (p: { title: string; message: string } | null) => void
+
+/** Choose a picture for an account, or go back to its skin head. */
+function usePicture(uuid: string, onProblem: OnProblem) {
+  const own = useStore((s) => !!s.bgFiles?.accounts[uuid])
+  const setBgFiles = useStore((s) => s.setBgFiles)
+  const slot = `account:${uuid}` as const
+  const choose = async () => {
+    const r = await window.kairo.background.pick(slot)
+    if (r.ok) {
+      setBgFiles(r.files)
+      onProblem(null)
+    } else if (!r.cancelled) onProblem(r.error)
+  }
+  const reset = async () => {
+    setBgFiles(await window.kairo.background.remove(slot))
+    onProblem(null)
+  }
+  return { own, choose, reset }
+}
+
+function PictureButton({ uuid, name, onProblem }: { uuid: string; name: string; onProblem: OnProblem }) {
+  const { own, choose, reset } = usePicture(uuid, onProblem)
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null)
+  return (
+    <>
+      <button
+        type="button"
+        className="btn-ghost"
+        aria-haspopup="menu"
+        aria-expanded={at !== null}
+        aria-label={`Change the picture for ${name}`}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect()
+          setAt({ x: r.left, y: r.bottom + 6 })
+        }}
+      >
+        Change picture
+      </button>
+      {at && (
+        <Menu
+          label={`Picture for ${name}`}
+          at={at}
+          onClose={() => setAt(null)}
+          items={[
+            { label: 'Choose a picture…', hint: 'PNG, JPG, WebP or GIF', onSelect: () => void choose() },
+            { label: 'Use my skin', hint: 'The head of the skin you wear', disabled: !own, onSelect: () => void reset() }
+          ]}
+        />
+      )}
+    </>
+  )
+}
+
+function AccountMore({ uuid, name, onProblem }: { uuid: string; name: string; onProblem: OnProblem }) {
+  const { own, choose, reset } = usePicture(uuid, onProblem)
+  const askSignOut = useStore((s) => s.askSignOut)
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null)
+  return (
+    <>
+      <button
+        type="button"
+        className="detail-dots"
+        aria-haspopup="menu"
+        aria-expanded={at !== null}
+        aria-label={`More for ${name}`}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect()
+          setAt({ x: r.right - 200, y: r.bottom + 6 })
+        }}
+      >
+        ⋯
+      </button>
+      {at && (
+        <Menu
+          label={`More for ${name}`}
+          at={at}
+          onClose={() => setAt(null)}
+          items={[
+            { label: 'Choose a picture…', onSelect: () => void choose() },
+            { label: 'Use my skin', disabled: !own, onSelect: () => void reset() },
+            { label: 'Sign out…', danger: true, separated: true, onSelect: () => askSignOut(uuid) }
+          ]}
+        />
+      )}
     </>
   )
 }
@@ -264,7 +434,7 @@ function PrivacyTab() {
     <div className="card list-card">
       <b className="list-card-title">What the launcher talks to</b>
       <ul>
-        <li>Microsoft, Xbox and Mojang, to sign you in and download Minecraft and the Java it runs on.</li>
+        <li>Microsoft, Xbox and Mojang, to sign you in, download Minecraft and the Java it runs on, and show your skin's head as your account picture.</li>
         <li>Fabric, NeoForge and Forge, to download mod loaders from their official servers.</li>
         <li>Modrinth, to find and download mods and modpacks.</li>
         <li>GitHub, for Kairo, its patch notes and launcher updates.</li>

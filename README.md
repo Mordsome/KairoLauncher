@@ -147,8 +147,25 @@ shows the game's output, live while it runs.
 **Appearance** gives an install its own look: an accent colour (ready-made ones or any colour)
 and corners (Round, Soft or Sharp). The launcher, the Pixel field and Aurora take that look
 whenever the install is selected. Kairo Void is violet with sharp corners unless you change it.
-Too dark or too light colours are adjusted so text stays readable. Settings → Launcher →
+Too dark or too light colours are adjusted so text stays readable. An install can also have its
+own **background picture**, shown behind the launcher while it's selected (the Pixel field stays on
+top if it's on; dim, blur and fit come from Settings). Pictures are checked by their real type
+and size, copied into the launcher's data folder and shown only through `kairo-bg://`; a
+duplicate gets its own copy and deleting the install deletes it. Settings → Launcher →
 "Match the selected install" turns this off.
+
+**Home layouts** (Settings → Launcher): Classic (big title on the left), Centred, Side panel
+(one panel on the right, the background free) and Bottom bar.
+
+### Accounts
+
+The account button at the bottom of the rail opens a small menu: switch account, add one, or
+**Manage accounts** (Settings → Account, with the account that plays on top and the others
+below). Signing out always asks first. Each account's picture is the head of the skin it wears:
+the launcher reads which skin from the Minecraft profile it already fetches, downloads only that
+skin from Mojang's texture server (`textures.minecraft.net/texture/`), checks it's a real
+64 × 64 skin and keeps it in the data folder; signing out deletes it. You can choose a picture
+of your own instead, kept on this PC only.
 
 Settings and the last selection are saved in `settings.json`. Every field is checked when it's
 read and written; a file that can't be read is set aside as `settings.json.broken-<time>` and
@@ -161,7 +178,11 @@ offers **Open crash report** (only a report inside that install's folder) and **
 ### Mods
 
 In the Library, Fabric, NeoForge and Forge installs have a **Mods** button: search Modrinth (only
-mods made for that install's loader and Minecraft version), install with required dependencies
+mods made for that install's loader and Minecraft version), sorted by best match, downloads,
+followers, newest or recently updated. Pick several and install them together. Modrinth's search
+matches loader and version separately, so every pick is also checked for a file made for exactly
+that loader and version (a mod with only Forge 1.12.2 files never gets into a Fabric 26.3
+install). Installs come with required dependencies
 (each file checked against Modrinth's SHA-512), turn mods on and off (a turned-off mod is renamed
 `.jar.disabled`, which loaders skip, and Play keeps it that way) or remove them. Mods added here
 follow the install to a new Minecraft version. Icons come through `kairo-icon://`, which only

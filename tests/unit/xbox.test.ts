@@ -38,7 +38,7 @@ describe('minecraftFromMicrosoft', () => {
   it('goes Microsoft -> Xbox -> XSTS -> Minecraft and returns the profile', async () => {
     const { fn, seen } = fakeFetch()
     const session = await minecraftFromMicrosoft('ms-token', fn)
-    expect(session.profile).toEqual({ id: '0123456789abcdef0123456789abcdef', name: 'Steve' })
+    expect(session.profile).toEqual({ id: '0123456789abcdef0123456789abcdef', name: 'Steve', skin: null })
     expect(session.accessToken).toBe('mc-token')
     expect(JSON.parse(seen[0]!.body!).Properties.RpsTicket).toBe('d=ms-token')
     expect(JSON.parse(seen[2]!.body!).identityToken).toBe('XBL3.0 x=hash;xsts')

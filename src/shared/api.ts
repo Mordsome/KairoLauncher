@@ -18,6 +18,7 @@ export const IPC = {
   authCancel: 'auth:cancel',
   authSwitch: 'auth:switch',
   authSignOut: 'auth:sign-out',
+  authRefresh: 'auth:refresh',
   loaderVersions: 'loaders:versions',
   loaderExtras: 'loaders:extras',
   loaderOpenDownloadPage: 'loaders:open-download-page',
@@ -46,6 +47,7 @@ export const IPC = {
   modsList: 'mods:list',
   modsSearch: 'mods:search',
   modsInstall: 'mods:install',
+  modsCheck: 'mods:check',
   modsSetEnabled: 'mods:set-enabled',
   modsRemove: 'mods:remove'
 } as const
@@ -55,6 +57,8 @@ export interface AccountSummary {
   uuid: string
   /** Minecraft player name. */
   name: string
+  /** The skin they wear is known, so kairo-bg://skin/<uuid> can show their head. */
+  skin: boolean
 }
 
 export interface AccountsState {
@@ -143,12 +147,18 @@ export interface BackgroundFile {
 export interface BackgroundFiles {
   main: BackgroundFile | null
   void: BackgroundFile | null
+  /** Each install's own picture, by install id. */
+  installs: Record<string, BackgroundFile>
+  /** Each account's own picture, by UUID (instead of the skin head). */
+  accounts: Record<string, BackgroundFile>
 }
-export type BackgroundSlot = 'main' | 'void'
+export type BackgroundSlot = 'main' | 'void' | `install:${string}` | `account:${string}`
 export type BackgroundResult =
   | { ok: true; files: BackgroundFiles }
   | { ok: false; cancelled: true }
   | { ok: false; cancelled: false; error: { title: string; message: string } }
+
+export type HomeLayout = 'classic' | 'centre' | 'panel' | 'compact'
 
 export interface LauncherSettings {
   memoryGB: number
@@ -168,6 +178,8 @@ export interface LauncherSettings {
   sharedMinecraft: boolean
   /** Still backgrounds (also on when the system asks for less motion). */
   reduceMotion: boolean
+  /** How Home is laid out. */
+  homeLayout: HomeLayout
   /** What was selected on Home, restored at the next start. */
   lastSelection: { edition: 'kairo' | 'void' | 'lite' | 'vanilla' | 'other'; mc: string; installId: string | null } | null
 }
@@ -256,6 +268,12 @@ export interface ModHit {
   hasIcon: boolean
   installed: boolean
 }
+
+/** Modrinth's search orders. */
+export type ModSort = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated'
+
+/** Whether Modrinth has a file of a mod for this install's loader and Minecraft version. */
+export type ModCheck = { ok: true; version: string } | { ok: false; message: string }
 
 export interface ModSearch {
   hits: ModHit[]
@@ -394,8 +412,11 @@ export interface KairoApi {
   mods: {
     list(installId: string): Promise<ModsResult>
     /** Modrinth, for this install's loader and Minecraft version only. */
-    search(installId: string, query: string, offset: number): Promise<ModSearchResult>
-    install(installId: string, projectId: string): Promise<ModsResult>
+    search(installId: string, query: string, offset: number, sort: ModSort): Promise<ModSearchResult>
+    /** The version that would be installed, checked against this install's loader and version. */
+    check(installId: string, projectId: string): Promise<ModCheck>
+    /** One or more mods (up to 50), with what they require. */
+    install(installId: string, projectIds: string[]): Promise<ModsResult>
     setEnabled(installId: string, file: string, enabled: boolean): Promise<ModsResult>
     remove(installId: string, file: string): Promise<ModsResult>
   }
@@ -420,5 +441,7 @@ export interface KairoApi {
     cancel(): Promise<void>
     switchTo(uuid: string): Promise<AccountsState>
     signOut(uuid: string): Promise<AccountsState>
+    /** Picks up new names and skins (quietly; offline changes nothing). */
+    refresh(): Promise<AccountsState>
   }
 }

@@ -1,8 +1,15 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { TickIcon } from './Icons'
 
 export interface MenuItem {
   label: string
+  /** A second, smaller line. */
+  hint?: string
+  /** Drawn before the label (an account's head). */
+  icon?: ReactNode
+  /** One of a set (a sort order, the account that plays): shown with a tick. */
+  checked?: boolean
   onSelect(): void
   disabled?: boolean
   danger?: boolean
@@ -15,6 +22,8 @@ interface Props {
   items: MenuItem[]
   /** Where it opens: the cursor (right-click) or under a button. */
   at: { x: number; y: number }
+  /** Shown above the items. */
+  header?: ReactNode
   onClose(): void
 }
 
@@ -22,7 +31,9 @@ interface Props {
  * A small menu (the ⋯ button, or right-click). Arrow keys move, Enter picks,
  * Escape, Tab or a click outside closes it, and it always stays inside the window.
  */
-export function Menu({ label, items, at, onClose }: Props) {
+const ITEM = '[role^="menuitem"]'
+
+export function Menu({ label, items, at, onClose, header }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState(at)
 
@@ -34,7 +45,7 @@ export function Menu({ label, items, at, onClose }: Props) {
     const x = Math.max(8, Math.min(at.x, window.innerWidth - r.width - 8))
     const y = at.y + r.height > window.innerHeight - 8 ? Math.max(8, at.y - r.height) : at.y
     setPos({ x, y })
-    el.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')?.focus()
+    ;(el.querySelector<HTMLElement>(`${ITEM}[aria-checked="true"]:not([disabled])`) ?? el.querySelector<HTMLElement>(`${ITEM}:not([disabled])`))?.focus()
 
     const outside = (e: PointerEvent) => {
       if (!el.contains(e.target as Node)) onClose()
@@ -54,7 +65,7 @@ export function Menu({ label, items, at, onClose }: Props) {
   }, [at, onClose])
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const list = Array.from(box.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])') ?? [])
+    const list = Array.from(box.current?.querySelectorAll<HTMLButtonElement>(`${ITEM}:not([disabled])`) ?? [])
     const i = list.indexOf(document.activeElement as HTMLButtonElement)
     const go = (n: number) => {
       e.preventDefault()
@@ -80,11 +91,13 @@ export function Menu({ label, items, at, onClose }: Props) {
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {header}
       {items.map((item) => (
         <button
           key={item.label}
           type="button"
-          role="menuitem"
+          role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+          aria-checked={item.checked}
           tabIndex={-1}
           className="menu-item"
           data-danger={item.danger || undefined}
@@ -95,7 +108,12 @@ export function Menu({ label, items, at, onClose }: Props) {
             item.onSelect()
           }}
         >
-          {item.label}
+          {item.icon && <span className="menu-icon">{item.icon}</span>}
+          <span className="menu-text">
+            <span>{item.label}</span>
+            {item.hint && <span className="menu-hint">{item.hint}</span>}
+          </span>
+          {item.checked !== undefined && <span className="menu-tick">{item.checked && <TickIcon />}</span>}
         </button>
       ))}
     </div>,

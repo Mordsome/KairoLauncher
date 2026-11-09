@@ -54,6 +54,7 @@ test.beforeAll(async () => {
       showPatchNotes: true,
       sharedMinecraft: false,
       reduceMotion: false,
+      homeLayout: 'classic',
       lastSelection: null
     })
   )
@@ -135,6 +136,8 @@ test('main process only reaches allowed services, over HTTPS', async () => {
       otherGitHubRepo: await tryFetch('https://api.github.com/repos/torvalds/linux/releases'),
       otherGitHubPage: await tryFetch('https://github.com/torvalds'),
       kairoReleases: await tryFetch('https://api.github.com/repos/Mordsome/Kairo/releases?per_page=1'),
+      skin: await tryFetch('https://textures.minecraft.net/texture/31f477eb1a7beee631c2ca64d06f8f68fa93a3386d04452ab27f43acdf1b60cb'),
+      skinServerElsewhere: await tryFetch('https://textures.minecraft.net/'),
       // Allowed address that redirects somewhere that isn't (codeload.github.com): the hop is refused.
       redirectOffList: await tryFetch('https://api.github.com/repos/Mordsome/Kairo/tarball')
     }
@@ -145,6 +148,8 @@ test('main process only reaches allowed services, over HTTPS', async () => {
   expect(result.otherGitHubRepo).toMatch(/^blocked/)
   expect(result.otherGitHubPage).toMatch(/^blocked/)
   expect(result.kairoReleases).toBe('ok 200')
+  expect(result.skin).toBe('ok 200')
+  expect(result.skinServerElsewhere).toMatch(/^blocked/)
   expect(result.redirectOffList).toMatch(/^blocked: Refused to connect to codeload\.github\.com/)
 })
 
@@ -454,6 +459,27 @@ test('library: rename, duplicate, change version, logs, delete', async () => {
   await shot('16g-library-own-look')
   // Both backgrounds follow it: Aurora's glow is the accent, and so is the Pixel field's trail.
   expect(await page.evaluate(() => getComputedStyle(document.querySelector('.bd-blob-a')!).backgroundColor)).toBe('rgb(255, 209, 102)')
+  // Its own picture: shown behind the launcher while it's selected.
+  const picDir = mkdtempSync(join(tmpdir(), 'kairo-install-picture-'))
+  const pic = join(picDir, 'install.png')
+  writeFileSync(pic, stripesPng(320, 180))
+  await app.evaluate(({ dialog }, picked) => {
+    ;(dialog as unknown as { showOpenDialog: () => Promise<unknown> }).showOpenDialog = async () => ({ canceled: false, filePaths: [picked] })
+  }, pic)
+  await more('E2E Test Install copy', 'Appearance')
+  await look.getByRole('button', { name: 'Choose picture…' }).click()
+  await expect(look.getByRole('img', { name: 'Picture for E2E Test Install copy' })).toBeVisible()
+  await expect(page.locator('.bd-custom')).toHaveAttribute('data-on', 'true')
+  await shot('16h-library-appearance-picture')
+  await look.getByRole('button', { name: 'Save' }).click()
+  await expect(page.locator('.bd-custom')).toHaveAttribute('data-on', 'true')
+  const shown = await page.locator('.bd-custom .bd-picture').evaluateAll((els) =>
+    els.filter((e) => getComputedStyle(e).opacity === '1').map((e) => getComputedStyle(e).backgroundImage)
+  )
+  expect(shown.join(' ')).toContain(`kairo-bg://install/${copy.id}`)
+  await shot('16i-library-own-picture')
+  rmSync(picDir, { recursive: true, force: true })
+
   // A look that isn't one is refused.
   expect(
     await page.evaluate((id) => window.kairo.installs.setLook(id, { accent: 'red; x', rounding: 'soft' }).then(() => 'ok', () => 'rejected'), copy.id)
@@ -471,6 +497,8 @@ test('library: rename, duplicate, change version, logs, delete', async () => {
     await page.getByRole('button', { name: 'Move to Recycle Bin' }).click()
     await expect(row(name)).toHaveCount(0)
   }
+  // Deleting an install deletes its picture too.
+  expect(await page.evaluate(() => window.kairo.background.files().then((f) => Object.keys(f.installs)))).toEqual([])
   const trashed = await app.evaluate(() => (globalThis as unknown as { trashed: string[] }).trashed)
   expect(trashed).toHaveLength(2)
   for (const path of trashed) expect(path).toMatch(/[\\/]installs[\\/]/)
@@ -500,12 +528,35 @@ test('mods: find on Modrinth, install, turn off, remove', async () => {
 
   // Search shows only mods for this loader and version; icons come through kairo-icon://.
   await dialog.getByRole('tab', { name: 'Find mods' }).click()
+  // Sorting asks Modrinth again in that order.
+  await dialog.getByRole('button', { name: /^Sort: / }).click()
+  await page.getByRole('menuitemradio', { name: 'Newest' }).click()
+  await expect(dialog.getByRole('button', { name: 'Sort: Newest' })).toBeVisible()
+  await expect(dialog.locator('.mod-hit').first()).toBeVisible({ timeout: 20_000 })
+  await dialog.getByRole('button', { name: /^Sort: / }).click()
+  await page.getByRole('menuitemradio', { name: 'Best match' }).click()
+
+  // Pick two (from two searches), then install them together.
   await dialog.getByRole('searchbox', { name: 'Search mods' }).fill('mod menu')
-  const install = dialog.getByRole('button', { name: 'Install Mod Menu', exact: true })
-  await expect(install).toBeVisible({ timeout: 20_000 })
+  const pickMenu = dialog.getByRole('button', { name: 'Pick Mod Menu', exact: true })
+  await expect(pickMenu).toBeVisible({ timeout: 20_000 })
+  await pickMenu.click()
+  await expect(dialog.getByText(/^Gets /)).toBeVisible({ timeout: 20_000 })
+  await dialog.getByRole('searchbox', { name: 'Search mods' }).fill('lithium')
+  const pickLithium = dialog.getByRole('button', { name: 'Pick Lithium', exact: true })
+  await expect(pickLithium).toBeVisible({ timeout: 20_000 })
+  await pickLithium.click()
+  const installTwo = dialog.getByRole('button', { name: 'Install 2 mods' })
+  await expect(installTwo).toBeEnabled({ timeout: 20_000 })
   await shot('16f-mods-find')
-  await install.click()
-  await expect(dialog.getByRole('button', { name: 'Mod Menu is installed', exact: true })).toBeVisible({ timeout: 60_000 })
+  await installTwo.click()
+  await expect(dialog.getByRole('button', { name: 'Lithium is installed', exact: true })).toBeVisible({ timeout: 90_000 })
+  await dialog.getByRole('searchbox', { name: 'Search mods' }).fill('mod menu')
+  await expect(dialog.getByRole('button', { name: 'Mod Menu is installed', exact: true })).toBeVisible({ timeout: 20_000 })
+
+  // Modrinth's search matches loader and version separately; the check doesn't let a mod through
+  // that has no file for exactly this loader and version (Create: Forge and NeoForge only).
+  expect(await page.evaluate((id) => window.kairo.mods.check(id, 'LNytGWDc'), made.id)).toEqual({ ok: false, message: 'No Fabric 1.20.1 version' })
 
   await dialog.getByRole('tab', { name: /^Installed/ }).click()
   await expect(dialog.locator('.mod-item').filter({ hasText: 'Mod Menu' })).toBeVisible()
@@ -519,6 +570,7 @@ test('mods: find on Modrinth, install, turn off, remove', async () => {
   // Turned off = renamed. Anything the builder had ticked (Sodium, Iris) came along on this first install.
   expect(files).toContainEqual(expect.stringMatching(/^modmenu.*\.jar\.disabled$/))
   expect(files.filter((f) => f.startsWith('modmenu'))).toHaveLength(1)
+  expect(files).toContainEqual(expect.stringMatching(/^lithium.*\.jar$/))
   await shot('16g-mods-installed')
 
   await dialog.getByRole('button', { name: 'Remove Mod Menu', exact: true }).click()
@@ -527,7 +579,9 @@ test('mods: find on Modrinth, install, turn off, remove', async () => {
 
   // Malformed calls are refused by the main process.
   expect(await page.evaluate((id) => window.kairo.mods.remove(id, '../../x.jar').then((r) => r.ok), made.id)).toBe(false)
-  expect(await page.evaluate(() => window.kairo.mods.install('../x', 'AANobbMI').then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  expect(await page.evaluate(() => window.kairo.mods.install('../x', ['AANobbMI']).then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  expect(await page.evaluate((id) => window.kairo.mods.install(id, ['../../x']).then(() => 'ok', () => 'rejected'), made.id)).toBe('rejected')
+  expect(await page.evaluate((id) => window.kairo.mods.install(id, []).then(() => 'ok', () => 'rejected'), made.id)).toBe('rejected')
   problems.length = 0 // the rejected call logs an IPC error on purpose
 
   expect(await page.evaluate((id) => window.kairo.installs.remove(id).then((r) => r.ok), made.id)).toBe(true)
@@ -548,6 +602,23 @@ test('settings: every tab', async () => {
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
   expect(await page.evaluate(() => window.kairo.auth.switchTo('../../x').then(() => 'ok', () => 'rejected'))).toBe('rejected')
   problems.length = 0 // the rejected call logs an IPC error on purpose
+
+  // Home layouts: each one moves the title and Play button.
+  for (const [name, id] of [
+    ['Centred', 'centre'],
+    ['Side panel', 'panel'],
+    ['Bottom bar', 'compact'],
+    ['Classic', 'classic']
+  ] as const) {
+    await page.getByRole('tab', { name: 'Launcher' }).click()
+    await page.getByRole('radio', { name, exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.kairo.settings.get().then((s) => s.homeLayout))).toBe(id)
+    await page.getByRole('button', { name: 'Home' }).click()
+    await expect(page.locator('.screen-home')).toHaveAttribute('data-layout', id)
+    await expect(page.getByRole('button', { name: /^Play / })).toBeInViewport()
+    if (id !== 'classic') await shot(`17c-home-layout-${id}`)
+    await page.getByRole('button', { name: 'Settings' }).click()
+  }
 
   await page.getByRole('tab', { name: 'Game' }).click()
   await page.getByRole('switch', { name: 'Use my own Java' }).click()
@@ -615,6 +686,93 @@ function stripesPng(w: number, h: number): Buffer {
 
 // The classic 1x1 GIF.
 const ONE_PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64')
+
+test('accounts: skin heads, the account menu, pictures, and sign out asks first', async () => {
+  const STEVE = '31f477eb1a7beee631c2ca64d06f8f68fa93a3386d04452ab27f43acdf1b60cb'
+  const uuid = 'f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0'
+  const name = 'Kairo Tester' // has a space, so it can't be anyone's real player name
+  const writeAccounts = (list: unknown[]) =>
+    app.evaluate(({ app }, list) => {
+      const fs = process.getBuiltinModule('node:fs')
+      const path = process.getBuiltinModule('node:path')
+      fs.writeFileSync(path.join(app.getPath('userData'), 'accounts.json'), JSON.stringify({ schema: 1, active: null, accounts: list }))
+    }, list)
+  const restart = async () => {
+    await page.reload()
+    await page.getByRole('button', { name: 'Continue with the offline dev account' }).click()
+    await expect(page.getByRole('status')).toContainText('Offline dev account')
+  }
+  await writeAccounts([{ uuid, name, homeAccountId: 'kairo-e2e-stand-in', addedAt: 0, skin: STEVE }])
+  await restart()
+
+  // The skin comes through kairo-bg://skin/<uuid>, checked to be a 64 × 64 skin.
+  const size = await page.evaluate(
+    (u) =>
+      new Promise<string>((resolve) => {
+        const img = new Image()
+        img.onload = () => resolve(`${img.naturalWidth}x${img.naturalHeight}`)
+        img.onerror = () => resolve('refused')
+        img.src = `kairo-bg://skin/${u}?v=1`
+      }),
+    uuid
+  )
+  expect(size).toBe('64x64')
+
+  // The small menu from the rail: switch, add, manage.
+  await page.getByRole('button', { name: /^Account: / }).click()
+  const menu = page.getByRole('menu', { name: 'Accounts' })
+  await expect(menu.getByRole('menuitemradio', { name: new RegExp(name) })).toBeVisible()
+  await expect(menu.locator('.avatar[data-kind="head"] canvas')).toHaveCount(1)
+  await shot('17d-account-menu')
+  await menu.getByRole('menuitem', { name: 'Manage accounts' }).click()
+  await expect(page.getByRole('tab', { name: 'Account' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('.account-card .avatar[data-kind="head"]')).toHaveCount(1)
+  await shot('17e-settings-accounts')
+
+  // Sign out asks first, and Cancel is the safe default.
+  await page.getByRole('button', { name: `More for ${name}` }).click()
+  await page.getByRole('menuitem', { name: 'Sign out…' }).click()
+  const ask = page.getByRole('dialog', { name: `Sign out of ${name}?` })
+  await expect(ask).toBeVisible()
+  await expect(ask.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await shot('17f-sign-out-asks')
+  await ask.getByRole('button', { name: 'Cancel' }).click()
+  await expect(ask).toHaveCount(0)
+  expect((await page.evaluate(() => window.kairo.auth.state())).accounts.map((a) => a.name)).toEqual([name])
+
+  // A picture of your own instead of the head, and back.
+  const dir = mkdtempSync(join(tmpdir(), 'kairo-account-picture-'))
+  const pic = join(dir, 'me.png')
+  writeFileSync(pic, stripesPng(96, 96))
+  await app.evaluate(({ dialog }, picked) => {
+    ;(dialog as unknown as { showOpenDialog: () => Promise<unknown> }).showOpenDialog = async () => ({ canceled: false, filePaths: [picked] })
+  }, pic)
+  await page.getByRole('button', { name: `More for ${name}` }).click()
+  await page.getByRole('menuitem', { name: 'Choose a picture…' }).click()
+  await expect(page.locator('.account-card .avatar[data-kind="picture"]')).toHaveCount(1)
+  await page.getByRole('button', { name: `More for ${name}` }).click()
+  await page.getByRole('menuitem', { name: 'Use my skin' }).click()
+  await expect(page.locator('.account-card .avatar[data-kind="head"]')).toHaveCount(1)
+  expect(await page.evaluate(() => window.kairo.background.files().then((f) => Object.keys(f.accounts)))).toEqual([])
+  rmSync(dir, { recursive: true, force: true })
+
+  // Odd slots and skin addresses are refused.
+  expect(await page.evaluate(() => window.kairo.background.remove('account:../../x' as never).then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  const odd = await page.evaluate(
+    () =>
+      new Promise<string>((resolve) => {
+        const img = new Image()
+        img.onload = () => resolve('loaded')
+        img.onerror = () => resolve('refused')
+        img.src = 'kairo-bg://skin/..%2F..%2Fsettings.json'
+      })
+  )
+  expect(odd).toBe('refused')
+  problems.length = 0 // the refused picture logs a 404 on purpose
+
+  await writeAccounts([])
+  await restart()
+})
 
 test('backgrounds: Pixel field, Aurora and your own picture', async () => {
   const pictures = () =>

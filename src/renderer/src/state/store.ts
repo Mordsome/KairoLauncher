@@ -52,9 +52,16 @@ interface State {
   homeView: HomeView
   /** Install shown on the picker (hovered or focused). */
   pickFocus: string | null
-  /** A look being tried in the Appearance dialog, shown until it closes. */
-  lookPreview: InstallLook | null
-  setLookPreview(look: InstallLook | null): void
+  /** A look being tried in the Appearance dialog (for that install), shown until it closes. */
+  lookPreview: { installId: string; look: InstallLook } | null
+  setLookPreview(preview: { installId: string; look: InstallLook } | null): void
+  /** The account whose "Sign out?" question is showing. */
+  signOutAsk: string | null
+  askSignOut(uuid: string | null): void
+  /** Bumped when skins may have changed, so account heads load again. */
+  skinsVersion: number
+  /** New names and skins from Mojang (quietly, at start). */
+  refreshAccounts(): Promise<void>
   /** Saves an install's look (null: back to the default). */
   setInstallLook(id: string, look: InstallLook | null): Promise<boolean>
   settingsTab: SettingsTab
@@ -183,6 +190,8 @@ export const useStore = create<State>()((set, get) => ({
   homeView: 'home',
   pickFocus: null,
   lookPreview: null,
+  signOutAsk: null,
+  skinsVersion: 0,
   settingsTab: 'game',
   librarySel: '',
   modsFor: null,
@@ -220,7 +229,8 @@ export const useStore = create<State>()((set, get) => ({
     },
     showPatchNotes: true,
     sharedMinecraft: false,
-    reduceMotion: false
+    reduceMotion: false,
+    homeLayout: 'classic'
   },
   info: null,
   update: null,
@@ -236,6 +246,16 @@ export const useStore = create<State>()((set, get) => ({
   },
 
   setLookPreview: (lookPreview) => set({ lookPreview }),
+  askSignOut: (signOutAsk) => set({ signOutAsk }),
+  refreshAccounts: async () => {
+    try {
+      const state = await window.kairo.auth.refresh()
+      get().setAccounts(state)
+      set((s) => ({ skinsVersion: s.skinsVersion + 1 }))
+    } catch {
+      // keep what we have
+    }
+  },
   setInstallLook: async (id, look) => {
     const r = await window.kairo.installs.setLook(id, look).catch(() => null)
     if (!r?.ok) return false
@@ -338,6 +358,7 @@ export const useStore = create<State>()((set, get) => ({
     void window.kairo.auth.switchTo(uuid).then((state) => get().setAccounts(state))
   },
   signOut: (uuid) => {
+    set({ signOutAsk: null })
     const active = get().accounts?.active === uuid
     if (active) void window.kairo.game.stop()
     void window.kairo.auth.signOut(uuid).then((state) => {
@@ -423,6 +444,8 @@ export const useStore = create<State>()((set, get) => ({
 
 /** The install whose look the launcher shows right now: the one hovered on the picker, else the one selected. */
 function lookInstall(s: State): Install | undefined {
+  // The Appearance dialog shows its install's look, whatever is selected.
+  if (s.lookPreview) return s.installs.find((i) => i.id === s.lookPreview!.installId)
   if (s.screen === 'signin' || !s.settings.matchTheme) return undefined
   const id = s.screen === 'home' && s.homeView === 'pick' && s.pickFocus ? s.pickFocus : s.selection.installId
   return s.installs.find((i) => i.id === id)
@@ -435,15 +458,21 @@ export function installLook(i: Pick<Install, 'look' | 'edition'>): InstallLook {
 
 /** The look on screen now. Always the same object for the same look, so it's safe as a selector. */
 export function selectLook(s: State): InstallLook {
-  if (s.lookPreview) return s.lookPreview
+  if (s.lookPreview) return s.lookPreview.look
   const install = lookInstall(s)
   return install ? installLook(install) : KAIRO_LOOK
 }
 
+/** The install whose own picture is the background now, if it has one. */
+export function selectPictureInstall(s: State): string | null {
+  const install = lookInstall(s)
+  return install && s.bgFiles?.installs[install.id] ? install.id : null
+}
+
 /** Void's extras (stars in the Pixel field, the separate Void picture) follow Kairo Void installs. */
 export function selectTheme(s: State): Theme {
-  if (s.screen === 'signin' || !s.settings.matchTheme) return 'kairo'
   const install = lookInstall(s)
+  if (!s.lookPreview && (s.screen === 'signin' || !s.settings.matchTheme)) return 'kairo'
   return (install ? install.edition : s.selection.edition) === 'void' ? 'void' : 'kairo'
 }
 

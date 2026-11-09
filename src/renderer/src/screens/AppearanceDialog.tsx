@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { InstallLook, Rounding } from '../../../shared/api'
+import { pictureUrl } from '../background/Background'
 import { Modal } from '../components/Modal'
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
 import { isHex, ROUNDINGS, sameLook, shownAccent, SWATCHES } from '../state/look'
@@ -7,8 +8,9 @@ import { installLook, useStore, type Install } from '../state/store'
 import { Segmented } from './BackgroundSettings'
 
 /**
- * An install's look: its accent colour and how round the corners are. The
- * whole launcher shows it while the dialog is open, both backgrounds included.
+ * An install's look: its accent colour, how round the corners are, and its
+ * own background picture. The whole launcher shows it while the dialog is
+ * open, both backgrounds included.
  */
 export function AppearanceDialog({ install, onClose }: { install: Install; onClose(): void }) {
   const setPreview = useStore((s) => s.setLookPreview)
@@ -20,8 +22,8 @@ export function AppearanceDialog({ install, onClose }: { install: Install; onClo
 
   // Show it while choosing; the saved look comes back when the dialog closes.
   useEffect(() => {
-    setPreview(look)
-  }, [look, setPreview])
+    setPreview({ installId: install.id, look })
+  }, [look, install.id, setPreview])
   useEffect(() => () => setPreview(null), [setPreview])
 
   const custom = !SWATCHES.some((s) => s.accent === look.accent.toLowerCase())
@@ -94,6 +96,8 @@ export function AppearanceDialog({ install, onClose }: { install: Install; onClo
         onChange={(rounding) => setLook({ ...look, rounding })}
       />
 
+      <InstallPicture install={install} />
+
       {!matchTheme && (
         <p className="modal-note">
           "Match the selected install" is off in Settings, so the launcher stays in the Kairo look outside this dialog.
@@ -105,5 +109,60 @@ export function AppearanceDialog({ install, onClose }: { install: Install; onClo
         </p>
       )}
     </Modal>
+  )
+}
+
+/** The install's own background picture. Choosing or removing one is saved at once. */
+function InstallPicture({ install }: { install: Install }) {
+  const file = useStore((s) => s.bgFiles?.installs[install.id] ?? null)
+  const setBgFiles = useStore((s) => s.setBgFiles)
+  const [problem, setProblem] = useState<{ title: string; message: string } | null>(null)
+  const slot = `install:${install.id}` as const
+
+  const choose = async () => {
+    const r = await window.kairo.background.pick(slot)
+    if (r.ok) {
+      setBgFiles(r.files)
+      setProblem(null)
+    } else if (!r.cancelled) setProblem(r.error)
+  }
+  const remove = async () => {
+    setBgFiles(await window.kairo.background.remove(slot))
+    setProblem(null)
+  }
+
+  return (
+    <div className="look-picture">
+      <span className="field-label">Background picture · saved as soon as you choose it</span>
+      <div className="look-picture-row">
+        {file ? (
+          <img className="look-thumb" src={pictureUrl(slot, file.version)} alt={`Picture for ${install.name}`} />
+        ) : (
+          <span className="look-thumb look-thumb-empty" aria-hidden="true" />
+        )}
+        <span className="look-picture-text">
+          <span className="setting-desc">
+            {file
+              ? `Shows behind the launcher while ${install.name} is selected. Dim, blur and fit come from Settings.`
+              : 'None: the background from Settings shows. Pick a PNG, JPG, WebP or GIF.'}
+          </span>
+          <span className="look-picture-buttons">
+            <button type="button" className="btn-ghost btn-small" onClick={() => void choose()}>
+              {file ? 'Change picture…' : 'Choose picture…'}
+            </button>
+            {file && (
+              <button type="button" className="btn-ghost btn-small" onClick={() => void remove()}>
+                Remove
+              </button>
+            )}
+          </span>
+        </span>
+      </div>
+      {problem && (
+        <p className="detail-error" role="alert">
+          <b>{problem.title}.</b> {problem.message}
+        </p>
+      )}
+    </div>
   )
 }

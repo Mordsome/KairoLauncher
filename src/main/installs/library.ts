@@ -1,4 +1,5 @@
 import { shell } from 'electron'
+import { copyInstallPicture, removeBackground } from '../background'
 import { cp, rm, mkdir } from 'node:fs/promises'
 import { join, normalize, sep } from 'node:path'
 import type { InstallLook, LibraryResult } from '../../shared/api'
@@ -86,6 +87,7 @@ export async function duplicateInstall(id: string): Promise<LibraryResult> {
       }
     })
     await writeCustom(copy)
+    await copyInstallPicture(source.id, copy.id).catch(() => undefined)
     return ok(copy)
   } catch (error) {
     return fail(error)
@@ -99,6 +101,7 @@ export async function deleteInstall(id: string): Promise<{ ok: true } | { ok: fa
     const dir = customDir(record)
     if (!insideInstalls(dir)) throw new KairoError('unknown-version', 'Unexpected install folder.')
     await shell.trashItem(dir)
+    await removeBackground(`install:${id}`).catch(() => undefined)
     return { ok: true }
   } catch (error) {
     return { ok: false, error: describeError(error, redact) }

@@ -622,3 +622,163 @@
   align-self: flex-start;
   margin-top: 4px;
 }
+
+/* ---------- Home layouts (Settings → Launcher) ---------- */
+/* Classic is the layout above. The others move the same title and Play button. */
+
+.screen-home:not([data-layout='classic']) .hero,
+.screen-home:not([data-layout='classic']) .home-actions {
+  position: static;
+  width: auto;
+}
+
+/* Centred: everything in the middle. */
+.screen-home[data-layout='centre'] .home-stage {
+  position: absolute;
+  inset: 36px 0 0 76px;
+  padding: 0 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  text-align: center;
+}
+
+.screen-home[data-layout='centre'] .hero {
+  max-width: 900px;
+  align-items: center;
+}
+
+.screen-home[data-layout='centre'] .hero-title {
+  font-size: 100px;
+}
+
+.screen-home[data-layout='centre'] .hero-blurb {
+  max-width: 44ch;
+}
+
+.screen-home[data-layout='centre'] .home-actions {
+  flex-direction: column;
+  gap: 14px;
+}
+
+.screen-home[data-layout='centre'] .notes {
+  top: auto;
+  bottom: 36px;
+  right: 36px;
+  width: 290px;
+}
+
+.shade-home[data-layout='centre'] {
+  background: radial-gradient(
+    ellipse 58% 60% at 53% 52%,
+    color-mix(in srgb, var(--bg) 82%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 45%, transparent) 55%,
+    transparent 100%
+  );
+}
+
+/* Side panel: one panel on the right, the background free on the left. */
+.screen-home[data-layout='panel'] .home-stage {
+  position: absolute;
+  right: 40px;
+  top: 60px;
+  bottom: 40px;
+  width: 440px;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 30px;
+  border-radius: var(--r-sheet);
+  border: 1px solid var(--card-line);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.7);
+}
+
+.screen-home[data-layout='panel'] .hero {
+  gap: 10px;
+}
+
+.screen-home[data-layout='panel'] .hero-title {
+  font-size: 62px;
+  overflow-wrap: anywhere;
+}
+
+.screen-home[data-layout='panel'] .hero-blurb {
+  font-size: 17px;
+}
+
+.screen-home[data-layout='panel'] .home-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.screen-home[data-layout='panel'] .half-play {
+  flex: 1;
+  min-width: 0;
+}
+
+.screen-home[data-layout='panel'] .notes {
+  right: auto;
+  left: 124px;
+}
+
+.shade-home[data-layout='panel'] {
+  background: linear-gradient(270deg, color-mix(in srgb, var(--bg) 60%, transparent) 0%, transparent 45%);
+}
+
+/* Bottom bar: one slim bar along the bottom. */
+.screen-home[data-layout='compact'] .home-stage {
+  position: absolute;
+  left: 116px;
+  right: 40px;
+  bottom: 36px;
+  padding: 22px 24px 22px 32px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  border-radius: var(--r-sheet);
+  border: 1px solid var(--card-line);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.7);
+}
+
+.screen-home[data-layout='compact'] .hero {
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
+.screen-home[data-layout='compact'] .hero-title {
+  font-size: 44px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screen-home[data-layout='compact'] .hero-blurb {
+  margin-top: 0;
+  max-width: none;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screen-home[data-layout='compact'] .home-actions {
+  flex-direction: row-reverse;
+  gap: 20px;
+}
+
+.screen-home[data-layout='compact'] .status {
+  max-width: 230px;
+  font-size: 13px;
+  text-align: right;
+}
+
+.shade-home[data-layout='compact'] {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--bg) 70%, transparent) 0%, transparent 42%);
+}

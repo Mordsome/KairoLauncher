@@ -10,7 +10,32 @@ export interface MinecraftSession {
   accessToken: string
   /** Milliseconds since epoch. */
   expiresAt: number
-  profile: { id: string; name: string }
+  profile: MinecraftProfile
+}
+
+export interface MinecraftProfile {
+  id: string
+  name: string
+  /** The texture id of the skin the player wears (textures.minecraft.net), or null. */
+  skin: string | null
+}
+
+const SKIN_URL = /^https?:\/\/textures\.minecraft\.net\/texture\/([0-9a-f]{16,128})$/
+
+/** The profile from Minecraft services: id, name, and the skin that is on now. */
+export function parseProfile(raw: unknown): MinecraftProfile {
+  const p = raw as { id?: unknown; name?: unknown; skins?: { state?: unknown; url?: unknown }[] }
+  if (typeof p?.id !== 'string' || !/^[0-9a-f]{32}$/i.test(p.id) || typeof p.name !== 'string') throw new AuthError('unknown', 'Unexpected profile')
+  const on = Array.isArray(p.skins) ? p.skins.find((s) => s?.state === 'ACTIVE') : undefined
+  const match = typeof on?.url === 'string' ? SKIN_URL.exec(on.url) : null
+  return { id: p.id.toLowerCase(), name: p.name, skin: match ? match[1]! : null }
+}
+
+/** The profile again with a token the launcher already has (for a new name or skin). */
+export async function fetchProfile(mcAccessToken: string, fetchFn: Fetch): Promise<MinecraftProfile> {
+  const res = await call(fetchFn, MC_PROFILE, { headers: { authorization: `Bearer ${mcAccessToken}`, accept: 'application/json' } })
+  if (!res.ok) throw new AuthError(res.status === 401 ? 'expired' : 'unknown', `Profile lookup answered ${res.status}`)
+  return parseProfile(await json<unknown>(res))
 }
 
 const XBL = 'https://user.auth.xboxlive.com/user/authenticate'
@@ -99,12 +124,11 @@ export async function minecraftFromMicrosoft(msAccessToken: string, fetchFn: Fet
 
   if (profileRes.status === 404) throw new AuthError(owns ? 'no-profile' : 'no-minecraft')
   if (!profileRes.ok) throw new AuthError('unknown', `Profile lookup answered ${profileRes.status}`)
-  const profile = await json<{ id: string; name: string }>(profileRes)
-  if (!/^[0-9a-f]{32}$/i.test(profile.id ?? '') || typeof profile.name !== 'string') throw new AuthError('unknown', 'Unexpected profile')
+  const profile = parseProfile(await json<unknown>(profileRes))
 
   return {
     accessToken: mc.access_token,
     expiresAt: Date.now() + Math.max(60, mc.expires_in ?? 0) * 1000,
-    profile: { id: profile.id.toLowerCase(), name: profile.name }
+    profile
   }
 }
