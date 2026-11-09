@@ -21,6 +21,7 @@
 </p>
 
 > **Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.**
+> Also: [certified AI slop](#certified-ai-slop).
 
 <p align="center">
   <img src="docs/screenshots/home.png" alt="Kairo Launcher's Home: Kairo selected, the split Play button and Kairo's patch notes" width="100%">
@@ -149,6 +150,16 @@ Every command, how installs and downloads work, and where the launcher keeps thi
 **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)**. Releasing: [docs/RELEASING.md](docs/RELEASING.md).
 Signing in from your own build needs your own Microsoft app registration:
 [docs/AUTH_SETUP.md](docs/AUTH_SETUP.md).
+
+## Certified AI slop
+
+Full disclosure: Kairo Launcher is **100% vibecoded**. I designed it, made the decisions and tested it
+until it felt right; the AI wrote the code, the installer, the website and this README (yes, this
+sentence too). The security and privacy checks are real, and every update is signed by me, but every
+line was read by a machine and only some of them by me.
+
+If something breaks, it's a feature of the vibes. [Open an issue](https://github.com/Mordsome/KairoLauncher/issues)
+anyway.
 
 ## Licence
 
