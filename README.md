@@ -1,224 +1,160 @@
-# Kairo Launcher
+<h1 align="center">
+  <img src="build/icon.png" alt="" width="88"><br>
+  Kairo Launcher
+</h1>
 
-A desktop launcher for the [Kairo](https://github.com/Mordsome/Kairo) Minecraft clients, by Mordsome.
+<p align="center">
+  <b>Kairo, Kairo Void, plain Minecraft and your own modded installs, behind one Play button.</b><br>
+  Free, open source, no telemetry. By Mordsome.
+</p>
 
-Play Kairo and Kairo Void, plain Minecraft, Fabric, NeoForge, Forge, OptiFine and Modrinth
-modpacks, each in its own install with its own mods, worlds and settings. Sign in with
-Microsoft (the launcher never sees your password), keep several accounts, and get Kairo
-updates automatically.
+<p align="center">
+  <a href="https://github.com/Mordsome/KairoLauncher/releases/latest"><img src="docs/download.png" alt="Download Kairo Launcher for Windows and Linux" width="419"></a>
+</p>
 
-Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
+<p align="center">
+  <a href="https://mordsome.github.io/KairoLauncher/">Website</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#privacy--security">Privacy &amp; security</a> ·
+  <a href="https://github.com/Mordsome/Kairo">The Kairo client</a>
+</p>
 
-![Choosing what to play](docs/screenshots/picker.png)
+> **Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.**
 
-| | |
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Kairo Launcher's Home: Kairo selected, the split Play button and Kairo's patch notes" width="100%">
+</p>
+
+## Features
+
+### Kairo and Kairo Void, one click away
+
+Pick Kairo or Kairo Void and press Play. The launcher installs Fabric, Fabric API, Sodium and
+the right Kairo jar from the [official releases](https://github.com/Mordsome/Kairo/releases),
+checks every file, and keeps them all updated together. Pick Kairo Void and the whole launcher
+turns violet.
+
+| Choose what to play | Kairo Void selected |
 | --- | --- |
-| ![Library](docs/screenshots/library.png) | ![Library in the Kairo Void theme](docs/screenshots/library-void.png) |
-| ![Building a Fabric install](docs/screenshots/other-builder.png) | ![Settings: backgrounds](docs/screenshots/settings.png) |
+| <img src="docs/screenshots/picker.png" alt="Choose what to play: every install as a tile, plus New install"> | <img src="docs/screenshots/home-void.png" alt="Home with Kairo Void selected: the launcher turns violet with sharp corners"> |
+
+### Any Minecraft, any loader
+
+Every release from 1.8 to the newest, straight from Mojang. Or build your own install with
+**Fabric, NeoForge, Forge or OptiFine**, add **Sodium, Iris and Lithium**, or import a **Modrinth
+modpack**. Each install has its own mods, worlds and settings, so nothing gets mixed up. The right
+Java for each version downloads by itself.
+
+| New install | Library |
+| --- | --- |
+| <img src="docs/screenshots/new-install.png" alt="New install: Fabric for Minecraft 1.21.1 with Sodium, Iris and Lithium from Modrinth"> | <img src="docs/screenshots/library.png" alt="The Library: every install with its own folder"> |
+
+### Mods from Modrinth
+
+Search Modrinth from inside an install, pick several mods and install them together, with their
+dependencies. Only mods made for exactly that loader and Minecraft version show up. Turn mods on
+and off, or remove them, in one click.
+
+<img src="docs/screenshots/mods.png" alt="Mods for a Fabric install: two mods picked from Modrinth, each checked for the right version">
+
+### A look for every install
+
+Give each install its own accent colour, corners (Round, Soft or Sharp) and background picture.
+The launcher takes that look whenever the install is selected. Behind it all: a calm **Pixel
+field** that follows your mouse, slow **Aurora** light, or your own picture or GIF.
+
+| Appearance | That install's own look |
+| --- | --- |
+| <img src="docs/screenshots/appearance.png" alt="Appearance: an install's own accent colour, corners and picture"> | <img src="docs/screenshots/own-look.png" alt="Home in that install's own pink look with sharp corners"> |
+| **Its own background picture** | **Aurora** |
+| <img src="docs/screenshots/install-picture.png" alt="Home with an install's own background picture"> | <img src="docs/screenshots/aurora.png" alt="Home with the Aurora background"> |
+
+### Home your way, and all your accounts
+
+Four Home layouts: Classic, Centred, Side panel and Bottom bar. Sign in with as many Microsoft
+accounts as you like, and switch between them from the bottom of the rail. Each account's
+picture is the head of the skin it wears.
+
+| Home layout: Side panel | Accounts |
+| --- | --- |
+| <img src="docs/screenshots/home-layout.png" alt="The Side panel Home layout, with Kairo's patch notes"> | <img src="docs/screenshots/accounts.png" alt="The account menu: switch account, add one, manage, sign out"> |
+
+### And the small things
+
+- **Patch notes** for the latest Kairo, right on Home.
+- **Live game log**, and a plain-words explanation when Minecraft crashes, with the crash report one
+  click away.
+- **Share your `.minecraft`** if you like: your worlds, packs and settings, while mods stay in each
+  install's own folder.
+- **Keyboard-friendly**, readable contrast, and **Reduce motion** keeps everything still.
 
 ## Install
 
-Download the newest release from [Releases](https://github.com/Mordsome/KairoLauncher/releases).
+**Windows 10 / 11:** download `KairoLauncher-Setup-<version>.exe` from the
+[latest release](https://github.com/Mordsome/KairoLauncher/releases/latest) and run it. The installer
+isn't code-signed yet, so Windows SmartScreen may say it "protected your PC": choose
+**More info → Run anyway**.
 
-- **Windows:** run `KairoLauncher-Setup-<version>.exe`. The installer isn't code-signed yet, so
-  Windows SmartScreen may say it "protected your PC": choose **More info → Run anyway**.
-- **Linux:** download `KairoLauncher-<version>.AppImage`, make it executable
-  (`chmod +x KairoLauncher-*.AppImage`) and run it. Saving your sign-in needs a Secret Service
-  keyring (GNOME Keyring or KWallet), which most desktops have.
+**Linux:** download `KairoLauncher-<version>.AppImage`, make it executable
+(`chmod +x KairoLauncher-*.AppImage`) and run it. Saving your sign-in needs a Secret Service
+keyring (GNOME Keyring or KWallet), which most desktops have.
 
-You need a Minecraft: Java Edition account. The launcher downloads Minecraft from Mojang, Java
-from Mojang, and loaders and mods from their official sources; it doesn't bundle any of them.
+You need a Minecraft: Java Edition account. The launcher downloads Minecraft and Java from Mojang,
+and loaders and mods from their official sources. It doesn't bundle any of them.
 
-**Updates:** the launcher checks this repository's releases a few seconds after it starts and
-every few hours (Settings → Launcher → "Update the launcher automatically"; you can also check
-in Settings → About). An update downloads in the background, is checked against the SHA-512 in
-the release's `latest.yml` and against Mordsome's release signature, and installs when you
-restart the launcher; an unsigned update is never installed. It never restarts while
-Minecraft is running.
+The launcher **updates itself**: an update downloads in the background and installs when you restart
+the launcher, never while Minecraft is running.
 
-**Uninstall:** Windows Settings → Apps → Installed apps → Kairo Launcher → Uninstall (or
-Control Panel → Programs). The uninstaller removes only the files the installer put there, one
-by one, never the whole folder with whatever else is in it. It then asks whether to delete the
-launcher's data too, and the answer starts on **No**, which keeps your installs, worlds,
-settings and sign-ins for next time. **Yes** empties the launcher's own data folder and removes
-its sign-ins from Windows Credential Manager. It never follows links out of that folder, and it
-never deletes your `.minecraft` folder or the launcher's backup of it.
+## Privacy & security
 
-**Privacy:** no analytics, no telemetry, no accounts of our own. Logs and errors shown in the
-launcher hide your user folder's name. The launcher only talks to
-Microsoft/Xbox/Mojang, Fabric, NeoForge, Forge, Modrinth and GitHub, as listed in
-Settings → Privacy.
+- **Microsoft sign-in happens in your browser**, on Microsoft's own page. The launcher never sees your
+  password.
+- **Your sign-in stays in your system's secure storage** (Windows Credential Manager, macOS Keychain or
+  the Secret Service keyring on Linux), never in a plain file.
+- **Every download is checked** against its official hash, and **every launcher update must carry
+  Mordsome's signature**, so a fake update can't be installed even if someone got into this GitHub
+  account.
+- **No analytics, no telemetry, no accounts of our own.** The launcher only talks to Microsoft, Xbox
+  and Mojang, Fabric, NeoForge, Forge, Modrinth and GitHub, as listed in Settings → Privacy.
+- Logs and error messages hide your user folder's name.
 
-**Security:** see [SECURITY.md](SECURITY.md) for how to report a problem, and
-[docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) for the review done before the first release.
+Found a security problem? Please report it privately, see [SECURITY.md](SECURITY.md). The review done
+before the first release is in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md).
 
-## Develop
+## Uninstall
 
-Needs Node.js 22.12 or newer.
+**Windows:** Settings → Apps → Installed apps → Kairo Launcher → Uninstall. The uninstaller removes
+only the files the installer put there, one by one. It then asks whether to delete your installs and
+sign-ins too, and the answer starts on **No**, which keeps everything for next time. It never touches
+your `.minecraft` folder.
 
-| Command | What it does |
-| --- | --- |
-| `npm install` | Installs dependencies and downloads Electron |
-| `npm run dev` | Runs the launcher with hot reload |
-| `npm run dev:offline` | Same, plus a dev-only offline account so Vanilla can be launched without signing in |
-| `npm run build` | Typechecks, then builds into `out/` |
-| `npm start` | Runs the production build |
-| `npm run test:e2e` | Builds, then clicks through every screen of the real app; screenshots land in `test-results/screens/` |
-| `npm run test:launch` | Downloads and really launches Minecraft 26.3, 1.20.1, 1.12.2 and 1.8.9 (several GB the first time) |
-| `npm run dist:win` | Builds the Windows installer into `release/` |
-| `npm run dist:linux` | Builds the Linux AppImage into `release/` (on Linux) |
-| `npm run test:packaged` | Starts the packaged app from `release/` and checks it |
-| `npm run icon` | Renders `build/icon.svg` to `build/icon.png` |
+**Linux:** delete the AppImage. Your installs live in the launcher's data folder
+(`~/.config/Kairo Launcher`).
 
-The offline account exists only in `--mode offline` builds (it is compiled out of every other
-build) and refuses to work in a packaged app. It never ships in a release.
+## Building from source
 
-Layout: `src/main` (Electron main process), `src/preload` (the small typed API the UI gets),
-`src/renderer` (React UI), `src/shared` (types and the CSP shared by both sides).
+Needs [Node.js](https://nodejs.org/) 22.12 or newer.
 
-### Where the launcher keeps things
+```bash
+git clone https://github.com/Mordsome/KairoLauncher.git
+cd KairoLauncher
+npm install
+npm run dev          # run it with hot reload
+npm run dist:win     # build the Windows installer into release/
+npm run dist:linux   # build the Linux AppImage into release/ (on Linux)
+```
 
-Everything lives in the app's data folder (`%APPDATA%\Kairo Launcher` on Windows):
-
-| Folder | What's in it |
-| --- | --- |
-| `game/` | Minecraft versions, libraries and assets, shared by every install |
-| `runtimes/` | Java runtimes from Mojang, one per Java version |
-| `installs/<name>/` | One install: its own worlds, settings, mods and logs, plus `kairo-launcher.json` |
-| `cache/` | The last version lists and Kairo release, used when the network is down |
-
-Every download is checked: Mojang files against their SHA-1, Kairo jars against the
-release's `SHA256SUMS.txt`, Modrinth files against their SHA-512, Fabric libraries against the
-SHA-1 Fabric publishes. A file that doesn't match is deleted and fetched again; if it still
-fails, the launcher says so instead of starting.
-
-### Kairo installs
-
-Kairo and Kairo Void are regular installs: make as many as you like with **New install** (in the
-Library or the picker), each with its own name, worlds and mods. A Kairo install holds Fabric
-Loader, Fabric API, Sodium and exactly one Kairo jar, from the newest release of
-[Mordsome/Kairo](https://github.com/Mordsome/Kairo/releases) that has both jars and a
-`SHA256SUMS.txt`. The Minecraft version, the loader version and the mods come from the jar's
-own `fabric.mod.json`, so they always fit together. Mods added from Modrinth never bring a second
-Fabric API or Sodium.
-
-With **Keep Kairo updated** on, every Play moves Kairo, Fabric Loader, Fabric API and Sodium to
-the newest versions that match. With it off, the install stays exactly as recorded. Files a
-player adds to `mods/` are left alone; a Kairo jar of the other edition is removed.
-
-### New install
-
-**New install** makes Kairo or Kairo Void, Fabric, NeoForge, Forge or OptiFine, plain Minecraft, or
-imports a modpack: pick a version (read live from each official source) and a name, then add
-mods from Modrinth right away or later.
-
-### Other installs and modpacks
-
-**New install** builds an install from a loader and a Minecraft version, both read live from the
-loader's official source, plus optional Sodium, Iris and Lithium from Modrinth (only offered
-where Modrinth has them for that loader and version; their required dependencies come along).
-Versions are chosen on the first Play and then kept.
-
-| Loader | Where it comes from |
-| --- | --- |
-| Fabric | Fabric's meta and maven, checked against Fabric's SHA-1 |
-| NeoForge | NeoForge's maven, checked against the `.sha1` it publishes |
-| Forge | Forge asks launchers not to download it automatically (its download page's ads pay for it). The launcher opens Forge's own page; the player downloads the installer and picks it; it's checked against the SHA-1 Forge publishes before it's used. |
-| OptiFine | Its licence forbids redistributing or automatically downloading it. The launcher opens optifine.net; the player downloads the jar and picks it. |
-
-**Modpacks** (`.mrpack`) are untrusted input: every file path must stay inside the install
-folder, every download must come from a service the launcher already talks to (in practice
-Modrinth's CDN; packs that need anything else are refused, so the Privacy tab stays true), every
-file is checked against the pack's SHA-512, and unpacked files have size limits. Fabric and
-NeoForge packs install directly; Forge packs ask for the Forge installer the same way as above.
-Quilt isn't supported.
-
-### Library, settings and crashes
-
-Plain Minecraft installs are real installs too (`installs/vanilla-<version>`), made the first
-time a version is played. In the **Library**, an install's **⋯** button (or right-clicking it) has Mods, Logs,
-Appearance, Open folder, Rename, Duplicate, Change version and Delete. Every install can be
-renamed (only the name changes, not the folder), duplicated (worlds, settings and mods are
-copied; logs and crash reports aren't), moved to another Minecraft version (the mods the
-launcher added are swapped on the next Play; modpacks, Forge and OptiFine can't, since they're
-tied to their version, and so is Kairo, which follows its release), or deleted, which moves the folder to the Recycle Bin / Trash. **Logs**
-shows the game's output, live while it runs.
-
-**Appearance** gives an install its own look: an accent colour (ready-made ones or any colour)
-and corners (Round, Soft or Sharp). The launcher, the Pixel field and Aurora take that look
-whenever the install is selected. Kairo Void is violet with sharp corners unless you change it.
-Too dark or too light colours are adjusted so text stays readable. An install can also have its
-own **background picture**, shown behind the launcher while it's selected (the Pixel field stays on
-top if it's on; dim, blur and fit come from Settings). Pictures are checked by their real type
-and size, copied into the launcher's data folder and shown only through `kairo-bg://`; a
-duplicate gets its own copy and deleting the install deletes it. Settings → Launcher →
-"Match the selected install" turns this off.
-
-**Home layouts** (Settings → Launcher): Classic (big title on the left), Centred, Side panel
-(one panel on the right, the background free) and Bottom bar.
-
-### Accounts
-
-The account button at the bottom of the rail opens a small menu: switch account, add one, or
-**Manage accounts** (Settings → Account, with the account that plays on top and the others
-below). Signing out always asks first. Each account's picture is the head of the skin it wears:
-the launcher reads which skin from the Minecraft profile it already fetches, downloads only that
-skin from Mojang's texture server (`textures.minecraft.net/texture/`), checks it's a real
-64 × 64 skin and keeps it in the data folder; signing out deletes it. You can choose a picture
-of your own instead, kept on this PC only.
-
-Settings and the last selection are saved in `settings.json`. Every field is checked when it's
-read and written; a file that can't be read is set aside as `settings.json.broken-<time>` and
-the defaults are used.
-
-When Minecraft closes with an error, Home says why in plain words where it can (out of
-memory, Java refusing the memory setting, mods that don't fit together, Java too old) and
-offers **Open crash report** (only a report inside that install's folder) and **View log**.
-
-### Mods
-
-In the Library, Fabric, NeoForge and Forge installs have a **Mods** button: search Modrinth (only
-mods made for that install's loader and Minecraft version), sorted by best match, downloads,
-followers, newest or recently updated. Pick several and install them together. Modrinth's search
-matches loader and version separately, so every pick is also checked for a file made for exactly
-that loader and version (a mod with only Forge 1.12.2 files never gets into a Fabric 26.3
-install). Installs come with required dependencies
-(each file checked against Modrinth's SHA-512), turn mods on and off (a turned-off mod is renamed
-`.jar.disabled`, which loaders skip, and Play keeps it that way) or remove them. Mods added here
-follow the install to a new Minecraft version. Icons come through `kairo-icon://`, which only
-fetches icons Modrinth itself listed, and only real pictures.
-
-### Game folder: your own .minecraft
-
-Settings → Game → **Game folder**: each install keeps its own folders (the default), or **Share
-with Minecraft**, which runs the game in the official launcher's `.minecraft`, so your worlds,
-resource packs, shader packs and settings are there. It never breaks that folder:
-
-- Mods never come from or go to `.minecraft/mods`: Fabric loads them from the install's own
-  folder (`fabric.modsFolder`). So only Kairo, Kairo Void, plain Minecraft and Fabric installs
-  share; NeoForge, Forge, OptiFine and modpacks keep their own folders.
-- The launcher itself never writes, moves or deletes anything in `.minecraft`; only the game
-  does, as it would from Mojang's launcher. Deleting an install never touches it.
-- Before the first shared Play, it copies your `options.txt`, server list and `config` folder into
-  its own data folder (`backups/`).
-
-A world opened in a newer Minecraft may not open in an older one again; Minecraft offers to
-back it up first.
-
-### Backgrounds
-
-Settings → Launcher → Background: the **Pixel field** (a calm dot grid with a soft cursor trail,
-waves from the buttons you point at and click ripples; stars in Kairo Void), **Aurora** (slow, blurred
-colour), or **Custom**, your own PNG, JPG, WebP or GIF. A custom picture is checked by its real
-type and size (up to 50 MB and 8192 px), copied into the launcher's data folder under a made-up
-name, and shown through `kairo-bg://`, which serves only that picture. **Reduce motion** (also on
-when the system asks for it) keeps everything still. When nothing moves, the background uses no CPU.
-
-### Releasing
-
-See [docs/RELEASING.md](docs/RELEASING.md). Releases are built by GitHub Actions from a version
-tag and wait as a draft until they're checked and published by hand.
+Every command, how installs and downloads work, and where the launcher keeps things:
+**[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)**. Releasing: [docs/RELEASING.md](docs/RELEASING.md).
+Signing in from your own build needs your own Microsoft app registration:
+[docs/AUTH_SETUP.md](docs/AUTH_SETUP.md).
 
 ## Licence
 
-GPL-3.0. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Kairo Launcher is free software under the [GNU GPL v3.0](LICENSE). Copyright © 2026 Mordsome. You can
+use, change and share it, as long as what you share stays under the same licence, with its source and
+credit to the original. Fonts and other parts are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Minecraft is a trademark of Mojang Synergies AB. Fabric, NeoForge, Forge, OptiFine, Sodium, Iris,
+Lithium and Modrinth are separate projects with their own licences, and none of them is bundled.
