@@ -77,6 +77,8 @@ export function Menu({ label, items, at, onClose, header }: Props) {
     else if (e.key === 'End') go(list.length - 1)
     else if (e.key === 'Escape' || e.key === 'Tab') {
       e.preventDefault()
+      // Only the menu closes, not a dialog it was opened from (React passes keys up through portals).
+      e.stopPropagation()
       onClose()
     }
   }

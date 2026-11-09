@@ -532,6 +532,11 @@ test('mods: find on Modrinth, install, turn off, remove', async () => {
   await dialog.getByRole('button', { name: /^Sort: / }).click()
   await page.getByRole('menuitemradio', { name: 'Newest' }).click()
   await expect(dialog.getByRole('button', { name: 'Sort: Newest' })).toBeVisible()
+  // Escape closes only the menu, not the Mods dialog behind it.
+  await dialog.getByRole('button', { name: /^Sort: / }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu', { name: 'Sort mods' })).toHaveCount(0)
+  await expect(dialog).toBeVisible()
   await expect(dialog.locator('.mod-hit').first()).toBeVisible({ timeout: 20_000 })
   await dialog.getByRole('button', { name: /^Sort: / }).click()
   await page.getByRole('menuitemradio', { name: 'Best match' }).click()
