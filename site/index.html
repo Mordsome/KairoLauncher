@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en" data-theme="kairo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Kairo Launcher: every Kairo, every Minecraft, one Play button</title>
+<meta name="description" content="Kairo Launcher is a free, open-source Minecraft Java launcher for Kairo and Kairo Void, plain Minecraft and your own modded installs. Microsoft sign-in in your browser, no telemetry.">
+<meta name="theme-color" content="#0a1322">
+<meta property="og:title" content="Kairo Launcher">
+<meta property="og:description" content="Kairo, Kairo Void, plain Minecraft and your own modded installs, behind one Play button. Free, open source, no telemetry.">
+<meta property="og:image" content="https://mordsome.github.io/KairoLauncher/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="img/icon.png">
+<link rel="preload" href="fonts/outfit.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="pixels" aria-hidden="true"></canvas>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <a class="brand" href="#top" aria-label="Kairo Launcher home">
+    <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="14" class="mark-ring"/><path d="M14.5 7.6 A14 14 0 0 1 25.5 7.6" class="mark-arc"/><circle cx="20" cy="20" r="5.6" class="mark-dot"/></svg>
+    <span class="brand-name">Kairo <span class="brand-sub">Launcher</span></span>
+  </a>
+  <nav class="nav-links" aria-label="Sections">
+    <a href="#play">What you can play</a>
+    <a href="#features">Features</a>
+    <a href="#shots">Screens</a>
+    <a href="#download">Download</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="switch two" role="radiogroup" aria-label="Theme">
+    <button type="button" role="radio" data-set="kairo" aria-checked="true">Kairo</button>
+    <button type="button" role="radio" data-set="void" aria-checked="false">Void</button>
+    <span class="switch-thumb" aria-hidden="true"></span>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <div class="hero-copy">
+    <span class="tag"><i></i><span>Version 0.1.0 · Windows &amp; Linux</span></span>
+    <h1 class="title">Kairo<br><span class="title-light">Launcher</span></h1>
+    <p class="lede">Kairo, Kairo Void, plain Minecraft and your own modded installs, behind one Play button. Sign in with Microsoft, pick, play.</p>
+    <div class="cta">
+      <a class="btn btn-main" href="https://github.com/Mordsome/KairoLauncher/releases/latest">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+        <span>Download</span>
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/Mordsome/KairoLauncher">View on GitHub</a>
+    </div>
+    <p class="fine">Free and open source. Your password stays on Microsoft's own page. No telemetry, no accounts of our own.</p>
+  </div>
+
+  <div class="win-wrap">
+    <div class="win real" id="win">
+      <img class="win-img show" data-ed="kairo" src="img/shots/home.png" alt="Kairo Launcher's Home screen with Kairo selected" width="1280" height="760">
+      <img class="win-img" data-ed="void" src="img/shots/home-void.png" alt="Kairo Launcher's Home screen with Kairo Void selected" width="1280" height="760">
+    </div>
+    <p class="win-hint">The real launcher. Switch to Void up top and watch it follow.</p>
+  </div>
+</section>
+
+<section class="play-sec" id="play">
+  <div class="section-head">
+    <h2>Pick what you play</h2>
+    <p>Every install has its own folder: its own mods, worlds and settings, so nothing gets mixed up. Make as many as you like.</p>
+  </div>
+  <div class="picker">
+    <div class="pick-list" role="tablist" aria-label="What you can play" id="pickList"></div>
+    <div class="pick-card" id="pickCard" role="tabpanel" aria-live="polite">
+      <span class="pc-kick" id="pcKick"></span>
+      <h3 id="pcTitle"></h3>
+      <p id="pcText"></p>
+      <ul class="ticks" id="pcTicks"></ul>
+      <div class="chips" id="pcChips"></div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="section-head">
+    <h2>Made like the client</h2>
+    <p>The same glass, the same motion and the same care as Kairo, around everything a launcher has to get right.</p>
+  </div>
+  <div class="feat-grid" id="featGrid"></div>
+</section>
+
+<section class="shots" id="shots">
+  <div class="section-head">
+    <h2>A look inside</h2>
+    <p>Real screenshots of version 0.1.0.</p>
+  </div>
+  <div class="shot-tabs" role="tablist" aria-label="Screens" id="shotTabs"></div>
+  <figure class="shot">
+    <div class="shot-frame" id="shotFrame">
+      <img id="shotImg" alt="" width="1280" height="760">
+    </div>
+    <figcaption id="shotCap"></figcaption>
+  </figure>
+</section>
+
+<section class="download" id="download">
+  <div class="section-head">
+    <h2>Download</h2>
+    <p>Free. Every release is built by GitHub Actions from the public code, and every installer comes with Mordsome's signature, so the launcher's own updates can't be faked.</p>
+  </div>
+  <div class="dl-grid" id="dlGrid"></div>
+</section>
+
+<section class="privacy" id="privacy">
+  <div class="section-head">
+    <h2>It talks to these, and nothing else</h2>
+    <p>No analytics, no telemetry, no account of ours. Your sign-in stays in your system's secure storage, and the launcher never sees your password. This website doesn't track you either: no cookies, no outside fonts or scripts.</p>
+  </div>
+  <ul class="talk" id="talk"></ul>
+</section>
+
+<section class="faq" id="faq">
+  <div class="section-head"><h2>Questions people ask</h2></div>
+  <div class="qa">
+    <details><summary>Is it free?</summary><p>Yes, free and open source under GPL-3.0. You need your own copy of Minecraft: Java Edition.</p></details>
+    <details><summary>Is signing in safe?</summary><p>You sign in on Microsoft's own page in your browser, the official way. The launcher never sees your password, keeps your sign-in only in your system's secure storage, and only ever sends it to Microsoft, Xbox and Mojang.</p></details>
+    <details><summary>Can I play without buying Minecraft?</summary><p>No. Kairo Launcher checks that your account owns the game, like the official launcher. There's no cracked or offline mode.</p></details>
+    <details><summary>Windows says it "protected your PC". Is that bad?</summary><p>The installer isn't code-signed yet, so SmartScreen warns about any new app like it. Download it only from this site or the GitHub releases page, then choose <b>More info → Run anyway</b>.</p></details>
+    <details><summary>Does it work with OptiFine and Forge?</summary><p>Yes. Both ask launchers not to download them automatically, so the launcher opens their own pages, you pick the file, and the launcher checks it and installs it.</p></details>
+    <details><summary>Can I use my own .minecraft?</summary><p>Yes, if you like: Settings → Game → Share with Minecraft. Your worlds, packs and settings are there, while mods stay in each install's own folder. Your <code>.minecraft/mods</code> is never used or changed.</p></details>
+    <details><summary>Linux? Mac?</summary><p>Windows and Linux (as an AppImage). macOS maybe later.</p></details>
+    <details><summary>Is this official?</summary><p>No. It's made by Mordsome, not by Mojang or Microsoft. Minecraft comes straight from Mojang's servers, and the launcher never redistributes it.</p></details>
+    <details><summary>Who made this?</summary><p>Mordsome, with a lot of help from AI, the same way as Kairo. The ideas, taste and testing are mine; the code came from the machine.</p></details>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="foot-row">
+    <span class="foot-brand">Kairo Launcher</span>
+    <a href="https://github.com/Mordsome/KairoLauncher">GitHub</a>
+    <a href="https://mordsome.github.io/Kairo/">Kairo client</a>
+    <a href="https://github.com/Mordsome/KairoLauncher/blob/main/LICENSE">GPL-3.0</a>
+    <a href="https://github.com/Mordsome/KairoLauncher/blob/main/SECURITY.md">Security</a>
+  </div>
+  <p class="legal">Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft. Minecraft is a trademark of Mojang Synergies AB. Fonts: Outfit and Pixelify Sans, under the <a href="fonts/OFL-Outfit.txt">SIL Open Font License</a>.</p>
+  <p class="slop"><span class="pix">certified ai slop</span> handmade by a person and a very busy robot</p>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
