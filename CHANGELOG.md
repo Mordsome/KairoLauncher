@@ -19,13 +19,19 @@ The first public version of Kairo Launcher, for Windows and Linux.
 
 ### Your installs
 
-- **Mods from Modrinth** for Fabric, NeoForge and Forge installs: search, install with
-  dependencies, turn on and off, remove.
+- **As many installs as you like**, Kairo ones too: make them with **New install** and pick
+  between them on Home.
+- **Mods from Modrinth** for Fabric, NeoForge and Forge installs: search and sort, pick several
+  and install them together with their dependencies, turn on and off, remove. Every pick is
+  checked for a file made for exactly that install's loader and Minecraft version.
+- **A look for every install:** its own accent colour, corners (Round, Soft or Sharp) and
+  background picture, shown whenever it's selected.
 - **Share your .minecraft** (Settings → Game): your worlds, packs and settings, while mods stay in
   each install's own folder. Your `.minecraft/mods` is never used or changed.
 
 - Every install has its own folder: mods, worlds, settings and screenshots never mix.
-- Rename, duplicate, change the Minecraft version, or delete (to the Recycle Bin / Trash).
+- Rename, duplicate, change the Minecraft version, or delete (to the Recycle Bin / Trash), from
+  the **⋯** button or by right-clicking an install.
 - See the game's log, live while it runs.
 - When Minecraft crashes, the launcher says why in plain words where it can, and opens the
   crash report or the log.
@@ -33,7 +39,9 @@ The first public version of Kairo Launcher, for Windows and Linux.
 ### Accounts
 
 - Sign in with Microsoft in your browser; the launcher never sees your password.
-- Several accounts, switched in Settings → Account.
+- Several accounts: switch from the account button at the bottom left, or in Settings → Account.
+- Each account's picture is the head of the skin it wears, or a picture you choose.
+- Signing out asks first.
 - Sign-in is kept in the system's secure storage (Windows Credential Manager, macOS Keychain,
   or the Secret Service keyring on Linux).
 
@@ -42,6 +50,7 @@ The first public version of Kairo Launcher, for Windows and Linux.
 - New backgrounds: the **Pixel field** (a calm dot grid with a soft trail), **Aurora**, or your own
   picture or GIF. Reduce motion keeps everything still.
 - **Patch notes** for the latest Kairo on Home (can be turned off).
+- **Home layouts:** Classic, Centred, Side panel or Bottom bar.
 
 - Remembers your settings and what you last played.
 - Updates itself from GitHub. Every update must carry Mordsome's signature, so a fake update
@@ -49,6 +58,9 @@ The first public version of Kairo Launcher, for Windows and Linux.
 - Logs and error messages hide your user folder's name.
 - A photosensitivity warning before Kairo Void is installed for the first time.
 - No analytics, no telemetry, no accounts of our own.
+- A careful uninstaller (Settings → Apps): it removes only the launcher's own files, never
+  follows links, and never touches your .minecraft. It asks before deleting your installs and
+  sign-ins, and keeps them if you say no.
 
 ### Known limits
 
