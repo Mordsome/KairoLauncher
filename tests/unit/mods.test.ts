@@ -1,9 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const data = mkdtempSync(join(tmpdir(), 'kairo-mods-'))
+// The long form of the temp folder: Windows runners hand out a short 8.3 one (RUNNER~1),
+// and the launcher's data folder is always resolved to the long form.
+const data = realpathSync.native(mkdtempSync(join(tmpdir(), 'kairo-mods-')))
 const trashed: string[] = []
 vi.mock('electron', () => ({
   app: { getVersion: () => '0.0.0-test', getPath: () => data, isPackaged: false },
