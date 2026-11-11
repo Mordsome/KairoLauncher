@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Addons
+
+- **Addons for Kairo and Kairo Void**, from Mordsome/KairoAddons: an **Addons** button on the left
+  rail while a Kairo install is selected. Install, update and uninstall them, and choose where each
+  one is used: Kairo and Kairo Void, Kairo only, Kairo Void only, or off.
+- Every addon is checked against the release's `SHA256SUMS.txt` (and Mordsome's signature, when the
+  release has one) before it's installed, and again before every game start.
+- Addons load from the launcher's own folder, never from your installs' `mods` folders. An addon that
+  can't be used with an install (for example one that needs a newer Kairo) is skipped, and Home says why.
+
 ## 0.1.0: first release
 
 The first public version of Kairo Launcher, for Windows and Linux.

@@ -59,6 +59,13 @@ and off, or remove them, in one click.
 
 <img src="docs/screenshots/mods.png" alt="Mods for a Fabric install: two mods picked from Modrinth, each checked for the right version">
 
+### Addons for Kairo
+
+Official extras for Kairo and Kairo Void, from [Mordsome/KairoAddons](https://github.com/Mordsome/KairoAddons):
+install them once and choose where each one is used: Kairo and Kairo Void, just one of them, or off.
+They never go into your installs' folders, and each one is checked before it's installed and before
+every game start.
+
 ### A look for every install
 
 Give each install its own accent colour, corners (Round, Soft or Sharp) and background picture.
@@ -117,7 +124,8 @@ the launcher, never while Minecraft is running.
   Mordsome's signature**, so a fake update can't be installed even if someone got into this GitHub
   account.
 - **No analytics, no telemetry, no accounts of our own.** The launcher only talks to Microsoft, Xbox
-  and Mojang, Fabric, NeoForge, Forge, Modrinth and GitHub, as listed in Settings → Privacy.
+  and Mojang, Fabric, NeoForge, Forge, Modrinth and GitHub (Kairo, addons and launcher updates), as listed
+  in Settings → Privacy.
 - Logs and error messages hide your user folder's name.
 
 Found a security problem? Please report it privately, see [SECURITY.md](SECURITY.md). The review done

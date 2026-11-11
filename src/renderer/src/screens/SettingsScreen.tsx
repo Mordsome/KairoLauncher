@@ -437,7 +437,7 @@ function PrivacyTab() {
         <li>Microsoft, Xbox and Mojang, to sign you in, download Minecraft and the Java it runs on, and show your skin's head as your account picture.</li>
         <li>Fabric, NeoForge and Forge, to download mod loaders from their official servers.</li>
         <li>Modrinth, to find and download mods and modpacks.</li>
-        <li>GitHub, for Kairo, its patch notes and launcher updates.</li>
+        <li>GitHub, for Kairo, its patch notes and launcher updates, and for addons: the list of Mordsome's addons, their icons and the addons you install, from Mordsome/KairoAddons.</li>
         <li>optifine.net, opened in your browser when you install OptiFine.</li>
       </ul>
       <span className="muted">Nothing else. No accounts of its own, no analytics, no telemetry.</span>

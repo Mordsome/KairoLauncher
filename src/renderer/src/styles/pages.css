@@ -1719,3 +1719,128 @@ html[data-reduce-motion='true'] .pick-tile {
   width: 20%;
   height: 10%;
 }
+
+/* ---------- Addons ---------- */
+
+.railbtn-in {
+  animation: railbtn-in 0.3s ease-out;
+}
+
+@keyframes railbtn-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+:root[data-reduce-motion='true'] .railbtn-in {
+  animation: none;
+}
+
+.addonrow {
+  align-items: center;
+}
+
+.addon-icon {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: var(--r-small);
+  object-fit: cover;
+  image-rendering: auto;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.addon-icon-big {
+  width: 84px;
+  height: 84px;
+  border-radius: var(--r-card);
+}
+
+.addon-icon-empty {
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.addon-editions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.addon-edition {
+  padding: 1px 9px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  border: 1px solid color-mix(in srgb, #7fd8ff 50%, transparent);
+  color: #9fe2ff;
+}
+
+.addon-edition[data-edition='void'] {
+  border-color: color-mix(in srgb, #b48cff 55%, transparent);
+  color: #c9adff;
+}
+
+.librow-state[data-tone='update'] {
+  color: var(--accent);
+}
+
+.addon-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.addon-detail .detail-name {
+  font-size: 26px;
+}
+
+.addon-desc {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink2);
+  max-height: 170px;
+  overflow: auto;
+}
+
+.addon-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.addon-choices {
+  flex-wrap: wrap;
+}
+
+.addon-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-small);
+  font-size: 14px;
+  line-height: 1.45;
+  color: #ffd9a8;
+  background: color-mix(in srgb, #ffb454 12%, transparent);
+  border: 1px solid color-mix(in srgb, #ffb454 35%, transparent);
+}
+
+.addons-empty {
+  padding: 22px;
+  gap: 6px;
+}
+
+.status-notes {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  color: #ffd9a8;
+}
+
+.lib-new {
+  white-space: nowrap;
+}

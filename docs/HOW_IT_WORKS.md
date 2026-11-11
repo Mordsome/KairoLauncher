@@ -16,8 +16,8 @@ Minecraft is running.
 
 No analytics, no telemetry, no accounts of our own. Logs and errors shown in the
 launcher hide your user folder's name. The launcher only talks to
-Microsoft/Xbox/Mojang, Fabric, NeoForge, Forge, Modrinth and GitHub, as listed in
-Settings → Privacy.
+Microsoft/Xbox/Mojang, Fabric, NeoForge, Forge, Modrinth and GitHub (Kairo, the addons
+list and addons from Mordsome/KairoAddons, launcher updates), as listed in Settings → Privacy.
 
 See [SECURITY.md](../SECURITY.md) for how to report a problem, and
 [SECURITY_REVIEW.md](SECURITY_REVIEW.md) for the review done before the first release.
@@ -55,7 +55,9 @@ Everything lives in the app's data folder (`%APPDATA%\Kairo Launcher` on Windows
 | `game/` | Minecraft versions, libraries and assets, shared by every install |
 | `runtimes/` | Java runtimes from Mojang, one per Java version |
 | `installs/<name>/` | One install: its own worlds, settings, mods and logs, plus `kairo-launcher.json` |
-| `cache/` | The last version lists and Kairo release, used when the network is down |
+| `addons/` | Installed addons' jars, shared by every Kairo and Kairo Void install |
+| `addons.json` | Which addons are installed, and where each one is used |
+| `cache/` | The last version lists, Kairo release and addons list, used when the network is down |
 
 Every download is checked: Mojang files against their SHA-1, Kairo jars against the
 release's `SHA256SUMS.txt`, Modrinth files against their SHA-512, Fabric libraries against the
@@ -157,6 +159,60 @@ install). Installs come with required dependencies
 `.jar.disabled`, which loaders skip, and Play keeps it that way) or remove them. Mods added here
 follow the install to a new Minecraft version. Icons come through `kairo-icon://`, which only
 fetches icons Modrinth itself listed, and only real pictures.
+
+## Addons
+
+Addons are small official extras for Kairo and Kairo Void (the first one, Plastic Menus, gives
+every Kairo menu a solid plastic look). Each is a small Fabric mod that plugs into sockets Kairo
+0.3.0 and later provide. Kairo, the addons repository and the launcher all follow one contract,
+`SPEC.md` in [Mordsome/KairoAddons](https://github.com/Mordsome/KairoAddons); section 5 is the
+launcher's part.
+
+**Where:** an **Addons** button on the left rail, shown only while a Kairo or Kairo Void install is
+selected (other Minecraft never gets addons). It lists every addon with its icon, summary, version
+and the editions it's made for. Each one can be installed, updated and uninstalled, and is
+**used in** Kairo and Kairo Void, Kairo only, Kairo Void only, or Off. That choice is made once
+for the whole launcher, not per install; choices an addon isn't made for aren't offered.
+
+**The list** is the newest release of Mordsome/KairoAddons (tagged `addons-<number>`, not a draft
+or pre-release) that has `addons.json` and `SHA256SUMS.txt`. Like Kairo's own releases:
+
+- files come only from that repository's release downloads;
+- if the release has `SHA256SUMS.txt.sig`, it must be Mordsome's signature (the same key and
+  scheme as Kairo's releases, over the `addons-<number>` tag), and with `requireKairoSignature`
+  a release without one is skipped;
+- `addons.json` must match its line in `SHA256SUMS.txt`, and every addon's jar must be listed
+  there with the same hash, or that addon is left out;
+- every field is checked for type and length; ids and file names must have exactly the shapes
+  the contract allows (`kairo-addon-<id>-<version>.jar`), so a name is never a path;
+- a catalogue with a schema the launcher doesn't know counts as "no addons", and while the
+  repository has no releases the page simply says "No addons yet";
+- when GitHub can't be reached, the last list that checked out is used.
+
+**Installing** downloads the jar, checks its SHA-256 and that it really is that addon (its
+`fabric.mod.json` id and version), and keeps it in `addons/`. **Updating** downloads the new
+version the same way and deletes the old jar only once the new one has checked out; addons a
+Kairo install uses update with "Keep Kairo updated". **Uninstalling** deletes the jar; options set
+inside the game stay in that install's Kairo settings and come back if it's installed again. An
+addon that leaves the list stays installed and usable. Installs and uninstalls wait while the game
+runs; the choice can change any time and applies the next time the game starts.
+
+**Playing** a Kairo or Kairo Void install passes exactly the addons that are installed, on for its
+edition and compatible with it (its editions, Kairo version, Minecraft version and sockets
+version), with Fabric Loader's `-Dfabric.addMods`. So addons never go into an install's `mods`
+folder, every install shares one copy, and turning one off never moves a file. Each jar's hash is
+checked again before every start. An addon that's on but can't be used is skipped, and Home (and
+the game's log) says why in plain words, for example "Plastic Menus isn't loaded: it needs Kairo
+0.3.0 or newer". If the player put an addon in an install's `mods` folder by hand, the launcher
+doesn't pass its own copy too (Fabric would refuse two mods with one id). The launcher never runs,
+unpacks or reads addon code; it reads `fabric.mod.json`, as for any mod.
+
+Tests: `tests/unit/addons.test.ts` covers every refusal (wrong hashes, a catalogue that doesn't
+match `SHA256SUMS.txt`, odd names, unknown schemas, wrong tags, hosts and signatures, a jar that
+isn't the addon it says). `tests/launch/addons.spec.ts` plays Kairo and Kairo Void with a real
+addon and checks the game's log; it needs a Kairo with the sockets and a real addons release, given
+as folders through `KAIRO_TEST_KAIRO_DIR` and `KAIRO_TEST_ADDONS_DIR` (test builds only: these
+are compiled out of releases, and the release check fails if they're ever in one).
 
 ## Game folder: your own .minecraft
 

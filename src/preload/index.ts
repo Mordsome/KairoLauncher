@@ -2,6 +2,9 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IPC,
   type AccountsState,
+  type AddonChoice,
+  type AddonsResult,
+  type AddonsState,
   type BackgroundFiles,
   type BackgroundResult,
   type BackgroundSlot,
@@ -96,6 +99,12 @@ const api: KairoApi = {
     setEnabled: (id: string, file: string, enabled: boolean) =>
       ipcRenderer.invoke(IPC.modsSetEnabled, String(id), String(file), Boolean(enabled)) as Promise<ModsResult>,
     remove: (id: string, file: string) => ipcRenderer.invoke(IPC.modsRemove, String(id), String(file)) as Promise<ModsResult>
+  },
+  addons: {
+    state: (fresh?: boolean) => ipcRenderer.invoke(IPC.addonsState, Boolean(fresh)) as Promise<AddonsState>,
+    install: (id: string) => ipcRenderer.invoke(IPC.addonsInstall, String(id)) as Promise<AddonsResult>,
+    uninstall: (id: string) => ipcRenderer.invoke(IPC.addonsUninstall, String(id)) as Promise<AddonsResult>,
+    setChoice: (id: string, choice: AddonChoice) => ipcRenderer.invoke(IPC.addonsSetChoice, String(id), String(choice)) as Promise<AddonsResult>
   },
   background: {
     files: () => ipcRenderer.invoke(IPC.backgroundFiles) as Promise<BackgroundFiles>,

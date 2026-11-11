@@ -49,7 +49,11 @@ export const IPC = {
   modsInstall: 'mods:install',
   modsCheck: 'mods:check',
   modsSetEnabled: 'mods:set-enabled',
-  modsRemove: 'mods:remove'
+  modsRemove: 'mods:remove',
+  addonsState: 'addons:state',
+  addonsInstall: 'addons:install',
+  addonsUninstall: 'addons:uninstall',
+  addonsSetChoice: 'addons:set-choice'
 } as const
 
 export interface AccountSummary {
@@ -327,6 +331,43 @@ export interface KairoStatus {
   latest: { version: string; notes: PatchNotes | null } | null
 }
 
+/** Where an installed addon is used: both editions, one of them, or nowhere. */
+export type AddonChoice = 'both' | 'kairo' | 'void' | 'off'
+
+/** One addon, from the catalogue (Mordsome/KairoAddons) and/or installed. */
+export interface AddonView {
+  id: string
+  name: string
+  summary: string
+  description: string
+  /** The installed version, or the catalogue's if it isn't installed. */
+  version: string
+  /** The catalogue's version; null when it has left the catalogue. */
+  latest: string | null
+  /** The editions it's made for. */
+  editions: KairoEdition[]
+  tags: string[]
+  /** Shown through kairo-icon://addon/<id>. */
+  hasIcon: boolean
+  /** Installed version, or null. */
+  installed: string | null
+  choice: AddonChoice
+  /** A newer version in the catalogue. */
+  update: string | null
+  /** False for an installed addon that is no longer in the catalogue. */
+  listed: boolean
+  /** Why it isn't loaded yet for an edition it's on for, in plain words. */
+  note: string | null
+}
+
+export interface AddonsState {
+  /** ok: the catalogue (maybe the last one that checked out); none: no addons published yet; offline: never reached. */
+  catalogue: 'ok' | 'none' | 'offline'
+  addons: AddonView[]
+}
+
+export type AddonsResult = { ok: true; state: AddonsState } | { ok: false; error: { title: string; message: string }; state: AddonsState }
+
 export interface PlayRequest {
   target: PlayTarget
   memoryGB: number
@@ -353,6 +394,8 @@ export interface GameState {
   error: GameError | null
   /** Set when the game closed with an error. */
   crash: { title: string; message: string; hasReport: boolean } | null
+  /** While it starts and runs: addons that are on but weren't loaded, and why. */
+  notes: string[]
 }
 
 export interface KairoApi {
@@ -419,6 +462,14 @@ export interface KairoApi {
     install(installId: string, projectIds: string[]): Promise<ModsResult>
     setEnabled(installId: string, file: string, enabled: boolean): Promise<ModsResult>
     remove(installId: string, file: string): Promise<ModsResult>
+  }
+  addons: {
+    /** fresh: ask GitHub now instead of using the list from the last few minutes. */
+    state(fresh?: boolean): Promise<AddonsState>
+    /** Installs it, or updates it to the catalogue's version. */
+    install(id: string): Promise<AddonsResult>
+    uninstall(id: string): Promise<AddonsResult>
+    setChoice(id: string, choice: AddonChoice): Promise<AddonsResult>
   }
   background: {
     files(): Promise<BackgroundFiles>

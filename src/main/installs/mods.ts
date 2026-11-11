@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { readdir, rename, rm } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import type { InstalledMod, InstallLoader, ModCheck, ModSearch, ModSort } from '../../shared/api'
+import { addonIcon } from '../addons/addons'
 import { KairoError } from '../errors'
 import { Stage } from '../game/runtime'
 import { sniffImage } from '../imageSniff'
@@ -213,6 +214,13 @@ export function serveModIcons(): void {
     if (request.method !== 'GET') return new Response(null, { status: 405 })
     const url = new URL(request.url)
     const id = decodeURIComponent(url.pathname.replace(/^\//, ''))
+    // kairo-icon://addon/<id>: an addon's icon from the addons catalogue (see addons/addons.ts).
+    if (url.host === 'addon') {
+      const png = await addonIcon(id).catch(() => null)
+      return png
+        ? new Response(new Uint8Array(png), { status: 200, headers: { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'max-age=3600' } })
+        : none()
+    }
     if (url.host !== 'modrinth' || !PROJECT_ID.test(id)) return none()
     let icon = icons.get(id)
     if (!icon) {

@@ -1,10 +1,12 @@
-import { readdir, rm } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { KairoError } from '../errors'
 import { getVersionManifest } from '../game/manifest'
 import type { Stage } from '../game/runtime'
 import type { ManagedMod } from '../installs/record'
 import { dataPaths } from '../paths'
+import { hashFile } from '../signature'
+import { testFilePath } from '../testRelease'
 import { isAnyKairoJar, latestKairoRelease, type KairoEdition } from './github'
 import { readFabricModJson } from './modjson'
 import { modrinthCandidates } from './modrinth'
@@ -36,6 +38,16 @@ export interface KairoTarget {
 }
 
 async function download(stage: Stage, dir: string, mod: Pick<ManagedMod, 'filename' | 'url' | 'hash'>, signal: AbortSignal) {
+  // Test builds only: a jar from the local test release, checked the same way.
+  const local = testFilePath(mod.url)
+  if (local) {
+    await mkdir(dir, { recursive: true })
+    await copyFile(local, join(dir, mod.filename))
+    if (mod.hash.algorithm === 'sha256' && (await hashFile(join(dir, mod.filename), 'sha256')) !== mod.hash.value) {
+      throw new KairoError('checksum', `${mod.filename} didn't match its checksum.`)
+    }
+    return readFabricModJson(join(dir, mod.filename))
+  }
   await stage.run(
     {
       schemaVersion: 1,

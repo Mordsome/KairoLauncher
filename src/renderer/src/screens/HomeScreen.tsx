@@ -143,6 +143,13 @@ function HomeMain({ visible, pickerButton }: { visible: boolean; pickerButton: R
           </div>
           <span className="status" role="status" data-tone={phase === 'idle' && (game.error || game.crash) ? 'error' : undefined}>
             {status}
+            {phase !== 'idle' && game.notes.length > 0 && (
+              <span className="status-notes">
+                {game.notes.map((n) => (
+                  <span key={n}>{n}</span>
+                ))}
+              </span>
+            )}
           </span>
           {phase === 'idle' && game.crash && !notice && (
             <div className="crash-actions">

@@ -3,11 +3,12 @@ import { Background } from './background/Background'
 import { Rail } from './components/Rail'
 import { TitleBar } from './components/TitleBar'
 import { HomeScreen } from './screens/HomeScreen'
+import { AddonsScreen } from './screens/AddonsScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { SignInScreen } from './screens/SignInScreen'
 import { applyLook } from './state/look'
-import { selectLook, selectTheme, useStore } from './state/store'
+import { addonsOffered, selectLook, selectTheme, useStore } from './state/store'
 import { SignOutDialog } from './screens/SignOutDialog'
 import { VoidWarning } from './screens/VoidWarning'
 
@@ -27,6 +28,12 @@ export function App() {
   const setBgFiles = useStore((s) => s.setBgFiles)
   const go = useStore((s) => s.go)
   const loaded = useStore((s) => s.accounts !== null)
+  const showAddons = useStore(addonsOffered)
+
+  // The Addons page is only there while a Kairo or Kairo Void install is selected.
+  useEffect(() => {
+    if (screen === 'addons' && !showAddons) go('home')
+  }, [screen, showAddons, go])
 
   useEffect(() => {
     document.documentElement.dataset['theme'] = theme
@@ -65,6 +72,7 @@ export function App() {
       <Background />
       <HomeScreen active={screen === 'home'} />
       <LibraryScreen active={screen === 'library'} />
+      <AddonsScreen active={screen === 'addons'} />
       <SettingsScreen active={screen === 'settings'} />
       <SignInScreen active={screen === 'signin'} />
       <Rail />

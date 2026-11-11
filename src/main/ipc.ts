@@ -16,7 +16,9 @@ import { loadSettings, saveSettings } from './settings'
 import { checkForUpdate, installUpdate, updateState } from './updater'
 import { backgroundFiles, importBackground, isSlot, pickBackground, removeBackground } from './background'
 import { checkMod, installMods, listMods, MOD_SORTS, removeMod, searchMods, setModEnabled } from './installs/mods'
-import { describeError } from './errors'
+import { describeError, KairoError } from './errors'
+import { addonsState, installAddon, setAddonChoice, uninstallAddon } from './addons/addons'
+import { ADDON_ID } from './addons/catalogue'
 import { dialog } from 'electron'
 import { createCustom, importModpack, openDownloadPage } from './loaders/create'
 import { availableExtras } from './loaders/extras'
@@ -149,6 +151,43 @@ export function registerIpc(session: GameSession): void {
     return session.current().phase === 'idle' ? modsResult(removeMod(id, file)) : modsBusy
   })
 
+  // Addons: chosen once for the whole launcher; changes apply the next time the game starts.
+  const isAddon = (v: unknown): v is string => typeof v === 'string' && ADDON_ID.test(v)
+  const isChoice = (v: unknown): v is import('../shared/api').AddonChoice => v === 'both' || v === 'kairo' || v === 'void' || v === 'off'
+  const addonsResult = async (work: () => Promise<void>) => {
+    try {
+      await work()
+      return { ok: true as const, state: await addonsState() }
+    } catch (error) {
+      return { ok: false as const, error: describeError(error, redact), state: await addonsState() }
+    }
+  }
+  // A running game has the jars open (Windows won't delete them): installs and uninstalls wait for it to close.
+  const whenIdle = (work: () => Promise<void>) => async () => {
+    if (session.current().phase !== 'idle') throw new KairoError('unknown-version', 'Close the game first, then try again.')
+    await work()
+  }
+
+  ipcMain.handle(IPC.addonsState, (event, fresh: unknown) => {
+    if (!fromApp(event)) throw new Error('Not allowed')
+    return addonsState(fresh === true)
+  })
+
+  ipcMain.handle(IPC.addonsInstall, (event, id: unknown) => {
+    if (!fromApp(event) || !isAddon(id)) throw new Error('Not allowed')
+    return addonsResult(whenIdle(() => installAddon(id)))
+  })
+
+  ipcMain.handle(IPC.addonsUninstall, (event, id: unknown) => {
+    if (!fromApp(event) || !isAddon(id)) throw new Error('Not allowed')
+    return addonsResult(whenIdle(() => uninstallAddon(id)))
+  })
+
+  ipcMain.handle(IPC.addonsSetChoice, (event, id: unknown, choice: unknown) => {
+    if (!fromApp(event) || !isAddon(id) || !isChoice(choice)) throw new Error('Not allowed')
+    return addonsResult(() => setAddonChoice(id, choice))
+  })
+
   ipcMain.handle(IPC.backgroundFiles, (event) => {
     if (!fromApp(event)) throw new Error('Not allowed')
     return backgroundFiles()
@@ -277,14 +316,15 @@ export function registerIpc(session: GameSession): void {
     return openDownloadPage(loader, mc)
   })
 
-  let adopted = false
+  // Once per start, and every caller waits for it (two lists at once must not skip it).
+  let adopting: Promise<void> | null = null
   ipcMain.handle(IPC.installsList, async (event) => {
     if (!fromApp(event)) throw new Error('Not allowed')
-    if (!adopted) {
-      adopted = true
+    adopting ??= (async () => {
       await adoptKairoInstalls().catch(() => undefined)
       await adoptVanillaFolders().catch(() => undefined)
-    }
+    })()
+    await adopting
     return (await listCustom()).map(toInfo)
   })
 

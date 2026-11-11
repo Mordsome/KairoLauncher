@@ -21,6 +21,17 @@ export function LibraryIcon() {
   )
 }
 
+export function AddonsIcon() {
+  return (
+    <svg {...base} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round">
+      <rect x="4" y="4" width="7" height="7" rx="2" />
+      <rect x="13" y="13" width="7" height="7" rx="2" />
+      <rect x="4" y="13" width="7" height="7" rx="2" />
+      <path d="M16.5 4v6M13.5 7h6" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function SettingsIcon() {
   return (
     <svg {...base} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">

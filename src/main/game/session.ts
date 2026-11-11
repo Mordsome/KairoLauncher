@@ -1,7 +1,7 @@
 import { createMinecraftProcessWatcher, launch, MinecraftFolder, Version, type ResolvedVersion } from '@xmcl/core'
 import type { ChildProcess } from 'node:child_process'
 import { mkdir, open, readFile, rename, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, normalize } from 'node:path'
+import { basename, delimiter, dirname, join, normalize } from 'node:path'
 import { app, shell } from 'electron'
 import type { GameState, LogView, PlayRequest } from '../../shared/api'
 import { customDir, getCustom, vanillaRecord, writeCustom, type CustomRecord } from '../installs/custom'
@@ -22,6 +22,7 @@ import { installVersion } from './install'
 import { checkCustomJava, ensureJava } from './java'
 import { findVersion, type ManifestEntry } from './manifest'
 import { Stage } from './runtime'
+import { addonsForLaunch, type LaunchAddons } from '../addons/addons'
 
 const LOG_LINES = 5000
 // If the game never prints one of the "window is up" lines, call it running anyway.
@@ -77,7 +78,7 @@ export function crashReason(lines: readonly string[]): { title: string; message:
   return { title: 'Minecraft closed unexpectedly', message: 'The crash report and the log show what happened.' }
 }
 
-const IDLE: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null }
+const IDLE: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null, notes: [] }
 
 type Stages = Record<'meta' | 'game' | 'assets' | 'java' | 'mods', Stage>
 // Rough share of a first download each part takes, for one smooth progress bar.
@@ -91,6 +92,8 @@ interface Prepared {
   recordDir: string | null
   /** Whether this install may use .minecraft, and whether its mods load through Fabric. */
   share: { allowed: boolean; fabric: boolean }
+  /** Kairo and Kairo Void installs: the addon jars to load, and why any that are on aren't. */
+  addons?: LaunchAddons
 }
 
 /** One game at a time: install what's missing, start it, watch it, stop it. */
@@ -253,8 +256,12 @@ export class GameSession {
       mods,
       kairo: { ...part, jar: target.kairo, deps: target.mods }
     })
+    // Addons: chosen for the whole launcher, checked against this install's Kairo and Minecraft.
+    const addons = await addonsForLaunch(part.edition, target.kairo.version, target.mc, modsDir, keepUpdated).catch(
+      (): LaunchAddons => ({ jars: [], notes: ["Addons weren't loaded: the launcher couldn't read its addons."] })
+    )
     stages.mods.done = true
-    return { version, javaPath, gamePath: dir, recordDir: dir, share: { allowed: record.modpack === null, fabric: true } }
+    return { version, javaPath, gamePath: dir, recordDir: dir, share: { allowed: record.modpack === null, fabric: true }, addons }
   }
 
   /** "Other" installs and modpacks: the loader the record names, then its mods. */
@@ -352,7 +359,11 @@ export class GameSession {
     if (!sharedDir) await mkdir(gamePath, { recursive: true })
     // Shared: Fabric loads mods from the install's folder, never from .minecraft/mods.
     const extraJVMArgs = sharedDir && prepared.share.fabric ? [`-Dfabric.modsFolder=${join(installPath, 'mods')}`] : []
-    this.set({ phase: 'launch', progress: 1, detail: 'Starting Minecraft' })
+    // Addons load from the launcher's own folder, so nothing goes into the install's mods folder.
+    const addons = prepared.addons ?? { jars: [], notes: [] }
+    if (addons.jars.length) extraJVMArgs.push(`-Dfabric.addMods=${addons.jars.join(delimiter)}`)
+    for (const note of addons.notes) this.log.push(redact(`[Kairo Launcher] ${note}`))
+    this.set({ phase: 'launch', progress: 1, detail: 'Starting Minecraft', notes: addons.notes })
 
     let child: ChildProcess
     try {
@@ -396,7 +407,7 @@ export class GameSession {
     const markRunning = () => {
       if (running || this.process !== child) return
       running = true
-      this.set({ phase: 'running', detail: '' })
+      this.set({ phase: 'running', detail: '', notes: addons.notes })
       this.hooks.onRunning(request.hideWhilePlaying)
       if (recordDir) void touchRecord(recordDir, { lastPlayed: Date.now() })
     }

@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { KairoError } from '../errors'
 import { fetchJson, fetchOk } from '../net/http'
 import { dataPaths } from '../paths'
 import { RELEASE_KEY, REQUIRE_KAIRO_SIGNATURE } from '../releaseKey'
-import { kairoStatement, verifyStatement } from '../signature'
+import { hashFile, kairoStatement, verifyStatement } from '../signature'
+import { TEST_FILE, testKairoDir } from '../testRelease'
 import type { PatchNotes } from '../../shared/api'
 import { notePoints } from './notes'
 
@@ -107,8 +108,24 @@ async function resolveLatest(signal?: AbortSignal): Promise<KairoRelease> {
   throw new KairoError('http-status', 'No Kairo release on GitHub has both jars and a SHA256SUMS.txt (with a valid signature, if it has one) yet.')
 }
 
+/** Test builds only: a local folder with both jars, used as the newest release. */
+async function localRelease(dir: string): Promise<KairoRelease> {
+  const names = await readdir(dir)
+  const pick = async (edition: KairoEdition): Promise<KairoJar> => {
+    const name = names.find((n) => JAR[edition].test(n))
+    if (!name) throw new KairoError('http-status', `The test Kairo folder has no ${edition} jar.`)
+    const path = join(dir, name)
+    return { filename: name, url: `${TEST_FILE}${path}`, sha256: await hashFile(path, 'sha256'), size: (await stat(path)).size }
+  }
+  const kairo = await pick('kairo')
+  const version = JAR.kairo.exec(kairo.filename)![1]!
+  return { tag: `v${version}`, version, publishedAt: new Date(0).toISOString(), notes: { points: [], url: null }, jars: { kairo, void: await pick('void') } }
+}
+
 /** The newest verifiable release; the last one seen when GitHub can't be reached. */
 export async function latestKairoRelease(signal?: AbortSignal): Promise<KairoRelease> {
+  const local = testKairoDir()
+  if (local) return localRelease(local)
   if (memory && Date.now() - memory.at < MAX_AGE) return memory.release
   const cacheFile = join(dataPaths().cache, 'kairo-release.json')
   try {

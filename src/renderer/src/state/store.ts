@@ -3,7 +3,7 @@ import type { AccountsState, AppInfo, BackgroundFiles, LauncherSettings, UpdateS
 import { KAIRO_LOOK, VOID_LOOK } from './look'
 import { EDITIONS, LOADERS, type EditionId, type Extra, type LoaderId } from '../data/catalog'
 
-export type Screen = 'signin' | 'home' | 'library' | 'settings'
+export type Screen = 'signin' | 'home' | 'library' | 'addons' | 'settings'
 export type HomeView = 'home' | 'pick'
 export type SettingsTab = 'game' | 'launcher' | 'account' | 'privacy' | 'about'
 export type Theme = 'kairo' | 'void'
@@ -45,7 +45,12 @@ export interface Selection {
 export type Settings = Omit<LauncherSettings, 'lastSelection'>
 
 
-export const IDLE_GAME: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null }
+export const IDLE_GAME: GameState = { phase: 'idle', progress: 0, detail: '', error: null, crash: null, notes: [] }
+
+/** Addons are only for Kairo and Kairo Void, so their page is only offered while one of those is selected. */
+export function addonsOffered(s: { selection: Selection }): boolean {
+  return s.selection.edition === 'kairo' || s.selection.edition === 'void'
+}
 
 interface State {
   screen: Screen
@@ -264,6 +269,8 @@ export const useStore = create<State>()((set, get) => ({
   },
 
   select: (selection) => {
+    // Addons are only for Kairo: choosing something else leaves their page.
+    if (get().screen === 'addons' && selection.edition !== 'kairo' && selection.edition !== 'void') set({ screen: 'home' })
     let installId = selection.installId
     if (!installId && selection.edition === 'vanilla') {
       installId = get().installs.find((i) => i.edition === 'vanilla' && i.mc === selection.mc)?.id ?? null

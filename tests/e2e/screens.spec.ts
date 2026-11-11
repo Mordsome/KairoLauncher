@@ -4,6 +4,7 @@ import { deflateSync } from 'node:zlib'
 import { tmpdir } from 'node:os'
 import type { LauncherSettings } from '../../src/shared/api'
 import { join } from 'node:path'
+import { addonRelease } from '../helpers/addonRelease'
 
 // Walks through every screen of the built app (mock data), saves a
 // screenshot of each, and fails on any console error or CSP violation.
@@ -78,7 +79,7 @@ test('renderer is locked down', async () => {
     process: typeof (globalThis as Record<string, unknown>)['process'],
     api: Object.keys(window.kairo).sort()
   }))
-  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['app', 'auth', 'background', 'game', 'installs', 'kairo', 'loaders', 'mods', 'settings', 'window'] })
+  expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['addons', 'app', 'auth', 'background', 'game', 'installs', 'kairo', 'loaders', 'mods', 'settings', 'window'] })
 
   // The main process rejects malformed play requests.
   const bad = await page.evaluate(() =>
@@ -777,6 +778,114 @@ test('accounts: skin heads, the account menu, pictures, and sign out asks first'
 
   await writeAccounts([])
   await restart()
+})
+
+test('addons: only with Kairo, install, where they are used, update, uninstall', async () => {
+  // A local release folder stands in for Mordsome/KairoAddons (test builds only).
+  const dir = mkdtempSync(join(tmpdir(), 'kairo-addons-release-'))
+  const publish = (files: Record<string, Buffer>) => {
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(dir, { recursive: true })
+    for (const [name, bytes] of Object.entries(files)) writeFileSync(join(dir, name), bytes)
+  }
+  await app.evaluate((_, d) => {
+    process.env['KAIRO_TEST_ADDONS_DIR'] = d
+  }, dir)
+
+  // Kairo is selected: the Addons button is on the rail. Nothing published yet: said calmly.
+  await page.getByRole('button', { name: 'Home', exact: true }).click()
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: /^Kairo, Minecraft/ }).click()
+  await page.getByRole('button', { name: 'Addons', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Addons', level: 1 })).toBeVisible()
+  await expect(page.getByText('No addons yet')).toBeVisible()
+  await shot('30-addons-empty')
+
+  publish(
+    addonRelease([
+      { id: 'plastic-menus', name: 'Plastic Menus', icon: true },
+      { id: 'void-trails', name: 'Void Trails', editions: ['void'] }
+    ])
+  )
+  await page.getByRole('button', { name: 'Check for updates' }).click()
+  const plastic = page.locator('.addonrow').filter({ hasText: 'Plastic Menus' })
+  await expect(plastic).toContainText('Not installed')
+  await expect(plastic.locator('img.addon-icon')).toBeVisible()
+  await expect(plastic.locator('.addon-edition')).toHaveText(['Kairo', 'Kairo Void'])
+  await shot('31-addons-list')
+
+  // Install: on for both editions; the choice offers what the addon is made for.
+  await plastic.click()
+  await page.getByRole('button', { name: 'Install', exact: true }).click()
+  await expect(plastic).toContainText('Installed')
+  const choices = page.getByRole('radiogroup', { name: 'Used in' })
+  await expect(choices.getByRole('radio')).toHaveText(['Kairo and Kairo Void', 'Kairo only', 'Kairo Void only', 'Off'])
+  await expect(choices.getByRole('radio', { name: 'Kairo and Kairo Void' })).toHaveAttribute('aria-checked', 'true')
+  await choices.getByRole('radio', { name: 'Kairo Void only' }).click()
+  await expect(choices.getByRole('radio', { name: 'Kairo Void only' })).toHaveAttribute('aria-checked', 'true')
+  await shot('32-addons-installed')
+  const choice = () => page.evaluate(() => window.kairo.addons.state().then((s) => s.addons.find((a) => a.id === 'plastic-menus')?.choice))
+  expect(await choice()).toBe('void')
+
+  // A Kairo Void-only addon offers only Kairo Void and Off.
+  await page.locator('.addonrow').filter({ hasText: 'Void Trails' }).click()
+  await page.getByRole('button', { name: 'Install', exact: true }).click()
+  await expect(page.getByRole('radiogroup', { name: 'Used in' }).getByRole('radio')).toHaveText(['Kairo Void only', 'Off'])
+  expect(await page.evaluate(() => window.kairo.addons.setChoice('void-trails', 'kairo').then((r) => r.ok))).toBe(false)
+
+  // A newer version in the catalogue: Update.
+  publish(
+    addonRelease([
+      { id: 'plastic-menus', name: 'Plastic Menus', icon: true, version: '1.1.0' },
+      { id: 'void-trails', name: 'Void Trails', editions: ['void'] }
+    ])
+  )
+  await page.getByRole('button', { name: 'Check for updates' }).click()
+  await expect(plastic).toContainText('Update available')
+  await plastic.click()
+  await page.getByRole('button', { name: 'Update to 1.1.0' }).click()
+  await expect(plastic).toContainText('Installed')
+  await expect(plastic.locator('.mc-chip')).toHaveText('1.1.0')
+  expect(await choice()).toBe('void')
+
+  // Uninstall: gone from disk, back to Not installed.
+  for (const name of ['Plastic Menus', 'Void Trails']) {
+    await page.locator('.addonrow').filter({ hasText: name }).click()
+    await page.getByRole('button', { name: `Uninstall ${name}` }).click()
+    await expect(page.locator('.addonrow').filter({ hasText: name })).toContainText('Not installed')
+  }
+  const left = await app.evaluate(({ app }) => {
+    const fs = process.getBuiltinModule('node:fs')
+    const path = process.getBuiltinModule('node:path')
+    const d = path.join(app.getPath('userData'), 'addons')
+    return fs.existsSync(d) ? fs.readdirSync(d) : []
+  })
+  expect(left).toEqual([])
+
+  // Malformed calls are refused by the main process.
+  expect(await page.evaluate(() => window.kairo.addons.install('../../x').then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  expect(await page.evaluate(() => window.kairo.addons.setChoice('plastic-menus', 'all' as never).then(() => 'ok', () => 'rejected'))).toBe('rejected')
+  problems.length = 0 // the rejected calls log IPC errors on purpose
+
+  // Not Kairo: no Addons button, and its page closes.
+  const before = await page.evaluate(() => window.kairo.installs.list().then((l) => l.map((i) => i.id)))
+  await newInstall(/^Fabric/, '1.20.1')
+  const fabric = await page.evaluate((ids) => window.kairo.installs.list().then((l) => l.find((i) => !ids.includes(i.id))!), before)
+  await page.getByRole('button', { name: 'Home', exact: true }).click()
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: new RegExp(`^${fabric.name}, Minecraft`) }).click()
+  await expect(page.getByRole('button', { name: 'Addons', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: /^Kairo Void, Minecraft/ }).click()
+  await expect(page.getByRole('button', { name: 'Addons', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: /Choose what to play/ }).click()
+  await page.getByRole('radio', { name: /^Kairo, Minecraft/ }).click()
+  expect(await page.evaluate((id) => window.kairo.installs.remove(id).then((r) => r.ok), fabric.id)).toBe(true)
+
+  await app.evaluate(() => {
+    delete process.env['KAIRO_TEST_ADDONS_DIR']
+  })
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test('backgrounds: Pixel field, Aurora and your own picture', async () => {

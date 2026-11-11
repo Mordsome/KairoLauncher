@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useStore } from '../state/store'
+import { addonsOffered, useStore } from '../state/store'
 import { Avatar } from './Avatar'
-import { HomeIcon, LibraryIcon, SettingsIcon } from './Icons'
+import { AddonsIcon, HomeIcon, LibraryIcon, SettingsIcon } from './Icons'
 import { Logo } from './Logo'
 import { Menu, type MenuItem } from './Menu'
 
@@ -11,6 +11,7 @@ export function Rail() {
   const account = useStore((s) => s.account)
   const go = useStore((s) => s.go)
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+  const showAddons = useStore(addonsOffered)
 
   const hidden = screen === 'signin'
   const current = (target: string) => (screen === target && !(target === 'home' && homeView === 'pick') ? 'page' : undefined)
@@ -26,6 +27,11 @@ export function Rail() {
       <button type="button" className="railbtn" aria-label="Library" aria-current={current('library')} onClick={() => go('library')}>
         <LibraryIcon />
       </button>
+      {showAddons && (
+        <button type="button" className="railbtn railbtn-in" aria-label="Addons" aria-current={current('addons')} onClick={() => go('addons')}>
+          <AddonsIcon />
+        </button>
+      )}
       <button type="button" className="railbtn" aria-label="Settings" aria-current={current('settings')} onClick={() => go('settings')}>
         <SettingsIcon />
       </button>
