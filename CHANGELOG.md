@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Kairo 0.4.0
+
+- **Restart the game:** Kairo 0.4.0's Settings → About → "Restart the game" closes Minecraft and the
+  launcher starts the same install again, once. A crash never restarts it.
+
+### Linux
+
+- **One-command install** for every distro: `curl -fsSL https://raw.githubusercontent.com/Mordsome/KairoLauncher/main/install.sh | sh`.
+  It checks the AppImage against the release's checksum and Mordsome's signature, installs it for your
+  user only (no sudo), and adds it to your app menu with a `kairo-launcher` command.
+
 ### Addons
 
 - **Addons for Kairo and Kairo Void**, from Mordsome/KairoAddons: an **Addons** button on the left
@@ -9,6 +20,8 @@
   one is used: Kairo and Kairo Void, Kairo only, Kairo Void only, or off.
 - Every addon is checked against the release's `SHA256SUMS.txt` (and Mordsome's signature, when the
   release has one) before it's installed, and again before every game start.
+- Addons are listed by group (Themes, Effects, Fun, Tools), and two addons that don't go together are
+  never on at the same time: turning one on asks which one to keep.
 - Addons load from the launcher's own folder, never from your installs' `mods` folders. An addon that
   can't be used with an install (for example one that needs a newer Kairo) is skipped, and Home says why.
 

@@ -849,12 +849,12 @@ test('addons: only with Kairo, install, where they are used, update, uninstall',
   await expect(ask).toHaveCount(0)
   const allChoices = () => page.evaluate(() => window.kairo.addons.state().then((s) => Object.fromEntries(s.addons.map((a) => [a.id, a.choice]))))
   // Plastic Menus was on for Kairo Void only, where they met: it's off there now, and Retro is on for both.
-  expect(await allChoices()).toMatchObject({ retro: 'both', 'plastic-menus': 'off' })
+  await expect.poll(allChoices).toMatchObject({ retro: 'both', 'plastic-menus': 'off' })
   await page.getByRole('button', { name: 'Uninstall Retro' }).click()
   await expect(retro).toContainText('Not installed')
   await plastic.click()
   await page.getByRole('radiogroup', { name: 'Used in' }).getByRole('radio', { name: 'Kairo Void only' }).click()
-  expect(await choice()).toBe('void')
+  await expect.poll(choice).toBe('void')
 
   // A newer version in the catalogue: Update.
   publish(

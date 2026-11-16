@@ -60,7 +60,8 @@ couldn't push a fake update to players.
    npm run release:sign -- "<downloads>/KairoLauncher-Setup-0.2.0.exe" "<downloads>/KairoLauncher-0.2.0.AppImage"
    ```
 
-   This writes a `.sig` file next to each one.
+   This writes a `.sig` file next to each one. The AppImage's `.sig` is also what `install.sh`
+   (the one-command Linux install) checks: without it, Linux users can't install that release.
 7. Edit the draft: upload both `.sig` files, paste the `CHANGELOG.md` section as the
    description, make sure "Set as a pre-release" is **off**, and press **Publish release**.
 

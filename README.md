@@ -104,9 +104,28 @@ picture is the head of the skin it wears.
 isn't code-signed yet, so Windows SmartScreen may say it "protected your PC": choose
 **More info → Run anyway**.
 
-**Linux:** download `KairoLauncher-<version>.AppImage`, make it executable
-(`chmod +x KairoLauncher-*.AppImage`) and run it. Saving your sign-in needs a Secret Service
-keyring (GNOME Keyring or KWallet), which most desktops have.
+**Linux (Arch, Debian, Ubuntu, Fedora and the rest):** paste this into a terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Mordsome/KairoLauncher/main/install.sh | sh
+```
+
+It downloads the newest release from this repository's own release page, checks it against the
+release's checksum **and Mordsome's signature** (nothing is installed otherwise), and installs it for
+your user only, without sudo: Kairo Launcher shows up in your app menu, and `kairo-launcher` starts it
+from a terminal. The launcher then keeps itself up to date. On Ubuntu 24.04 and newer it offers to add
+one AppArmor rule (that one needs your password), because Ubuntu blocks the sandbox Electron apps use
+otherwise. [`install.sh`](install.sh) is short: you're welcome to read it first.
+
+To remove it again (your installs, worlds and settings in `~/.config/Kairo Launcher` stay):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Mordsome/KairoLauncher/main/install.sh | sh -s -- --uninstall
+```
+
+You can also download `KairoLauncher-<version>.AppImage` from the release yourself, make it executable
+and run it. Saving your sign-in needs a Secret Service keyring (GNOME Keyring or KWallet), which most
+desktops have.
 
 You need a Minecraft: Java Edition account. The launcher downloads Minecraft and Java from Mojang,
 and loaders and mods from their official sources. It doesn't bundle any of them.

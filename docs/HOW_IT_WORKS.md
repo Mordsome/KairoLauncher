@@ -172,7 +172,12 @@ launcher's part.
 selected (other Minecraft never gets addons). It lists every addon with its icon, summary, version
 and the editions it's made for. Each one can be installed, updated and uninstalled, and is
 **used in** Kairo and Kairo Void, Kairo only, Kairo Void only, or Off. That choice is made once
-for the whole launcher, not per install; choices an addon isn't made for aren't offered.
+for the whole launcher, not per install; choices an addon isn't made for aren't offered. Addons are
+listed under Themes, Effects, Fun, Tools and Other (the catalogue's `group`; empty groups have no
+heading, an unknown group is Other). Two addons where either names the other in `conflicts` are never
+on together for an edition they share: turning one on (or installing it) asks which one to keep, the
+other is turned off only where they'd meet, each addon's page says what it doesn't go together with,
+and Play never loads both even if the saved choices somehow say so.
 
 **The list** is the newest release of Mordsome/KairoAddons (tagged `addons-<number>`, not a draft
 or pre-release) that has `addons.json` and `SHA256SUMS.txt`. Like Kairo's own releases:
@@ -213,6 +218,40 @@ isn't the addon it says). `tests/launch/addons.spec.ts` plays Kairo and Kairo Vo
 addon and checks the game's log; it needs a Kairo with the sockets and a real addons release, given
 as folders through `KAIRO_TEST_KAIRO_DIR` and `KAIRO_TEST_ADDONS_DIR` (test builds only: these
 are compiled out of releases, and the release check fails if they're ever in one).
+
+## Restarting the game (Kairo 0.4.0 and later)
+
+Kairo's Settings → About has **Restart the game**. A game can't start itself again, so the launcher
+does it (`SPEC.md` of Mordsome/KairoAddons, section 6; `src/main/game/restart.ts`). Every Kairo and
+Kairo Void launch gets `-Dkairo.launcher.restart=<file>`: a new file name in `restart/` in the data
+folder, which doesn't exist yet. To restart, Kairo writes `restart` into it and closes normally. When
+the game has exited, the launcher reads and deletes the file; if the game closed normally and the file
+says exactly `restart`, it plays the same install again, as if Play was pressed. A crash, the Stop
+button, a missing file or anything else in it never restarts, and since the file is gone after the
+check, a game can't restart in a loop. Older Kairo ignores the property and shows "Close the game".
+
+## Linux: the one-command install
+
+[`install.sh`](../install.sh) installs the newest AppImage for the current user, without sudo:
+
+1. It reads `latest-linux.yml` from `github.com/Mordsome/KairoLauncher/releases/latest/download/` and
+   downloads the AppImage and its `.sig` from that release. It never fetches anything from anywhere
+   else, and checks the version and file name before using them.
+2. It checks the AppImage's SHA-512 against `latest-linux.yml`, and Mordsome's Ed25519 signature
+   (the same key and signed text as the launcher's own updates) with OpenSSL 3. If either fails,
+   nothing is installed. Without OpenSSL 3 it stops and prints the command to install it.
+3. It puts the AppImage in `~/.local/share/kairo-launcher/KairoLauncher.AppImage` (a fixed name, so
+   the launcher's updater replaces that same file), takes the icon out of the checked AppImage, and
+   adds `~/.local/share/applications/kairo-launcher.desktop` and a `~/.local/bin/kairo-launcher`
+   command.
+
+Without FUSE 2, the command starts the AppImage with `APPIMAGE_EXTRACT_AND_RUN=1` (it unpacks itself
+on each start), and the script prints the package to install for faster starts. On Ubuntu 24.04 and
+newer, which blocks unprivileged user namespaces, it shows a one-rule AppArmor profile for Kairo
+Launcher only and adds it with sudo if the player says yes. `--uninstall` removes the app, the menu
+entry and the command, and keeps the player's data. `tests/unit/installScript.test.ts` runs the script
+in a POSIX shell against a fake GitHub: it installs, refuses a changed AppImage, a moved signature and
+odd release information, only ever asks for release addresses, and uninstalls.
 
 ## Game folder: your own .minecraft
 
