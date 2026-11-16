@@ -104,7 +104,8 @@ const api: KairoApi = {
     state: (fresh?: boolean) => ipcRenderer.invoke(IPC.addonsState, Boolean(fresh)) as Promise<AddonsState>,
     install: (id: string) => ipcRenderer.invoke(IPC.addonsInstall, String(id)) as Promise<AddonsResult>,
     uninstall: (id: string) => ipcRenderer.invoke(IPC.addonsUninstall, String(id)) as Promise<AddonsResult>,
-    setChoice: (id: string, choice: AddonChoice) => ipcRenderer.invoke(IPC.addonsSetChoice, String(id), String(choice)) as Promise<AddonsResult>
+    setChoice: (id: string, choice: AddonChoice, keep?: 'this' | 'other') =>
+      ipcRenderer.invoke(IPC.addonsSetChoice, String(id), String(choice), keep === 'this' || keep === 'other' ? keep : null) as Promise<AddonsResult>
   },
   background: {
     files: () => ipcRenderer.invoke(IPC.backgroundFiles) as Promise<BackgroundFiles>,

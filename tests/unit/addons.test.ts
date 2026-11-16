@@ -248,3 +248,91 @@ describe('installing, choosing, launching', () => {
     expect(whyNot(needs, 'kairo', '0.3.1+26.3', '26.3')).toBeNull()
   })
 })
+
+describe('groups', () => {
+  it('lists Themes, Effects, Fun, Tools, Other in that order, hides empty ones, and puts unknown or missing groups under Other', async () => {
+    const { groupAddons } = await import('../../src/renderer/src/state/addonGroups')
+    const list = [
+      { id: 'a', group: 'tools' },
+      { id: 'b', group: 'themes' },
+      { id: 'c', group: 'seasonal' },
+      { id: 'd' },
+      { id: 'e', group: 'themes' },
+      { id: 'f', group: null }
+    ]
+    expect(groupAddons(list).map((g) => [g.group.name, g.addons.map((a) => a.id)])).toEqual([
+      ['Themes', ['b', 'e']],
+      ['Tools', ['a']],
+      ['Other', ['c', 'd', 'f']]
+    ])
+    expect(groupAddons([])).toEqual([])
+  })
+
+  it('reads the group from the catalogue; an unknown one is "other", never an error', async () => {
+    publish(addonRelease([{ id: 'one', group: 'effects' }, { id: 'two', group: 'seasonal' }, { id: 'three' }]))
+    const r = await catalogue()
+    expect(r.catalogue?.addons.map((a) => [a.id, a.group])).toEqual([
+      ['one', 'effects'],
+      ['two', 'other'],
+      ['three', 'other']
+    ])
+    expect((await addonsState()).addons.map((a) => a.group)).toEqual(['effects', 'other', 'other'])
+  })
+})
+
+describe('clashes', () => {
+  it('count both ways, and only where the editions meet', async () => {
+    const { clash, clashEditions } = await import('../../src/main/addons/addons')
+    const a = { id: 'kairo-98', conflicts: ['plastic-menus'] }
+    const b = { id: 'plastic-menus', conflicts: [] }
+    const c = { id: 'command-bar', conflicts: [] }
+    expect(clash(a, b)).toBe(true)
+    expect(clash(b, a)).toBe(true)
+    expect(clash(b, c)).toBe(false)
+    expect(clashEditions(a, ['kairo', 'void'], b, ['void'])).toEqual(['void'])
+    expect(clashEditions(b, ['kairo'], a, ['void'])).toEqual([])
+    expect(clashEditions(b, ['kairo'], c, ['kairo'])).toEqual([])
+  })
+
+  it('reads conflicts from the catalogue, never naming itself or anything that isn\'t an id', async () => {
+    publish(addonRelease([{ id: 'kairo-98', conflicts: ['plastic-menus', 'kairo-98', '../x', 'command-bar', 'plastic-menus'] }, { id: 'plastic-menus' }]))
+    expect((await catalogue()).catalogue?.addons[0]?.conflicts).toEqual(['plastic-menus', 'command-bar'])
+    const view = (await addonsState()).addons
+    // Shown on both addons' pages, whichever one says it.
+    expect(view.map((a) => [a.id, a.clashes.map((c) => c.name)])).toEqual([
+      ['kairo-98', ['plastic-menus']],
+      ['plastic-menus', ['kairo-98']]
+    ])
+  })
+
+  it('turning one on asks which to keep; keeping it turns the other off only where they meet', async () => {
+    publish(addonRelease([{ id: 'kairo-98', conflicts: ['plastic-menus'] }, { id: 'plastic-menus' }]))
+    await installAddon('plastic-menus')
+    // Installing a clashing addon: it stays off where the other is on, and the clash comes back.
+    const onInstall = await installAddon('kairo-98')
+    expect(onInstall).toMatchObject({ id: 'kairo-98', otherId: 'plastic-menus', editions: ['kairo', 'void'], choice: 'both' })
+    const choices = () => addonsState().then((s) => Object.fromEntries(s.addons.map((a) => [a.id, a.choice])))
+    expect(await choices()).toEqual({ 'kairo-98': 'off', 'plastic-menus': 'both' })
+
+    // Asking again without a decision changes nothing.
+    expect(await setAddonChoice('kairo-98', 'void')).toMatchObject({ editions: ['void'] })
+    expect(await choices()).toEqual({ 'kairo-98': 'off', 'plastic-menus': 'both' })
+    // Keep the other one: nothing changes.
+    expect(await setAddonChoice('kairo-98', 'void', 'other')).toBeNull()
+    expect(await choices()).toEqual({ 'kairo-98': 'off', 'plastic-menus': 'both' })
+    // Keep this one: the other is turned off in Kairo Void only.
+    expect(await setAddonChoice('kairo-98', 'void', 'this')).toBeNull()
+    expect(await choices()).toEqual({ 'kairo-98': 'void', 'plastic-menus': 'kairo' })
+    // Editions that don't meet don't clash.
+    expect(await setAddonChoice('plastic-menus', 'kairo')).toBeNull()
+
+    // And Play never loads both, whatever the state file says.
+    const file = join(data, 'addons.json')
+    const raw = JSON.parse(readFileSync(file, 'utf8'))
+    raw.addons['plastic-menus'].void = true
+    writeFileSync(file, JSON.stringify(raw))
+    const run = await addonsForLaunch('void', '0.3.0', '26.3', join(data, 'no-mods'), false)
+    expect(run.jars).toHaveLength(1)
+    expect(run.notes[0]).toMatch(/doesn't go together with/)
+  })
+})

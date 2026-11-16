@@ -79,6 +79,8 @@ export interface FakeAddon {
   minecraft?: string
   api?: number
   icon?: boolean
+  group?: string
+  conflicts?: string[]
 }
 
 /** Every file of a release holding these addons, SHA256SUMS.txt matching (until a test changes something). */
@@ -104,6 +106,8 @@ export function addonRelease(addons: FakeAddon[]): Record<string, Buffer> {
       kairo: a.kairo ?? '>=0.3.0',
       minecraft: a.minecraft ?? '~26.3',
       tags: ['look'],
+      ...(a.group !== undefined ? { group: a.group } : {}),
+      ...(a.conflicts ? { conflicts: a.conflicts } : {}),
       somethingNew: 'ignored by old launchers'
     }
   })

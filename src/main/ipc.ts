@@ -154,18 +154,18 @@ export function registerIpc(session: GameSession): void {
   // Addons: chosen once for the whole launcher; changes apply the next time the game starts.
   const isAddon = (v: unknown): v is string => typeof v === 'string' && ADDON_ID.test(v)
   const isChoice = (v: unknown): v is import('../shared/api').AddonChoice => v === 'both' || v === 'kairo' || v === 'void' || v === 'off'
-  const addonsResult = async (work: () => Promise<void>) => {
+  const addonsResult = async (work: () => Promise<import('../shared/api').AddonClash | null | void>) => {
     try {
-      await work()
-      return { ok: true as const, state: await addonsState() }
+      const clash = await work()
+      return { ok: true as const, state: await addonsState(), ...(clash ? { clash } : {}) }
     } catch (error) {
       return { ok: false as const, error: describeError(error, redact), state: await addonsState() }
     }
   }
   // A running game has the jars open (Windows won't delete them): installs and uninstalls wait for it to close.
-  const whenIdle = (work: () => Promise<void>) => async () => {
+  const whenIdle = <T>(work: () => Promise<T>) => async () => {
     if (session.current().phase !== 'idle') throw new KairoError('unknown-version', 'Close the game first, then try again.')
-    await work()
+    return work()
   }
 
   ipcMain.handle(IPC.addonsState, (event, fresh: unknown) => {
@@ -183,9 +183,11 @@ export function registerIpc(session: GameSession): void {
     return addonsResult(whenIdle(() => uninstallAddon(id)))
   })
 
-  ipcMain.handle(IPC.addonsSetChoice, (event, id: unknown, choice: unknown) => {
-    if (!fromApp(event) || !isAddon(id) || !isChoice(choice)) throw new Error('Not allowed')
-    return addonsResult(() => setAddonChoice(id, choice))
+  ipcMain.handle(IPC.addonsSetChoice, (event, id: unknown, choice: unknown, keep: unknown) => {
+    if (!fromApp(event) || !isAddon(id) || !isChoice(choice) || (keep !== null && keep !== undefined && keep !== 'this' && keep !== 'other')) {
+      throw new Error('Not allowed')
+    }
+    return addonsResult(() => setAddonChoice(id, choice, keep ?? undefined))
   })
 
   ipcMain.handle(IPC.backgroundFiles, (event) => {

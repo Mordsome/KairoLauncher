@@ -334,6 +334,21 @@ export interface KairoStatus {
 /** Where an installed addon is used: both editions, one of them, or nowhere. */
 export type AddonChoice = 'both' | 'kairo' | 'void' | 'off'
 
+/** Where an addon is listed on the Addons page, in this order. */
+export type AddonGroup = 'themes' | 'effects' | 'fun' | 'tools' | 'other'
+
+/** Turning one addon on would load it together with one it doesn't go together with. */
+export interface AddonClash {
+  id: string
+  name: string
+  otherId: string
+  otherName: string
+  /** Where they would meet. */
+  editions: KairoEdition[]
+  /** What the player asked for (to ask again with their decision). */
+  choice: AddonChoice
+}
+
 /** One addon, from the catalogue (Mordsome/KairoAddons) and/or installed. */
 export interface AddonView {
   id: string
@@ -358,6 +373,9 @@ export interface AddonView {
   listed: boolean
   /** Why it isn't loaded yet for an edition it's on for, in plain words. */
   note: string | null
+  group: AddonGroup
+  /** Addons it doesn't go together with (either side may say so). */
+  clashes: { id: string; name: string }[]
 }
 
 export interface AddonsState {
@@ -366,7 +384,10 @@ export interface AddonsState {
   addons: AddonView[]
 }
 
-export type AddonsResult = { ok: true; state: AddonsState } | { ok: false; error: { title: string; message: string }; state: AddonsState }
+export type AddonsResult =
+  /** clash: the change waits for the player to choose which of two addons to keep. */
+  | { ok: true; state: AddonsState; clash?: AddonClash }
+  | { ok: false; error: { title: string; message: string }; state: AddonsState }
 
 export interface PlayRequest {
   target: PlayTarget
@@ -469,7 +490,8 @@ export interface KairoApi {
     /** Installs it, or updates it to the catalogue's version. */
     install(id: string): Promise<AddonsResult>
     uninstall(id: string): Promise<AddonsResult>
-    setChoice(id: string, choice: AddonChoice): Promise<AddonsResult>
+    /** keep: the player's answer to a clash ("this" turns the other one off where they'd meet). */
+    setChoice(id: string, choice: AddonChoice, keep?: 'this' | 'other'): Promise<AddonsResult>
   }
   background: {
     files(): Promise<BackgroundFiles>

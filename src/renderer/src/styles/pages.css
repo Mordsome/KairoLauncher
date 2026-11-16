@@ -1844,3 +1844,42 @@ html[data-reduce-motion='true'] .pick-tile {
 .lib-new {
   white-space: nowrap;
 }
+
+.addon-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.addon-group + .addon-group {
+  margin-top: 8px;
+}
+
+.addon-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.addon-group-sub {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink2);
+}
+
+.addon-clash {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-small);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}

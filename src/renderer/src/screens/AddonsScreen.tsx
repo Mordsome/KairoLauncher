@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { AddonChoice, AddonsResult, AddonsState, AddonView, KairoEdition } from '../../../shared/api'
+import type { AddonChoice, AddonClash, AddonsResult, AddonsState, AddonView, KairoEdition } from '../../../shared/api'
+import { Modal } from '../components/Modal'
 import { rovingKeyDown, rovingTabIndex } from '../components/roving'
+import { groupAddons } from '../state/addonGroups'
 import { useStore } from '../state/store'
 
 // Addons: small official extras for Kairo and Kairo Void, from
@@ -72,12 +74,16 @@ export function AddonsScreen({ active }: { active: boolean }) {
     if (active) void refresh()
   }, [active, refresh])
 
+  const [clash, setClash] = useState<AddonClash | null>(null)
+
   const act = async (key: string, work: () => Promise<AddonsResult>) => {
     setBusy(key)
     try {
       const r = await work()
       setState(r.state)
       setProblem(r.ok ? null : r.error)
+      // Two addons that don't go together: the player picks which one to keep.
+      setClash(r.ok ? (r.clash ?? null) : null)
     } finally {
       setBusy(null)
     }
@@ -114,25 +120,39 @@ export function AddonsScreen({ active }: { active: boolean }) {
                 </span>
               </div>
             )}
-            {addons.map((a) => {
-              const label = stateLabel(a)
-              return (
-                <button key={a.id} type="button" className="librow addonrow" aria-pressed={detail?.id === a.id} onClick={() => setSel(a.id)}>
-                  <AddonIcon addon={a} />
-                  <span className="librow-text">
-                    <span className="librow-head">
-                      <b className="librow-name">{a.name}</b>
-                      <span className="mc-chip">{a.version}</span>
-                    </span>
-                    <span className="librow-sub">{a.summary || 'Installed by you earlier.'}</span>
-                    <Editions editions={a.editions} />
-                  </span>
-                  <span className="librow-state" data-tone={label.tone}>
-                    {label.text}
-                  </span>
-                </button>
-              )
-            })}
+            {groupAddons(addons).map(({ group, addons: inGroup }) => (
+              <section key={group.id} className="addon-group" aria-labelledby={`addon-group-${group.id}`}>
+                <h2 id={`addon-group-${group.id}`} className="addon-group-head">
+                  {group.name}
+                  <span className="addon-group-sub">{group.sub}</span>
+                </h2>
+                {inGroup.map((a) => {
+                  const label = stateLabel(a)
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      className="librow addonrow"
+                      aria-pressed={detail?.id === a.id}
+                      onClick={() => setSel(a.id)}
+                    >
+                      <AddonIcon addon={a} />
+                      <span className="librow-text">
+                        <span className="librow-head">
+                          <b className="librow-name">{a.name}</b>
+                          <span className="mc-chip">{a.version}</span>
+                        </span>
+                        <span className="librow-sub">{a.summary || 'Installed by you earlier.'}</span>
+                        <Editions editions={a.editions} />
+                      </span>
+                      <span className="librow-state" data-tone={label.tone}>
+                        {label.text}
+                      </span>
+                    </button>
+                  )
+                })}
+              </section>
+            ))}
             {state?.catalogue === 'offline' && addons.length > 0 && (
               <p className="modal-note">The addons list can't be reached right now. Installed addons keep working.</p>
             )}
@@ -154,7 +174,9 @@ export function AddonsScreen({ active }: { active: boolean }) {
             </div>
 
             <p className="addon-desc scroll">
-              {detail.description || detail.summary || "This addon isn't in the addons list any more. It keeps working until you uninstall it."}
+              {detail.description ||
+                detail.summary ||
+                "This addon isn't in the addons list any more. It keeps working until you uninstall it."}
             </p>
 
             {detail.installed && (
@@ -187,6 +209,11 @@ export function AddonsScreen({ active }: { active: boolean }) {
               </div>
             )}
 
+            {detail.clashes.length > 0 && (
+              <p className="addon-clash">
+                Doesn't go together with {joinNames(detail.clashes.map((c) => c.name))}: only one of them can be on at a time.
+              </p>
+            )}
             {detail.note && (
               <p className="addon-note" role="note">
                 {detail.note}
@@ -236,6 +263,45 @@ export function AddonsScreen({ active }: { active: boolean }) {
           </aside>
         )}
       </div>
+      {clash && (
+        <ClashDialog
+          clash={clash}
+          onKeep={(keep) =>
+            void act('choice', () => window.kairo.addons.setChoice(clash.id, clash.choice, keep)).then(() => setClash(null))
+          }
+          onClose={() => setClash(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function joinNames(names: string[]): string {
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/** "X and Y don't go together": keep one; the other is turned off where they'd meet. */
+function ClashDialog({ clash, onKeep, onClose }: { clash: AddonClash; onKeep(keep: 'this' | 'other'): void; onClose(): void }) {
+  const where = clash.editions.map((e) => EDITION[e]).join(' and ')
+  return (
+    <Modal
+      title={`${clash.name} and ${clash.otherName} don't go together`}
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="btn-ghost" onClick={() => onKeep('other')} data-autofocus>
+            Keep {clash.otherName}
+          </button>
+          <button type="button" className="btn-accent" onClick={() => onKeep('this')}>
+            Keep {clash.name}
+          </button>
+        </>
+      }
+    >
+      <p className="modal-note">
+        They change the same parts of Kairo, so only one of them can be on in {where}. Which one do you want to keep there?
+      </p>
+      <p className="modal-note">The other one stays installed and is turned off in {where}. You can change this any time.</p>
+    </Modal>
   )
 }

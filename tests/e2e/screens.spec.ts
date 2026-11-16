@@ -803,11 +803,15 @@ test('addons: only with Kairo, install, where they are used, update, uninstall',
 
   publish(
     addonRelease([
-      { id: 'plastic-menus', name: 'Plastic Menus', icon: true },
-      { id: 'void-trails', name: 'Void Trails', editions: ['void'] }
+      { id: 'plastic-menus', name: 'Plastic Menus', icon: true, group: 'themes' },
+      { id: 'void-trails', name: 'Void Trails', editions: ['void'], group: 'effects' },
+      { id: 'retro', name: 'Retro', group: 'themes', conflicts: ['plastic-menus'] },
+      { id: 'mystery', name: 'Mystery', group: 'seasonal' }
     ])
   )
   await page.getByRole('button', { name: 'Check for updates' }).click()
+  // Under a heading per group, in order; an unknown group is "Other"; empty groups have no heading.
+  await expect(page.locator('.addon-group-head')).toHaveText([/^Themes/, /^Effects/, /^Other/])
   const plastic = page.locator('.addonrow').filter({ hasText: 'Plastic Menus' })
   await expect(plastic).toContainText('Not installed')
   await expect(plastic.locator('img.addon-icon')).toBeVisible()
@@ -833,11 +837,30 @@ test('addons: only with Kairo, install, where they are used, update, uninstall',
   await expect(page.getByRole('radiogroup', { name: 'Used in' }).getByRole('radio')).toHaveText(['Kairo Void only', 'Off'])
   expect(await page.evaluate(() => window.kairo.addons.setChoice('void-trails', 'kairo').then((r) => r.ok))).toBe(false)
 
+  // Two addons that don't go together: installing the second asks which one to keep.
+  const retro = page.locator('.addonrow').filter({ hasText: 'Retro' })
+  await retro.click()
+  await expect(page.getByText("Doesn't go together with Plastic Menus")).toBeVisible()
+  await page.getByRole('button', { name: 'Install', exact: true }).click()
+  const ask = page.getByRole('dialog', { name: "Retro and Plastic Menus don't go together" })
+  await expect(ask).toBeVisible()
+  await shot('33-addons-clash')
+  await ask.getByRole('button', { name: 'Keep Retro' }).click()
+  await expect(ask).toHaveCount(0)
+  const allChoices = () => page.evaluate(() => window.kairo.addons.state().then((s) => Object.fromEntries(s.addons.map((a) => [a.id, a.choice]))))
+  // Plastic Menus was on for Kairo Void only, where they met: it's off there now, and Retro is on for both.
+  expect(await allChoices()).toMatchObject({ retro: 'both', 'plastic-menus': 'off' })
+  await page.getByRole('button', { name: 'Uninstall Retro' }).click()
+  await expect(retro).toContainText('Not installed')
+  await plastic.click()
+  await page.getByRole('radiogroup', { name: 'Used in' }).getByRole('radio', { name: 'Kairo Void only' }).click()
+  expect(await choice()).toBe('void')
+
   // A newer version in the catalogue: Update.
   publish(
     addonRelease([
-      { id: 'plastic-menus', name: 'Plastic Menus', icon: true, version: '1.1.0' },
-      { id: 'void-trails', name: 'Void Trails', editions: ['void'] }
+      { id: 'plastic-menus', name: 'Plastic Menus', icon: true, version: '1.1.0', group: 'themes' },
+      { id: 'void-trails', name: 'Void Trails', editions: ['void'], group: 'effects' }
     ])
   )
   await page.getByRole('button', { name: 'Check for updates' }).click()

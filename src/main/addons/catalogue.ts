@@ -26,6 +26,20 @@ export const MAX_JAR = 20 * 1024 * 1024
 
 export type Edition = 'kairo' | 'void'
 
+/** Where an addon is listed. Anything else (or nothing) is "other". */
+export const ADDON_GROUPS = ['themes', 'effects', 'fun', 'tools', 'other'] as const
+export type AddonGroup = (typeof ADDON_GROUPS)[number]
+
+export function addonGroup(v: unknown): AddonGroup {
+  return typeof v === 'string' && (ADDON_GROUPS as readonly string[]).includes(v) ? (v as AddonGroup) : 'other'
+}
+
+/** Ids of addons this one doesn't go together with (it never names itself). */
+export function addonConflicts(v: unknown, self: string): string[] {
+  if (!Array.isArray(v)) return []
+  return [...new Set(v.filter((c): c is string => typeof c === 'string' && ADDON_ID.test(c) && c !== self))].slice(0, 50)
+}
+
 /** An addon id: lower-case letters, digits and dashes, starting with a letter or digit, at most 40 characters. */
 export const ADDON_ID = /^[a-z0-9][a-z0-9-]{0,39}$/
 const VERSION = /^\d{1,6}\.\d{1,6}\.\d{1,6}$/
@@ -55,6 +69,8 @@ export interface CatalogueAddon {
   kairo: string
   minecraft: string
   tags: string[]
+  group: AddonGroup
+  conflicts: string[]
 }
 
 export interface Catalogue {
@@ -120,7 +136,11 @@ function parseAddon(item: unknown, sums: Map<string, string>): CatalogueAddon | 
   const tags = Array.isArray(a['tags'])
     ? a['tags'].filter((t): t is string => typeof t === 'string' && /^[a-z0-9-]{1,30}$/.test(t)).slice(0, 10)
     : []
-  return { id, name, summary, description, version, file, sha256, size, icon, editions: editions as Edition[], api, kairo, minecraft, tags }
+  return {
+    id, name, summary, description, version, file, sha256, size, icon, editions: editions as Edition[], api, kairo, minecraft, tags,
+    group: addonGroup(a['group']),
+    conflicts: addonConflicts(a['conflicts'], id)
+  }
 }
 
 interface GitHubRelease {
