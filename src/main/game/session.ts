@@ -23,6 +23,7 @@ import { checkCustomJava, ensureJava } from './java'
 import { findVersion, type ManifestEntry } from './manifest'
 import { Stage } from './runtime'
 import { addonsForLaunch, type LaunchAddons } from '../addons/addons'
+import { newRestartFile, takeRestart } from './restart'
 
 const LOG_LINES = 5000
 // If the game never prints one of the "window is up" lines, call it running anyway.
@@ -94,6 +95,8 @@ interface Prepared {
   share: { allowed: boolean; fabric: boolean }
   /** Kairo and Kairo Void installs: the addon jars to load, and why any that are on aren't. */
   addons?: LaunchAddons
+  /** Kairo and Kairo Void installs: where Kairo may ask for a restart (see restart.ts). */
+  restartFile?: string
 }
 
 /** One game at a time: install what's missing, start it, watch it, stop it. */
@@ -109,6 +112,8 @@ export class GameSession {
   private gameDir: string | null = null
   /** Crash report of the last crash, if Minecraft wrote one inside the install. */
   private crashReport: string | null = null
+  /** The last Play, so "Restart the game" can start exactly the same thing again. */
+  private lastPlay: { request: PlayRequest; getAccount: () => Promise<GameAccount | null> } | null = null
 
   constructor(private readonly hooks: SessionHooks) {}
 
@@ -163,6 +168,7 @@ export class GameSession {
   /** getAccount runs inside the attempt, so a sign-in problem shows on Home like any other error. */
   async play(request: PlayRequest, getAccount: () => Promise<GameAccount | null>): Promise<void> {
     if (this.state.phase !== 'idle') return
+    this.lastPlay = { request, getAccount }
     this.abort = new AbortController()
     const signal = this.abort.signal
     this.stoppedByUser = false
@@ -261,7 +267,9 @@ export class GameSession {
       (): LaunchAddons => ({ jars: [], notes: ["Addons weren't loaded: the launcher couldn't read its addons."] })
     )
     stages.mods.done = true
-    return { version, javaPath, gamePath: dir, recordDir: dir, share: { allowed: record.modpack === null, fabric: true }, addons }
+    // Kairo 0.4.0 and later offer "Restart the game" when this is set; older Kairo ignores it.
+    const restartFile = await newRestartFile()
+    return { version, javaPath, gamePath: dir, recordDir: dir, share: { allowed: record.modpack === null, fabric: true }, addons, restartFile }
   }
 
   /** "Other" installs and modpacks: the loader the record names, then its mods. */
@@ -362,6 +370,7 @@ export class GameSession {
     // Addons load from the launcher's own folder, so nothing goes into the install's mods folder.
     const addons = prepared.addons ?? { jars: [], notes: [] }
     if (addons.jars.length) extraJVMArgs.push(`-Dfabric.addMods=${addons.jars.join(delimiter)}`)
+    if (prepared.restartFile) extraJVMArgs.push(`-Dkairo.launcher.restart=${prepared.restartFile}`)
     for (const note of addons.notes) this.log.push(redact(`[Kairo Launcher] ${note}`))
     this.set({ phase: 'launch', progress: 1, detail: 'Starting Minecraft', notes: addons.notes })
 
@@ -427,6 +436,14 @@ export class GameSession {
       const report = crashReportLocation ? normalize(crashReportLocation.trim()) : null
       this.crashReport = crashed && report && isCrashReport(report, gamePath) ? report : null
       this.finish({ ...IDLE, crash: crashed ? { ...crashReason(this.log), hasReport: this.crashReport !== null } : null })
+      // "Restart the game": the same install again, once, as if Play was pressed. Never after a crash.
+      const restartFile = prepared.restartFile
+      const again = this.lastPlay
+      if (restartFile && again) {
+        void takeRestart(restartFile, !crashed && !this.stoppedByUser && running).then((restart) => {
+          if (restart && this.state.phase === 'idle') void this.play(again.request, again.getAccount)
+        })
+      }
     })
   }
 
