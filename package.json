@@ -1,7 +1,7 @@
 {
   "name": "kairo-launcher",
   "productName": "Kairo Launcher",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Desktop launcher for the Kairo Minecraft clients.",
   "author": "Mordsome",
   "license": "GPL-3.0-only",

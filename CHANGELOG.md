@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.0: addons
+
+Addons for Kairo and Kairo Void, restarting the game from Kairo 0.4.0, and a one-command install on Linux.
+Launchers on 0.1.0 update to this by themselves.
 
 ### Kairo 0.4.0
 
@@ -24,6 +27,11 @@
   never on at the same time: turning one on asks which one to keep.
 - Addons load from the launcher's own folder, never from your installs' `mods` folders. An addon that
   can't be used with an install (for example one that needs a newer Kairo) is skipped, and Home says why.
+
+### Fixed
+
+- Saving settings and installs tries again when Windows briefly says a file is busy (for example while
+  an antivirus checks it), instead of failing.
 
 ## 0.1.0: first release
 
