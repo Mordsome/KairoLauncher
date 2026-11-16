@@ -5,6 +5,7 @@ import { isAbsolute, join } from 'node:path'
 import type { CustomInstallInfo, InstallLoader, InstallLook, KairoEdition, ModInfo } from '../../shared/api'
 import { dataPaths } from '../paths'
 import { readRecord, RECORD_FILE, type ManagedMod } from './record'
+import { renameRetry } from '../fsRetry'
 
 // Installs built in "Other" (and modpacks): one folder each under installs/,
 // with a kairo-launcher.json record. Versions are chosen on the first Play
@@ -139,7 +140,7 @@ export async function writeCustom(record: CustomRecord): Promise<void> {
   await mkdir(dir, { recursive: true })
   const file = join(dir, RECORD_FILE)
   await writeFile(`${file}.tmp`, JSON.stringify(record, null, 2))
-  await rename(`${file}.tmp`, file)
+  await renameRetry(`${file}.tmp`, file)
 }
 
 export async function listCustom(): Promise<CustomRecord[]> {

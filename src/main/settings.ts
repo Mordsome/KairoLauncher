@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { BackgroundSettings, LauncherSettings } from '../shared/api'
 import { dataPaths } from './paths'
+import { renameRetry } from './fsRetry'
 
 // The launcher's own settings, in settings.json next to the game data.
 // Every field is checked on the way in and out; anything odd falls back to
@@ -126,7 +127,7 @@ export function saveSettings(raw: unknown): Promise<LauncherSettings> {
   writing = writing.then(async () => {
     await mkdir(dataPaths().root, { recursive: true })
     await writeFile(`${file()}.tmp`, JSON.stringify(settings, null, 2))
-    await rename(`${file()}.tmp`, file())
+    await renameRetry(`${file()}.tmp`, file())
   })
   return writing.then(() => settings)
 }

@@ -7,6 +7,7 @@ import { accountSkin } from './auth/accounts'
 import { skinPng } from './auth/skins'
 import { sniffImage, type ImageInfo } from './imageSniff'
 import { dataPaths } from './paths'
+import { renameRetry } from './fsRetry'
 
 // The player's own pictures: the two backgrounds, one per install (shown while
 // it's selected) and one per account (its picture instead of the skin head).
@@ -77,7 +78,7 @@ function change<T>(work: (state: State) => Promise<T>): Promise<T> {
     const out = await work(state)
     await mkdir(dir(), { recursive: true })
     await writeFile(`${stateFile()}.tmp`, JSON.stringify(state, null, 2))
-    await rename(`${stateFile()}.tmp`, stateFile())
+    await renameRetry(`${stateFile()}.tmp`, stateFile())
     return out
   })
   writing = next.catch(() => undefined)

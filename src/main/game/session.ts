@@ -24,6 +24,7 @@ import { findVersion, type ManifestEntry } from './manifest'
 import { Stage } from './runtime'
 import { addonsForLaunch, type LaunchAddons } from '../addons/addons'
 import { newRestartFile, takeRestart } from './restart'
+import { renameRetry } from '../fsRetry'
 
 const LOG_LINES = 5000
 // If the game never prints one of the "window is up" lines, call it running anyway.
@@ -44,7 +45,7 @@ async function touchRecord(dir: string, change: { lastPlayed?: number; addMinute
     record.lastPlayed = change.lastPlayed ?? record.lastPlayed ?? null
     record.playMinutes = Math.round((record.playMinutes ?? 0) + (change.addMinutes ?? 0))
     await writeFile(`${file}.tmp`, JSON.stringify(record, null, 2))
-    await rename(`${file}.tmp`, file)
+    await renameRetry(`${file}.tmp`, file)
   } catch {
     // play time is nice to have; never fail a game over it
   }

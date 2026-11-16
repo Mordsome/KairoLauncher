@@ -11,6 +11,7 @@ import { forget, signInInteractive, silentToken } from './microsoft'
 import { SecretStore } from './secretStore'
 import { forgetSkin } from './skins'
 import { fetchProfile, minecraftFromMicrosoft, type MinecraftProfile, type MinecraftSession } from './xbox'
+import { renameRetry } from '../fsRetry'
 
 // Several Microsoft accounts, one active. accounts.json holds only what's
 // safe to keep in a file (player names, UUIDs, which one is active); every
@@ -101,7 +102,7 @@ async function save(file: AccountsFile): Promise<void> {
   await mkdir(dataPaths().root, { recursive: true })
   const tmp = `${path()}.tmp`
   await writeFile(tmp, JSON.stringify(file, null, 2))
-  await rename(tmp, path())
+  await renameRetry(tmp, path())
 }
 
 function view(file: AccountsFile): AccountsState {

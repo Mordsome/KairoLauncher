@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { renameRetry } from '../fsRetry'
 
 // One JSON file per install, next to its worlds and mods. A file that can't be
 // read is moved aside (kept, never deleted) and treated as a fresh install.
@@ -80,5 +81,5 @@ export async function writeRecord(dir: string, record: InstallRecord): Promise<v
   const file = join(dir, RECORD_FILE)
   const tmp = `${file}.tmp`
   await writeFile(tmp, JSON.stringify(record, null, 2))
-  await rename(tmp, file)
+  await renameRetry(tmp, file)
 }

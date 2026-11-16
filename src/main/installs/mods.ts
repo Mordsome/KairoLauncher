@@ -13,6 +13,7 @@ import { modrinthCandidates, modrinthProject } from '../kairo/modrinth'
 import { resolveModrinthMods } from '../loaders/extras'
 import { fetchJson, fetchOk } from '../net/http'
 import { customDir, getCustom, writeCustom, type CustomRecord } from './custom'
+import { renameRetry } from '../fsRetry'
 
 // The mod browser: Modrinth search for one install (its loader and Minecraft
 // version only), installs with required dependencies (each file checked
@@ -184,7 +185,7 @@ export async function setModEnabled(id: string, rawFile: unknown, enabled: boole
   const off = join(dir, file + OFF)
   const from = enabled ? off : on
   const to = enabled ? on : off
-  if (existsSync(from)) await rename(from, to)
+  if (existsSync(from)) await renameRetry(from, to)
   else if (!existsSync(to)) throw new KairoError('unknown-version', 'That mod is no longer there.')
   const mods = record.mods.map((m) => (basename(m.filename) === file ? { ...m, disabled: !enabled } : m))
   await writeCustom({ ...record, mods })

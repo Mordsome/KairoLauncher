@@ -7,6 +7,7 @@ import { latestKairoRelease } from '../kairo/github'
 import { readFabricModJson } from '../kairo/modjson'
 import { satisfies } from '../kairo/semver'
 import { listCustom } from '../installs/custom'
+import { renameRetry } from '../fsRetry'
 import { dataPaths } from '../paths'
 import { hashFile } from '../signature'
 import {
@@ -100,7 +101,7 @@ function change<T>(work: (state: StateFile) => Promise<T>): Promise<T> {
     const out = await work(state)
     await mkdir(dataPaths().root, { recursive: true })
     await writeFile(`${stateFile()}.tmp`, JSON.stringify(state, null, 2))
-    await rename(`${stateFile()}.tmp`, stateFile())
+    await renameRetry(`${stateFile()}.tmp`, stateFile())
     return out
   })
   writing = next.catch(() => undefined)
