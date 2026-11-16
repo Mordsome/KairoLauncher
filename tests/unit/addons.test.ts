@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, realpathSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,7 +7,9 @@ import { addonRelease, fakeAddonJar, sha256, withSums } from '../helpers/addonRe
 // The addons catalogue and installs (SPEC.md section 5), against a fake
 // GitHub: every tampering case must be refused.
 
-const data = mkdtempSync(join(tmpdir(), 'kairo-addons-'))
+// The long form of the temp folder: Windows runners hand out a short 8.3 one (RUNNER~1),
+// and the launcher's data folder is always resolved to the long form.
+const data = realpathSync.native(mkdtempSync(join(tmpdir(), 'kairo-addons-')))
 vi.mock('electron', () => ({ app: { getVersion: () => '0.0.0-test', getPath: () => data, isPackaged: false } }))
 
 const LIST = 'https://api.github.com/repos/Mordsome/KairoAddons/releases?per_page=10'

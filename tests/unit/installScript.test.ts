@@ -19,7 +19,11 @@ const have = (cmd: string, args: string[], match: RegExp) => {
   const r = spawnSync(cmd, args, { encoding: 'utf8' })
   return r.status === 0 && match.test(r.stdout)
 }
-const usable = have('sh', ['-c', 'echo ok'], /ok/) && have('openssl', ['version'], /^OpenSSL [34]/)
+// install.sh is the Linux install, and the release build runs these tests on Linux. On Windows the
+// stand-in curl isn't reliably found first (Windows spells the variable "Path", so the test's PATH can
+// be ignored and the real curl reaches the real GitHub), so they don't run there.
+const usable =
+  process.platform !== 'win32' && have('sh', ['-c', 'echo ok'], /ok/) && have('openssl', ['version'], /^OpenSSL [34]/)
 
 /** A Unix path for the shell, also on Windows (Git for Windows' sh reads /c/... paths). */
 const shPath = (p: string) => (process.platform === 'win32' ? p.replace(/^([A-Za-z]):/, (_, d: string) => `/${d.toLowerCase()}`).replace(/\\/g, '/') : p)
